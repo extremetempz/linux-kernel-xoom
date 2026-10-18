@@ -5,6 +5,11 @@ on 18 October 2026. See [the preflight results](trace-retrieval-preflight.md).
 The proposal below records the review before that test. Reset retention and
 retrieval after a 4.4 boot remain untested.
 
+**Later boot-test status:** [the first instrumented boot report](trace-boot-attempt-1.md)
+records successful retrieval of the new kernel's entry record after the approved
+boot test and original-image restoration. Boot did not complete. Retention is
+now observed for that one reset sequence, with the limits described in the report.
+
 ## Decision
 
 Use a bounded **read-only userspace `mmap2()` snapshot** for the next proposed
