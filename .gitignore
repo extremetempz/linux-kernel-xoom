@@ -6,3 +6,5 @@
 *.tar.*
 *.log
 __pycache__/
+/toolchains/
+!/kernel/wingray-bringup-artifacts.tar.gz
