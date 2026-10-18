@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-18",
+  "status": "cross-compiled; hardware untested; incomplete bring-up port",
+  "upstream": "https://github.com/Decatf/linux.git",
+  "base_ref": "android-4.4-p4wifi",
+  "base_commit": "bbcece6d21c83b6280061a91d27566aff1951c94",
+  "source_branch": "codex/wingray-4.4",
+  "source_commit": "5bf34d336ae657c03cac8609f073c46698c774a3",
+  "patch_sha256": "e3c1933825b501bed59844cd299ef4ef0ac383379398bae12a63c1d215832826",
+  "kernel_release": "4.4.147-wingray-bringup",
+  "compiler": "Android GCC 4.9.x 20150123 (prerelease)",
+  "toolchain_archive_sha256": "b84606f4cf9b8f13fe7a874deac5d2f02e0eb5af24ee56530e13d5c3226e56de",
+  "target": "zImage-dtb",
+  "defconfig": "wingray_bringup_defconfig",
+  "kcflags": "-fno-unwind-tables -fno-asynchronous-unwind-tables",
+  "tests": [
+    "cross compile and link",
+    "ARM image and appended DTB validation",
+    "resolved config gates",
+    "BigPart host tests with ASan/UBSan, 1000 capacities",
+    "patch recreates source tree from base exactly"
+  ],
+  "warnings": [
+    "Host GCC 13 warns about a local recursion-stack address in old Kconfig symbol.c; no target compiler/linker warnings in the final build."
+  ],
+  "artifacts": {
+    "System.map": {
+      "size": 527700,
+      "sha256": "0770675b286d9a4eaec8204eb9c8f0ff7f190e20bbbf5cd5e333a604e3f96a24"
+    },
+    "tegra20-motorola-wingray.dtb": {
+      "size": 16042,
+      "sha256": "2083ca35a1ed2fbac845ed6b176d731f071920f73dedcc2cf130338df2faebb3"
+    },
+    "kernel.config": {
+      "size": 46315,
+      "sha256": "b633e5e1bfd9c87d3cdde2698233bb0359cdfd31234306c3cf7c5fd6531a5928"
+    },
+    "zImage": {
+      "size": 1840296,
+      "sha256": "86fe6e0b1abc726dbaaf2d16462fb75e84a018270d902a1c28c992ff15aff0e1"
+    },
+    "zImage-dtb": {
+      "size": 1856338,
+      "sha256": "b56f7ce2e35d49addd4c401cb2e06c0e55f36f8bf81a5371e7edca52a6054fb1"
+    }
+  },
+  "hardware_tested": false,
+  "unfinished": [
+    "CPCAP/MAX8649 power control",
+    "display",
+    "touch",
+    "Wi-Fi",
+    "audio",
+    "Bluetooth",
+    "cameras",
+    "battery/charging control",
+    "suspend",
+    "pinmux validation",
+    "boot-image packaging and recovery validation"
+  ]
+}
