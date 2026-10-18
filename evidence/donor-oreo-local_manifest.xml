@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <remote name="home"
+            fetch="file:////home/r/" />
+    <remote fetch="git://github.com/" name="github" />
+    <remote fetch="git://github.com/decatf/" name="decatf" />
+
+    <remove-project name="platform/build" />
+    <project path="build" name="android_build" remote="home" revision="aosp-8.1-dev" />
+
+    <remove-project name="platform/build/soong" />
+    <project path="build/soong" name="android_build_soong" remote="home" revision="aosp-8.1-dev" >
+        <linkfile src="root.bp" dest="Android.bp" />
+        <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
+    </project>
+
+    <!--  -->
+    <!-- Devices -->
+    <!--  -->
+    <project path="kernel/samsung/p4" name="decatf/android_kernel_samsung_p4" remote="home" revision="android-4.4-p4wifi" />
+    <project path="device/samsung/p4-common" name="android_device_samsung_p4-common" remote="home" revision="aosp-8.1-dev" />
+    <project path="device/samsung/p4wifi" name="android_device_samsung_p4wifi" remote="home" revision="aosp-oreo" />
+    <project path="vendor/samsung/p4wifi" name="android_vendor_samsung_p4wifi" remote="home" revision="aosp-8.1" />
+    <project path="vendor/decatf" name="android_vendor_decatf" remote="home" revision="aosp-8.1" />
+
+    <!--  -->
+    <!-- Android frameworks -->
+    <!--  -->
+    <remove-project name="platform/art"/>
+    <remove-project name="platform/bionic" />
+    <remove-project name="platform/frameworks/av" />
+    <remove-project name="platform/frameworks/base" />
+    <remove-project name="platform/frameworks/native" />
+    <remove-project name="platform/system/bt" />
+    <remove-project name="platform/system/core" />
+    <remove-project name="platform/system/sepolicy" />
+    <remove-project name="platform/frameworks/opt/net/wifi"/>
+    <remove-project name="platform/external/chromium-webview" />
+
+    <remove-project name="platform/hardware/interfaces" />
+
+    <project path="art" name="android_art" remote="home" revision="aosp-8.1-dev" />
+    <project path="bionic" name="android_bionic" remote="home" revision="aosp-8.1-dev" />
+    <project path="frameworks/av" name="android_frameworks_av" remote="home" revision="aosp-8.1-dev" />
+    <project path="frameworks/base" name="platform_frameworks_base" remote="decatf" revision="aosp-8.1-dev" />
+    <project path="frameworks/native" name="native" remote="home" revision="aosp-8.1-dev" />
+    <project path="frameworks/opt/net/wifi" name="android_frameworks_opt_net_wifi" remote="home" revision="aosp-8.1-dev" />
+    <project path="system/core" name="platform_system_core" remote="home" revision="aosp-8.1-dev" />
+    <project path="system/bt" name="android_system_bt" remote="home" revision="aosp-8.1-dev" />
+    <project path="system/sepolicy" name="android_system_sepolicy" remote="home" revision="aosp-8.1-dev" />
+
+    <project path="hardware/interfaces" name="android_hardware_interfaces" remote="home" revision="aosp-8.1" />
+
+
+    <!--  -->
+    <!-- App fixes -->
+    <!--  -->
+    <remove-project name="platform/packages/apps/Settings" />
+    <project path="packages/apps/Settings" name="Settings" remote="home" revision="aosp-8.1-dev" />
+
+    <!--  -->
+    <!-- App additions -->
+    <!--  -->
+    <project path="platform/packages/apps/Apollo" name="omnirom/android_packages_apps_Apollo" remote="github" revision="android-7.1" />
+
+    <!--  -->
+    <!-- App removal -->
+    <!--  -->
+    <remove-project name="platform/packages/apps/Browser2" />
+    <remove-project name="platform/packages/apps/Camera2" />
+    <remove-project name="platform/packages/apps/Music" />
+
+    <!--  -->
+    <!-- Extras -->
+    <!--  -->
+
+    <remove-project name="platform/bootable/recovery" />
+    <project path="bootable/recovery" name="android_bootable_recovery" remote="home" revision="aosp-8.1-dev" />
+
+    <!--  -->
+    <!-- arm-tcg -->
+    <!--  -->
+    <project path="external/arm-tcg" name="arm-tcg" remote="home" revision="aosp-8.1" />
+    <project path="external/libjaunt" name="libjaunt" remote="home" revision="aosp-8.1" />
+
+</manifest>
