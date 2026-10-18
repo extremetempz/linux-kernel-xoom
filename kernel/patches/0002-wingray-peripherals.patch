@@ -1,0 +1,2888 @@
+From 4242b8a104577ed819c63311217f7bddeb0f6e33 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 18 Oct 2026 16:49:27 +1100
+Subject: [PATCH] Add Wingray P3 peripheral wiring and CPCAP power bring-up
+
+---
+ arch/arm/boot/compressed/head.S               |   9 +-
+ .../tegra20-motorola-wingray-peripherals.dtsi | 215 ++++++
+ .../dts/tegra20-motorola-wingray-pinmux.dtsi  | 687 ++++++++++++++++++
+ .../arm/boot/dts/tegra20-motorola-wingray.dts |   5 +-
+ arch/arm/configs/wingray_bringup_defconfig    |  39 +
+ block/partitions/efi.c                        |  17 +
+ drivers/gpu/drm/panel/panel-simple.c          |  15 +
+ drivers/input/touchscreen/atmel_mxt_ts.c      |  47 +-
+ drivers/mfd/Kconfig                           |   6 +
+ drivers/mfd/Makefile                          |   2 +
+ drivers/mfd/motorola-cpcap.c                  | 343 +++++++++
+ drivers/mmc/core/pwrseq_simple.c              |  12 +
+ drivers/mmc/host/sdhci-tegra.c                |  17 +
+ drivers/power/reset/Kconfig                   |   5 +-
+ drivers/power/reset/Makefile                  |   2 +
+ drivers/power/reset/wingray-power.c           | 114 +++
+ drivers/regulator/Kconfig                     |   4 +
+ drivers/regulator/Makefile                    |   2 +
+ drivers/regulator/cpcap-regulator.c           | 657 +++++++++++++++++
+ drivers/regulator/max8649.c                   |  39 +
+ drivers/video/backlight/Kconfig               |   2 +-
+ include/linux/mfd/motorola-cpcap.h            | 297 ++++++++
+ 22 files changed, 2528 insertions(+), 8 deletions(-)
+ create mode 100644 arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+ create mode 100644 arch/arm/boot/dts/tegra20-motorola-wingray-pinmux.dtsi
+ create mode 100644 drivers/mfd/motorola-cpcap.c
+ create mode 100644 drivers/power/reset/wingray-power.c
+ create mode 100644 drivers/regulator/cpcap-regulator.c
+ create mode 100644 include/linux/mfd/motorola-cpcap.h
+
+diff --git a/arch/arm/boot/compressed/head.S b/arch/arm/boot/compressed/head.S
+index d2e43b05..1629783e 100644
+--- a/arch/arm/boot/compressed/head.S
++++ b/arch/arm/boot/compressed/head.S
+@@ -177,7 +177,14 @@ not_angel:
+ 
+ 		.text
+ 
+-#ifdef CONFIG_AUTO_ZRELADDR
++#if defined(CONFIG_MACH_MOTOROLA_WINGRAY)
++		/* Xoom's Android boot header loads zImage at 0x10008000,
++		 * outside AUTO_ZRELADDR's first-128MiB assumption. Tegra20
++		 * RAM starts at zero, as in the original Motorola kernel.
++		 */
++		mov	r4, #0
++		add	r4, r4, #TEXT_OFFSET
++#elif defined(CONFIG_AUTO_ZRELADDR)
+ 		/*
+ 		 * Find the start of physical memory.  As we are executing
+ 		 * without the MMU on, we are in the physical address space.
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+new file mode 100644
+index 00000000..3f5f5a56
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+@@ -0,0 +1,215 @@
++/* MZ604 P3 / AUO board. GPIOs and power values from Motorola source and
++ * read-only capture of the working tablet. GNU GPL version 2. */
++/ {
++	aliases {
++		i2c0 = "/i2c@7000c000";
++		i2c1 = "/i2c@7000c400";
++		i2c2 = "/i2c@7000c500";
++		i2c3 = "/i2c@7000d000";
++		spi1 = "/spi@7000d400";
++	};
++	panel_power: panel-power {
++		compatible = "regulator-fixed";
++		regulator-name = "wingray-panel";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&gpio TEGRA_GPIO(B, 2) GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++		startup-delay-us = <200000>;
++	};
++	backlight_gate: backlight-gate {
++		compatible = "regulator-fixed";
++		regulator-name = "wingray-auo-backlight-enable";
++		gpio = <&gpio TEGRA_GPIO(D, 0) GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++	};
++	panel: panel {
++		compatible = "motorola,wingray-auo-panel";
++		power-supply = <&panel_power>;
++		backlight = <&backlight>;
++	};
++	host1x@50000000 {
++		status = "okay";
++		dc@54200000 {
++			status = "okay";
++			rgb {
++				status = "okay";
++				nvidia,panel = <&panel>;
++			};
++		};
++		dc@54240000 { status = "disabled"; };
++		hdmi@54280000 { status = "disabled"; };
++	};
++	i2c@7000c000 {
++		status = "okay";
++		clock-frequency = <400000>;
++		backlight: backlight@2c {
++			compatible = "ti,lp8550";
++			reg = <0x2c>;
++			dev-ctrl = /bits/ 8 <0x04>;
++			init-brt = /bits/ 8 <0x80>;
++			bl-name = "lcd-backlight";
++			power-supply = <&backlight_gate>;
++		};
++		touchscreen@5b {
++			compatible = "motorola,wingray-maxtouch", "atmel,maxtouch";
++			reg = <0x5b>;
++			interrupt-parent = <&gpio>;
++			interrupts = <TEGRA_GPIO(V, 2) IRQ_TYPE_LEVEL_LOW>;
++			enable-gpios = <&gpio TEGRA_GPIO(J, 2) GPIO_ACTIVE_LOW>;
++			reset-gpios = <&gpio TEGRA_GPIO(R, 4) GPIO_ACTIVE_LOW>;
++			panel-supply = <&panel_power>;
++		};
++	};
++	i2c@7000d000 {
++		status = "okay";
++		clock-frequency = <400000>;
++		vdd_cpu: regulator@60 {
++			compatible = "maxim,max8649";
++			reg = <0x60>;
++			maxim,vid-mode = <1>;
++			maxim,ramp-timing = <0>;
++			regulator-name = "vdd_cpu";
++			regulator-min-microvolt = <770000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-always-on;
++		};
++	};
++	spi@7000d400 {
++		status = "okay";
++		cpcap: pmic@0 {
++			compatible = "motorola,cpcap";
++			reg = <0>;
++			spi-max-frequency = <10000000>;
++			spi-cs-high;
++			interrupt-parent = <&lic>;
++			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
++			regulator-controller {
++				compatible = "motorola,wingray-cpcap-regulator";
++				regulators {
++					cpcap_core: SW2 {
++						regulator-name = "core";
++						regulator-min-microvolt = <1000000>;
++						regulator-max-microvolt = <1200000>;
++						regulator-always-on;
++					};
++					cpcap_aon: SW4 {
++						regulator-name = "aon";
++						regulator-min-microvolt = <1000000>;
++						regulator-max-microvolt = <1200000>;
++						regulator-always-on;
++					};
++					cpcap_vcam: VCAM {
++						regulator-name = "vcam";
++						regulator-min-microvolt = <2900000>;
++						regulator-max-microvolt = <2900000>;
++						regulator-always-on;
++					};
++					cpcap_vcsi: VCSI {
++						regulator-name = "vcsi";
++						regulator-min-microvolt = <1200000>;
++						regulator-max-microvolt = <1200000>;
++						regulator-always-on;
++					};
++					cpcap_vdig: VDIG {
++						regulator-name = "vdig";
++						regulator-min-microvolt = <1875000>;
++						regulator-max-microvolt = <1875000>;
++						regulator-always-on;
++					};
++					cpcap_vhvio: VHVIO {
++						regulator-name = "vhvio";
++						regulator-min-microvolt = <2775000>;
++						regulator-max-microvolt = <2775000>;
++						regulator-always-on;
++					};
++					cpcap_vsdio: VSDIO {
++						regulator-name = "vsdio";
++						regulator-min-microvolt = <3000000>;
++						regulator-max-microvolt = <3000000>;
++						regulator-always-on;
++					};
++					cpcap_vpll: VPLL {
++						regulator-name = "vpll";
++						regulator-min-microvolt = <1800000>;
++						regulator-max-microvolt = <1800000>;
++						regulator-always-on;
++					};
++					cpcap_vwlan1: VWLAN1 {
++						regulator-name = "vwlan1";
++						regulator-min-microvolt = <1800000>;
++						regulator-max-microvolt = <1800000>;
++						regulator-always-on;
++					};
++					cpcap_vwlan2: VWLAN2 {
++						regulator-name = "vwlan2";
++						regulator-min-microvolt = <3300000>;
++						regulator-max-microvolt = <3300000>;
++						regulator-always-on;
++					};
++					cpcap_vusb: VUSB {
++						regulator-name = "vusb";
++						regulator-min-microvolt = <3300000>;
++						regulator-max-microvolt = <3300000>;
++						regulator-always-on;
++					};
++					cpcap_vaudio: VAUDIO {
++						regulator-name = "vaudio";
++						regulator-min-microvolt = <2775000>;
++						regulator-max-microvolt = <2775000>;
++						regulator-always-on;
++					};
++				};
++			};
++			power-controller {
++				compatible = "motorola,wingray-power";
++				restart-gpios = <&gpio TEGRA_GPIO(G, 3) GPIO_ACTIVE_LOW>;
++				poweroff-gpios = <&gpio TEGRA_GPIO(V, 7) GPIO_ACTIVE_LOW>;
++			};
++		};
++	};
++	wlan_power: wlan-power {
++		compatible = "regulator-fixed";
++		regulator-name = "wingray-wlan-io";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		vin-supply = <&cpcap_vwlan1>;
++		gpio = <&gpio TEGRA_GPIO(U, 4) GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++	};
++	wlan_pwrseq: wlan-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&gpio TEGRA_GPIO(U, 2) GPIO_ACTIVE_LOW>;
++		post-power-on-delay-ms = <200>;
++	};
++	sdhci@c8000200 {
++		status = "okay";
++		bus-width = <4>;
++		non-removable;
++		cap-sdio-irq;
++		max-frequency = <25000000>;
++		mmc-pwrseq = <&wlan_pwrseq>;
++		vmmc-supply = <&wlan_power>;
++		vqmmc-supply = <&cpcap_vwlan1>;
++		nvidia,tap-delay = <6>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		wifi@1 {
++			compatible = "brcm,bcm4329-fmac";
++			reg = <1>;
++			interrupt-parent = <&gpio>;
++			interrupts = <TEGRA_GPIO(U, 5) IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "host-wake";
++		};
++	};
++	sdhci@c8000400 {
++		status = "okay";
++		bus-width = <4>;
++		cd-gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_LOW>;
++		max-frequency = <25000000>;
++		nvidia,tap-delay = <5>;
++	};
++};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-pinmux.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-pinmux.dtsi
+new file mode 100644
+index 00000000..7a0158bf
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-pinmux.dtsi
+@@ -0,0 +1,687 @@
++/* P3 pin state verified against the working Xoom. GPL-2.0. */
++/ {
++	pinmux@70000014 {
++		pinctrl-names = "default";
++		pinctrl-0 = <&wingray_pinmux>;
++		wingray_pinmux: pinmux {
++			ata {
++				nvidia,pins = "ata";
++				nvidia,function = "ide";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			atb {
++				nvidia,pins = "atb";
++				nvidia,function = "sdio4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			atc {
++				nvidia,pins = "atc";
++				nvidia,function = "ide";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			atd {
++				nvidia,pins = "atd";
++				nvidia,function = "ide";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			ate {
++				nvidia,pins = "ate";
++				nvidia,function = "ide";
++				nvidia,tristate = <1>;
++				nvidia,pull = <2>;
++			};
++			cdev1 {
++				nvidia,pins = "cdev1";
++				nvidia,function = "osc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			cdev2 {
++				nvidia,pins = "cdev2";
++				nvidia,function = "osc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			crtp {
++				nvidia,pins = "crtp";
++				nvidia,function = "crt";
++				nvidia,tristate = <1>;
++				nvidia,pull = <0>;
++			};
++			csus {
++				nvidia,pins = "csus";
++				nvidia,function = "vi_sensor_clk";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dap1 {
++				nvidia,pins = "dap1";
++				nvidia,function = "dap1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dap2 {
++				nvidia,pins = "dap2";
++				nvidia,function = "dap2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dap3 {
++				nvidia,pins = "dap3";
++				nvidia,function = "dap3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dap4 {
++				nvidia,pins = "dap4";
++				nvidia,function = "dap4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ddc {
++				nvidia,pins = "ddc";
++				nvidia,function = "i2c2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			dta {
++				nvidia,pins = "dta";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			dtb {
++				nvidia,pins = "dtb";
++				nvidia,function = "rsvd1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dtc {
++				nvidia,pins = "dtc";
++				nvidia,function = "vi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dtd {
++				nvidia,pins = "dtd";
++				nvidia,function = "vi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			dte {
++				nvidia,pins = "dte";
++				nvidia,function = "vi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			dtf {
++				nvidia,pins = "dtf";
++				nvidia,function = "i2c3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			gma {
++				nvidia,pins = "gma";
++				nvidia,function = "sdio4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			gmb {
++				nvidia,pins = "gmb";
++				nvidia,function = "gmi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			gmc {
++				nvidia,pins = "gmc";
++				nvidia,function = "uartd";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			gmd {
++				nvidia,pins = "gmd";
++				nvidia,function = "gmi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			gme {
++				nvidia,pins = "gme";
++				nvidia,function = "sdio4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			gpu {
++				nvidia,pins = "gpu";
++				nvidia,function = "pwm";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			gpu7 {
++				nvidia,pins = "gpu7";
++				nvidia,function = "rtck";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			gpv {
++				nvidia,pins = "gpv";
++				nvidia,function = "pcie";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			hdint {
++				nvidia,pins = "hdint";
++				nvidia,function = "hdmi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			i2cp {
++				nvidia,pins = "i2cp";
++				nvidia,function = "i2cp";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			irrx {
++				nvidia,pins = "irrx";
++				nvidia,function = "uarta";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			irtx {
++				nvidia,pins = "irtx";
++				nvidia,function = "uarta";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			kbca {
++				nvidia,pins = "kbca";
++				nvidia,function = "kbc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			kbcb {
++				nvidia,pins = "kbcb";
++				nvidia,function = "sdio2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			kbcc {
++				nvidia,pins = "kbcc";
++				nvidia,function = "kbc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			kbcd {
++				nvidia,pins = "kbcd";
++				nvidia,function = "sdio2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			kbce {
++				nvidia,pins = "kbce";
++				nvidia,function = "kbc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			kbcf {
++				nvidia,pins = "kbcf";
++				nvidia,function = "kbc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lcsn {
++				nvidia,pins = "lcsn";
++				nvidia,function = "spi3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			ld0 {
++				nvidia,pins = "ld0";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld1 {
++				nvidia,pins = "ld1";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld10 {
++				nvidia,pins = "ld10";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld11 {
++				nvidia,pins = "ld11";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld12 {
++				nvidia,pins = "ld12";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld13 {
++				nvidia,pins = "ld13";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld14 {
++				nvidia,pins = "ld14";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld15 {
++				nvidia,pins = "ld15";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld16 {
++				nvidia,pins = "ld16";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld17 {
++				nvidia,pins = "ld17";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld2 {
++				nvidia,pins = "ld2";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld3 {
++				nvidia,pins = "ld3";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld4 {
++				nvidia,pins = "ld4";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld5 {
++				nvidia,pins = "ld5";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld6 {
++				nvidia,pins = "ld6";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld7 {
++				nvidia,pins = "ld7";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld8 {
++				nvidia,pins = "ld8";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ld9 {
++				nvidia,pins = "ld9";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			ldc {
++				nvidia,pins = "ldc";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			ldi {
++				nvidia,pins = "ldi";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			lhp0 {
++				nvidia,pins = "lhp0";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			lhp1 {
++				nvidia,pins = "lhp1";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			lhp2 {
++				nvidia,pins = "lhp2";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			lhs {
++				nvidia,pins = "lhs";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lm0 {
++				nvidia,pins = "lm0";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lm1 {
++				nvidia,pins = "lm1";
++				nvidia,function = "rsvd3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lpp {
++				nvidia,pins = "lpp";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			lpw0 {
++				nvidia,pins = "lpw0";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lpw1 {
++				nvidia,pins = "lpw1";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lpw2 {
++				nvidia,pins = "lpw2";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lsc0 {
++				nvidia,pins = "lsc0";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lsc1 {
++				nvidia,pins = "lsc1";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lsck {
++				nvidia,pins = "lsck";
++				nvidia,function = "spi3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lsda {
++				nvidia,pins = "lsda";
++				nvidia,function = "spi3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lsdi {
++				nvidia,pins = "lsdi";
++				nvidia,function = "spi3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lspi {
++				nvidia,pins = "lspi";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lvp0 {
++				nvidia,pins = "lvp0";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			lvp1 {
++				nvidia,pins = "lvp1";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			lvs {
++				nvidia,pins = "lvs";
++				nvidia,function = "displaya";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			owc {
++				nvidia,pins = "owc";
++				nvidia,function = "owr";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			pmc {
++				nvidia,pins = "pmc";
++				nvidia,function = "pwr_on";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			pta {
++				nvidia,pins = "pta";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			rm {
++				nvidia,pins = "rm";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			sdb {
++				nvidia,pins = "sdb";
++				nvidia,function = "sdio3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			sdc {
++				nvidia,pins = "sdc";
++				nvidia,function = "sdio3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			sdd {
++				nvidia,pins = "sdd";
++				nvidia,function = "sdio3";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			sdio1 {
++				nvidia,pins = "sdio1";
++				nvidia,function = "uarte";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			slxa {
++				nvidia,pins = "slxa";
++				nvidia,function = "pcie";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			slxc {
++				nvidia,pins = "slxc";
++				nvidia,function = "spi4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			slxd {
++				nvidia,pins = "slxd";
++				nvidia,function = "spdif";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			slxk {
++				nvidia,pins = "slxk";
++				nvidia,function = "pcie";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spdi {
++				nvidia,pins = "spdi";
++				nvidia,function = "i2c1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spdo {
++				nvidia,pins = "spdo";
++				nvidia,function = "i2c1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spia {
++				nvidia,pins = "spia";
++				nvidia,function = "spi2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spib {
++				nvidia,pins = "spib";
++				nvidia,function = "spi2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spic {
++				nvidia,pins = "spic";
++				nvidia,function = "spi2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			spid {
++				nvidia,pins = "spid";
++				nvidia,function = "spi1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spie {
++				nvidia,pins = "spie";
++				nvidia,function = "spi1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spif {
++				nvidia,pins = "spif";
++				nvidia,function = "spi1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spig {
++				nvidia,pins = "spig";
++				nvidia,function = "spi2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
++			};
++			spih {
++				nvidia,pins = "spih";
++				nvidia,function = "spi2_alt";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			uaa {
++				nvidia,pins = "uaa";
++				nvidia,function = "ulpi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			uab {
++				nvidia,pins = "uab";
++				nvidia,function = "ulpi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			uac {
++				nvidia,pins = "uac";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			uad {
++				nvidia,pins = "uad";
++				nvidia,function = "irda";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			uca {
++				nvidia,pins = "uca";
++				nvidia,function = "uartc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			ucb {
++				nvidia,pins = "ucb";
++				nvidia,function = "uartc";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			uda {
++				nvidia,pins = "uda";
++				nvidia,function = "ulpi";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			ck32 {
++				nvidia,pins = "ck32";
++				nvidia,pull = <0>;
++			};
++			ddrc {
++				nvidia,pins = "ddrc";
++				nvidia,pull = <0>;
++			};
++			pmca {
++				nvidia,pins = "pmca";
++				nvidia,pull = <0>;
++			};
++			pmcb {
++				nvidia,pins = "pmcb";
++				nvidia,pull = <0>;
++			};
++			pmcc {
++				nvidia,pins = "pmcc";
++				nvidia,pull = <0>;
++			};
++			pmcd {
++				nvidia,pins = "pmcd";
++				nvidia,pull = <0>;
++			};
++			pmce {
++				nvidia,pins = "pmce";
++				nvidia,pull = <0>;
++			};
++			xm2c {
++				nvidia,pins = "xm2c";
++				nvidia,pull = <0>;
++			};
++			xm2d {
++				nvidia,pins = "xm2d";
++				nvidia,pull = <0>;
++			};
++		};
++	};
++};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray.dts b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+index 9873dcb9..edfb5996 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+@@ -63,7 +63,7 @@
+ 		pmsg-size = <0x20000>;
+ 	};
+ 
+-	/* CPCAP and MAX8649 are deliberately left in the firmware state.
++	/* CPCAP/MAX8649 peripherals are defined in the board include below.
+ 	 * No Samsung TPS6586x, WM8994 or CMC623 devices belong on this board.
+ 	 * CPU frequency scaling and suspend are disabled in the bring-up config.
+ 	 */
+@@ -147,3 +147,6 @@
+ 	status = "okay";
+ 	clock-frequency = <26000000>;
+ };
++
++#include "tegra20-motorola-wingray-pinmux.dtsi"
++#include "tegra20-motorola-wingray-peripherals.dtsi"
+diff --git a/arch/arm/configs/wingray_bringup_defconfig b/arch/arm/configs/wingray_bringup_defconfig
+index 0d5514a1..e0aeebf0 100644
+--- a/arch/arm/configs/wingray_bringup_defconfig
++++ b/arch/arm/configs/wingray_bringup_defconfig
+@@ -69,3 +69,42 @@ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_PMSG=y
+ CONFIG_PSTORE_RAM=y
+ # CONFIG_TEGRA_DOWNSTREAM is not set
++
++CONFIG_PM=y
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_REGULATOR_MAX8649=y
++CONFIG_MFD_CPCAP=y
++CONFIG_REGULATOR_CPCAP=y
++CONFIG_POWER_RESET=y
++CONFIG_POWER_RESET_WINGRAY=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_DRM=y
++CONFIG_DRM_TEGRA=y
++CONFIG_DRM_TEGRA_FBDEV=y
++CONFIG_DRM_PANEL_SIMPLE=y
++CONFIG_FRAMEBUFFER_CONSOLE=y
++CONFIG_BACKLIGHT_LP855X=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++CONFIG_NET=y
++CONFIG_NETDEVICES=y
++CONFIG_INET=y
++CONFIG_CFG80211=y
++CONFIG_WLAN=y
++CONFIG_BRCMFMAC=y
++CONFIG_BRCMFMAC_SDIO=y
++CONFIG_FW_LOADER=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=64
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++# CONFIG_BACKLIGHT_CMC623_PWM is not set
++CONFIG_POWER_SUPPLY=y
+diff --git a/block/partitions/efi.c b/block/partitions/efi.c
+index 1dc8a79f..e98ea628 100644
+--- a/block/partitions/efi.c
++++ b/block/partitions/efi.c
+@@ -109,6 +109,17 @@
+  * the partition tables happens after init too.
+  */
+ static int force_gpt;
++#ifdef CONFIG_MOTOROLA_XOOM_BIGPART
++static u64 xoom_gpt_sector;
++static bool xoom_bigpart_enabled(struct parsed_partitions *state);
++static int __init xoom_gpt_sector_setup(char *arg)
++{
++	if (kstrtoull(arg, 0, &xoom_gpt_sector))
++		xoom_gpt_sector = 0;
++	return 1;
++}
++__setup("gpt_sector=", xoom_gpt_sector_setup);
++#endif
+ static int __init
+ force_gpt_fn(char *str)
+ {
+@@ -635,6 +646,12 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
+         if (!good_agpt && force_gpt)
+                 good_agpt = is_gpt_valid(state, lastlba, &agpt, &aptes);
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BIGPART
++	if (!good_agpt && force_gpt && xoom_gpt_sector > 1 &&
++	    xoom_gpt_sector < lastlba && xoom_bigpart_enabled(state))
++		good_agpt = is_gpt_valid(state, xoom_gpt_sector, &agpt, &aptes);
++#endif
++
+         /* The obviously unsuccessful case */
+         if (!good_pgpt && !good_agpt)
+                 goto fail;
+diff --git a/drivers/gpu/drm/panel/panel-simple.c b/drivers/gpu/drm/panel/panel-simple.c
+index f418c002..0a47ad3f 100644
+--- a/drivers/gpu/drm/panel/panel-simple.c
++++ b/drivers/gpu/drm/panel/panel-simple.c
+@@ -1098,7 +1098,22 @@ static const struct panel_desc shelly_sca07010_bfn_lnn = {
+ 	.bus_format = MEDIA_BUS_FMT_RGB666_1X18,
+ };
+ 
++/* AUO panel timing from Motorola's production Xoom board source. */
++static const struct drm_display_mode wingray_auo_mode = {
++	.clock = 66400,
++	.hdisplay = 1280, .hsync_start = 1325, .hsync_end = 1351, .htotal = 1363,
++	.vdisplay = 800, .vsync_start = 803, .vsync_end = 809, .vtotal = 812,
++	.vrefresh = 60,
++};
++static const struct panel_desc wingray_auo_panel = {
++	.modes = &wingray_auo_mode, .num_modes = 1, .bpc = 8,
++	.size = { .width = 217, .height = 136 },
++	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
++	.delay = { .prepare = 200, .enable = 50 },
++};
++
+ static const struct of_device_id platform_of_match[] = {
++	{ .compatible = "motorola,wingray-auo-panel", .data = &wingray_auo_panel },
+ 	{
+ 		.compatible = "ampire,am800480r3tmqwa1h",
+ 		.data = &ampire_am800480r3tmqwa1h,
+diff --git a/drivers/input/touchscreen/atmel_mxt_ts.c b/drivers/input/touchscreen/atmel_mxt_ts.c
+index a59108b0..d91b9ab5 100644
+--- a/drivers/input/touchscreen/atmel_mxt_ts.c
++++ b/drivers/input/touchscreen/atmel_mxt_ts.c
+@@ -28,6 +28,8 @@
+ #include <linux/of.h>
+ #include <linux/slab.h>
+ #include <linux/gpio/consumer.h>
++#include <linux/regulator/consumer.h>
++#include <linux/of.h>
+ #include <asm/unaligned.h>
+ 
+ #define MXT_I2C_RETRIES 20
+@@ -2023,6 +2025,15 @@ static int mxt_initialize(struct mxt_data *data)
+ 	if (error)
+ 		goto err_free_object_table;
+ 
++	/* Preserve the factory configuration on Wingray. A generic maxtouch
++	 * configuration file must never overwrite this board's touch NVRAM.
++	 */
++	if (of_device_is_compatible(client->dev.of_node,
++				    "motorola,wingray-maxtouch")) {
++		mxt_config_cb(NULL, data);
++		return 0;
++	}
++
+ 	error = request_firmware_nowait(THIS_MODULE, true, MXT_CFG_NAME,
+ 					&client->dev, GFP_KERNEL, data,
+ 					mxt_config_cb);
+@@ -2707,6 +2718,11 @@ mxt_get_platform_data(struct i2c_client *client)
+ 	return ERR_PTR(-EINVAL);
+ }
+ 
++static void mxt_disable_panel_supply(void *arg)
++{
++	regulator_disable(arg);
++}
++
+ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ {
+ 	struct mxt_data *data;
+@@ -2735,8 +2751,24 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 	init_completion(&data->reset_completion);
+ 	init_completion(&data->crc_completion);
+ 
+-	data->enable_gpio = devm_gpiod_get(&client->dev,
+-							"enable", GPIOD_ASIS);
++	if (of_device_is_compatible(client->dev.of_node, "motorola,wingray-maxtouch")) {
++		struct regulator *panel = devm_regulator_get(&client->dev, "panel");
++
++		if (IS_ERR(panel))
++			return PTR_ERR(panel);
++		error = regulator_enable(panel);
++		if (error)
++			return error;
++		error = devm_add_action(&client->dev, mxt_disable_panel_supply, panel);
++		if (error) {
++			regulator_disable(panel);
++			return error;
++		}
++	}
++
++	data->enable_gpio = devm_gpiod_get_optional(&client->dev,
++							"enable", of_device_is_compatible(client->dev.of_node,
++				"motorola,wingray-maxtouch") ? GPIOD_OUT_HIGH : GPIOD_ASIS);
+ 	if (IS_ERR(data->enable_gpio)) {
+ 		error = PTR_ERR(data->enable_gpio);
+ 		dev_err(&client->dev, "Failed to get enable gpio: %d\n", error);
+@@ -2744,7 +2776,8 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 	}
+ 
+ 	data->reset_gpio = devm_gpiod_get_optional(&client->dev,
+-						   "reset", GPIOD_OUT_LOW);
++						   "reset", of_device_is_compatible(client->dev.of_node,
++				"motorola,wingray-maxtouch") ? GPIOD_OUT_HIGH : GPIOD_OUT_LOW);
+ 	if (IS_ERR(data->reset_gpio)) {
+ 		error = PTR_ERR(data->reset_gpio);
+ 		dev_err(&client->dev, "Failed to get reset gpio: %d\n", error);
+@@ -2759,7 +2792,12 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 		goto err_free_mem;
+ 	}
+ 
+-	if (data->reset_gpio) {
++	if (data->reset_gpio && of_device_is_compatible(client->dev.of_node,
++					"motorola,wingray-maxtouch")) {
++		msleep(10);
++		gpiod_set_value(data->reset_gpio, 0);
++		msleep(100);
++	} else if (data->reset_gpio) {
+ 		data->in_bootloader = true;
+ 		msleep(MXT_RESET_TIME);
+ 		reinit_completion(&data->bl_completion);
+@@ -2867,6 +2905,7 @@ static int __maybe_unused mxt_resume(struct device *dev)
+ static SIMPLE_DEV_PM_OPS(mxt_pm_ops, mxt_suspend, mxt_resume);
+ 
+ static const struct of_device_id mxt_of_match[] = {
++	{ .compatible = "motorola,wingray-maxtouch", },
+ 	{ .compatible = "atmel,maxtouch", },
+ 	{},
+ };
+diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+index 8991168d..215a94d9 100644
+--- a/drivers/mfd/Kconfig
++++ b/drivers/mfd/Kconfig
+@@ -1537,3 +1537,9 @@ config MFD_VEXPRESS_SYSREG
+ 
+ endmenu
+ endif
++
++config MFD_CPCAP
++	tristate "Motorola CPCAP PMIC"
++	depends on SPI && OF
++	select REGMAP_SPI
++	select REGMAP_IRQ
+diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+index a8b76b81..7a2c1817 100644
+--- a/drivers/mfd/Makefile
++++ b/drivers/mfd/Makefile
+@@ -194,3 +194,5 @@ intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_crc.o
+ intel-soc-pmic-$(CONFIG_INTEL_PMC_IPC)	+= intel_soc_pmic_bxtwc.o
+ obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o
+ obj-$(CONFIG_MFD_MT6397)	+= mt6397-core.o
++
++obj-$(CONFIG_MFD_CPCAP) += motorola-cpcap.o
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+new file mode 100644
+index 00000000..a7d498db
+--- /dev/null
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -0,0 +1,343 @@
++/*
++ * Motorola CPCAP PMIC core driver
++ *
++ * Copyright (C) 2016 Tony Lindgren <tony@atomide.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/interrupt.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++#include <linux/regmap.h>
++#include <linux/sysfs.h>
++
++#include <linux/mfd/motorola-cpcap.h>
++#include <linux/spi/spi.h>
++
++#define CPCAP_NR_IRQ_REG_BANKS	6
++#define CPCAP_NR_IRQ_CHIPS	3
++#define CPCAP_REGISTER_SIZE	4
++#define CPCAP_REGISTER_BITS	16
++
++struct cpcap_ddata {
++	struct spi_device *spi;
++	struct regmap_irq *irqs;
++	struct regmap_irq_chip_data *irqdata[CPCAP_NR_IRQ_CHIPS];
++	const struct regmap_config *regmap_conf;
++	struct regmap *regmap;
++};
++
++static int cpcap_sense_irq(struct regmap *regmap, int irq)
++{
++	int regnum = irq / CPCAP_REGISTER_BITS;
++	int mask = BIT(irq % CPCAP_REGISTER_BITS);
++	int reg = CPCAP_REG_INTS1 + (regnum * CPCAP_REGISTER_SIZE);
++	int err, val;
++
++	if (reg < CPCAP_REG_INTS1 || reg > CPCAP_REG_INTS4)
++		return -EINVAL;
++
++	err = regmap_read(regmap, reg, &val);
++	if (err)
++		return err;
++
++	return !!(val & mask);
++}
++
++int cpcap_sense_virq(struct regmap *regmap, int virq)
++{
++	struct regmap_irq_chip_data *d = irq_get_chip_data(virq);
++	int irq_base = regmap_irq_chip_get_base(d);
++
++	return cpcap_sense_irq(regmap, virq - irq_base);
++}
++EXPORT_SYMBOL_GPL(cpcap_sense_virq);
++
++static int cpcap_check_revision(struct cpcap_ddata *cpcap)
++{
++	u16 vendor, rev;
++	int ret;
++
++	ret = cpcap_get_vendor(&cpcap->spi->dev, cpcap->regmap, &vendor);
++	if (ret)
++		return ret;
++
++	ret = cpcap_get_revision(&cpcap->spi->dev, cpcap->regmap, &rev);
++	if (ret)
++		return ret;
++
++	dev_info(&cpcap->spi->dev, "CPCAP vendor: %s rev: %i.%i (%x)\n",
++		 vendor == CPCAP_VENDOR_ST ? "ST" : "TI",
++		 CPCAP_REVISION_MAJOR(rev), CPCAP_REVISION_MINOR(rev),
++		 rev);
++
++	if (rev < CPCAP_REVISION_2_1) {
++		dev_info(&cpcap->spi->dev,
++			 "Please add old CPCAP revision support as needed\n");
++		return -ENODEV;
++	}
++
++	return 0;
++}
++
++/*
++ * First two irq chips are the two private macro interrupt chips, the third
++ * irq chip is for register banks 1 - 4 and is available for drivers to use.
++ */
++static struct regmap_irq_chip cpcap_irq_chip[CPCAP_NR_IRQ_CHIPS] = {
++	{
++		.name = "cpcap-m2",
++		.num_regs = 1,
++		.status_base = CPCAP_REG_MI1,
++		.ack_base = CPCAP_REG_MI1,
++		.mask_base = CPCAP_REG_MIM1,
++		.use_ack = true,
++		.ack_invert = true,
++	},
++	{
++		.name = "cpcap-m2",
++		.num_regs = 1,
++		.status_base = CPCAP_REG_MI2,
++		.ack_base = CPCAP_REG_MI2,
++		.mask_base = CPCAP_REG_MIM2,
++		.use_ack = true,
++		.ack_invert = true,
++	},
++	{
++		.name = "cpcap1-4",
++		.num_regs = 4,
++		.status_base = CPCAP_REG_INT1,
++		.ack_base = CPCAP_REG_INT1,
++		.mask_base = CPCAP_REG_INTM1,
++		.use_ack = true,
++		.ack_invert = true,
++	},
++};
++
++static void cpcap_init_one_regmap_irq(struct cpcap_ddata *cpcap,
++				      struct regmap_irq *rirq,
++				      int irq_base, int irq)
++{
++	unsigned int reg_offset;
++	unsigned int bit, mask;
++
++	reg_offset = irq - irq_base;
++	reg_offset /= cpcap->regmap_conf->val_bits;
++	reg_offset *= cpcap->regmap_conf->reg_stride;
++
++	bit = irq % cpcap->regmap_conf->val_bits;
++	mask = (1 << bit);
++
++	rirq->reg_offset = reg_offset;
++	rirq->mask = mask;
++}
++
++struct cpcap_irq_cleanup {
++	int irq;
++	struct regmap_irq_chip_data *data;
++};
++
++static void cpcap_release_irq(void *arg)
++{
++	struct cpcap_irq_cleanup *cleanup = arg;
++	regmap_del_irq_chip(cleanup->irq, cleanup->data);
++}
++
++static int cpcap_init_irq_chip(struct cpcap_ddata *cpcap, int irq_chip,
++			       int irq_start, int nr_irqs)
++{
++	struct regmap_irq_chip *chip = &cpcap_irq_chip[irq_chip];
++	int i, ret;
++	struct cpcap_irq_cleanup *cleanup;
++
++	cleanup = devm_kzalloc(&cpcap->spi->dev, sizeof(*cleanup), GFP_KERNEL);
++	if (!cleanup)
++		return -ENOMEM;
++
++	for (i = irq_start; i < irq_start + nr_irqs; i++) {
++		struct regmap_irq *rirq = &cpcap->irqs[i];
++
++		cpcap_init_one_regmap_irq(cpcap, rirq, irq_start, i);
++	}
++	chip->irqs = &cpcap->irqs[irq_start];
++	chip->num_irqs = nr_irqs;
++
++	ret = regmap_add_irq_chip(cpcap->regmap,
++				       cpcap->spi->irq,
++				       irq_get_trigger_type(cpcap->spi->irq) |
++				       IRQF_SHARED, -1,
++				       chip, &cpcap->irqdata[irq_chip]);
++	if (ret) {
++		dev_err(&cpcap->spi->dev, "could not add irq chip %i: %i\n",
++			irq_chip, ret);
++		return ret;
++	}
++
++	cleanup->irq = cpcap->spi->irq;
++	cleanup->data = cpcap->irqdata[irq_chip];
++	ret = devm_add_action(&cpcap->spi->dev, cpcap_release_irq, cleanup);
++	if (ret)
++		cpcap_release_irq(cleanup);
++	return ret;
++}
++
++static int cpcap_init_irq(struct cpcap_ddata *cpcap)
++{
++	int ret;
++
++	cpcap->irqs = devm_kzalloc(&cpcap->spi->dev,
++				   sizeof(*cpcap->irqs) *
++				   CPCAP_NR_IRQ_REG_BANKS *
++				   cpcap->regmap_conf->val_bits,
++				   GFP_KERNEL);
++	if (!cpcap->irqs)
++		return -ENOMEM;
++
++	ret = cpcap_init_irq_chip(cpcap, 0, 0, 16);
++	if (ret)
++		return ret;
++
++	ret = cpcap_init_irq_chip(cpcap, 1, 16, 16);
++	if (ret)
++		return ret;
++
++	ret = cpcap_init_irq_chip(cpcap, 2, 32, 64);
++	if (ret)
++		return ret;
++
++	enable_irq_wake(cpcap->spi->irq);
++
++	return 0;
++}
++
++static const struct of_device_id cpcap_of_match[] = {
++	{ .compatible = "motorola,cpcap", },
++	{ .compatible = "st,6556002", },
++	{},
++};
++MODULE_DEVICE_TABLE(of, cpcap_of_match);
++
++/* Linux 4.4 regmap only supports an 8-bit SPI flag mask. CPCAP's
++ * write bit is bit 15 of its little-endian 16-bit address word.
++ * Use single-register callbacks to preserve the upstream wire format.
++ */
++static int cpcap_spi_read(void *context, unsigned int reg, unsigned int *val)
++{
++	struct spi_device *spi = context;
++	__le16 address = cpu_to_le16(reg);
++	__le16 data;
++	int ret;
++
++	ret = spi_write_then_read(spi, &address, sizeof(address),
++				 &data, sizeof(data));
++	if (!ret)
++		*val = le16_to_cpu(data);
++	return ret;
++}
++
++static int cpcap_spi_write(void *context, unsigned int reg, unsigned int val)
++{
++	struct spi_device *spi = context;
++	__le16 data[2] = { cpu_to_le16(reg | 0x8000), cpu_to_le16(val) };
++
++	return spi_write(spi, data, sizeof(data));
++}
++
++static const struct regmap_bus cpcap_regmap_bus = {
++	.reg_read = cpcap_spi_read,
++	.reg_write = cpcap_spi_write,
++};
++
++static const struct regmap_config cpcap_regmap_config = {
++	.reg_bits = 16,
++	.reg_stride = 4,
++	.pad_bits = 0,
++	.val_bits = 16,
++	.max_register = CPCAP_REG_ST_TEST2,
++	.cache_type = REGCACHE_NONE,
++	.reg_format_endian = REGMAP_ENDIAN_LITTLE,
++	.val_format_endian = REGMAP_ENDIAN_LITTLE,
++};
++
++static void cpcap_depopulate(void *dev)
++{
++	of_platform_depopulate(dev);
++}
++
++static int cpcap_probe(struct spi_device *spi)
++{
++	const struct of_device_id *match;
++	struct cpcap_ddata *cpcap;
++	int ret;
++
++	match = of_match_device(of_match_ptr(cpcap_of_match), &spi->dev);
++	if (!match)
++		return -ENODEV;
++
++	cpcap = devm_kzalloc(&spi->dev, sizeof(*cpcap), GFP_KERNEL);
++	if (!cpcap)
++		return -ENOMEM;
++
++	cpcap->spi = spi;
++	spi_set_drvdata(spi, cpcap);
++
++	spi->bits_per_word = 16;
++	spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
++
++	ret = spi_setup(spi);
++	if (ret)
++		return ret;
++
++	cpcap->regmap_conf = &cpcap_regmap_config;
++	cpcap->regmap = devm_regmap_init(&spi->dev, &cpcap_regmap_bus,
++					 spi, &cpcap_regmap_config);
++	if (IS_ERR(cpcap->regmap)) {
++		ret = PTR_ERR(cpcap->regmap);
++		dev_err(&cpcap->spi->dev, "Failed to initialize regmap: %d\n",
++			ret);
++
++		return ret;
++	}
++
++	ret = cpcap_check_revision(cpcap);
++	if (ret) {
++		dev_err(&cpcap->spi->dev, "Failed to detect CPCAP: %i\n", ret);
++		return ret;
++	}
++
++	ret = cpcap_init_irq(cpcap);
++	if (ret)
++		return ret;
++
++	ret = of_platform_populate(spi->dev.of_node, NULL, NULL, &spi->dev);
++	if (ret) {
++		of_platform_depopulate(&spi->dev);
++		return ret;
++	}
++	ret = devm_add_action(&spi->dev, cpcap_depopulate, &spi->dev);
++	if (ret)
++		of_platform_depopulate(&spi->dev);
++	return ret;
++}
++
++static struct spi_driver cpcap_driver = {
++	.driver = {
++		.name = "cpcap-core",
++		.of_match_table = cpcap_of_match,
++	},
++	.probe = cpcap_probe,
++};
++module_spi_driver(cpcap_driver);
++
++MODULE_ALIAS("platform:cpcap");
++MODULE_DESCRIPTION("CPCAP driver");
++MODULE_AUTHOR("Tony Lindgren <tony@atomide.com>");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/mmc/core/pwrseq_simple.c b/drivers/mmc/core/pwrseq_simple.c
+index d10538bb..367302c9 100644
+--- a/drivers/mmc/core/pwrseq_simple.c
++++ b/drivers/mmc/core/pwrseq_simple.c
+@@ -8,6 +8,8 @@
+  *  Simple MMC power sequence management
+  */
+ #include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/of.h>
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+ #include <linux/device.h>
+@@ -22,6 +24,7 @@
+ struct mmc_pwrseq_simple {
+ 	struct mmc_pwrseq pwrseq;
+ 	bool clk_enabled;
++	u32 post_power_on_delay_ms;
+ 	struct clk *ext_clk;
+ 	struct gpio_descs *reset_gpios;
+ };
+@@ -59,6 +62,8 @@ static void mmc_pwrseq_simple_post_power_on(struct mmc_host *host)
+ 					struct mmc_pwrseq_simple, pwrseq);
+ 
+ 	mmc_pwrseq_simple_set_gpios_value(pwrseq, 0);
++	if (pwrseq->post_power_on_delay_ms)
++		msleep(pwrseq->post_power_on_delay_ms);
+ }
+ 
+ static void mmc_pwrseq_simple_power_off(struct mmc_host *host)
+@@ -104,6 +109,13 @@ struct mmc_pwrseq *mmc_pwrseq_simple_alloc(struct mmc_host *host,
+ 	if (!pwrseq)
+ 		return ERR_PTR(-ENOMEM);
+ 
++	of_property_read_u32(dev->of_node, "post-power-on-delay-ms",
++			     &pwrseq->post_power_on_delay_ms);
++	if (pwrseq->post_power_on_delay_ms > 1000) {
++		ret = -EINVAL;
++		goto free;
++	}
++
+ 	pwrseq->ext_clk = clk_get(dev, "ext_clock");
+ 	if (IS_ERR(pwrseq->ext_clk) &&
+ 	    PTR_ERR(pwrseq->ext_clk) != -ENOENT) {
+diff --git a/drivers/mmc/host/sdhci-tegra.c b/drivers/mmc/host/sdhci-tegra.c
+index 9c79997e..763d53ee 100644
+--- a/drivers/mmc/host/sdhci-tegra.c
++++ b/drivers/mmc/host/sdhci-tegra.c
+@@ -53,6 +53,8 @@ struct sdhci_tegra {
+ 	struct gpio_desc *power_gpio;
+ 
+ 	struct reset_control *rst;
++	u32 tap_delay;
++	bool has_tap_delay;
+ };
+ 
+ static u16 tegra_sdhci_readw(struct sdhci_host *host, int reg)
+@@ -147,6 +149,13 @@ static void tegra_sdhci_reset(struct sdhci_host *host, u8 mask)
+ 	if (soc_data->nvquirks & NVQUIRK_DISABLE_SDR104)
+ 		misc_ctrl &= ~SDHCI_MISC_CTRL_ENABLE_SDR104;
+ 	sdhci_writew(host, misc_ctrl, SDHCI_TEGRA_VENDOR_MISC_CTRL);
++	if ((mask & SDHCI_RESET_ALL) && tegra_host->has_tap_delay) {
++		u32 clock = sdhci_readl(host, 0x100);
++		clock &= ~(0xff << 16);
++		clock |= tegra_host->tap_delay << 16;
++		sdhci_writel(host, clock, 0x100);
++	}
++
+ }
+ 
+ static void tegra_sdhci_set_bus_width(struct sdhci_host *host, int bus_width)
+@@ -276,6 +285,14 @@ static int sdhci_tegra_probe(struct platform_device *pdev)
+ 		goto err_alloc_tegra_host;
+ 	}
+ 	tegra_host->soc_data = soc_data;
++	if (!of_property_read_u32(pdev->dev.of_node, "nvidia,tap-delay", &tegra_host->tap_delay)) {
++		if (tegra_host->tap_delay > 0xff) {
++			rc = -EINVAL;
++			goto err_parse_dt;
++		}
++		tegra_host->has_tap_delay = true;
++	}
++
+ 	pltfm_host->priv = tegra_host;
+ 
+ 	rc = mmc_of_parse(host->mmc);
+diff --git a/drivers/power/reset/Kconfig b/drivers/power/reset/Kconfig
+index 1131cf75..f921c27d 100644
+--- a/drivers/power/reset/Kconfig
++++ b/drivers/power/reset/Kconfig
+@@ -173,5 +173,8 @@ config POWER_RESET_ZX
+ 	help
+ 	  Reboot support for ZTE SoCs.
+ 
+-endif
++config POWER_RESET_WINGRAY
++	tristate "Motorola Xoom reset and poweroff"
++	depends on MFD_CPCAP && GPIOLIB && OF
+ 
++endif
+diff --git a/drivers/power/reset/Makefile b/drivers/power/reset/Makefile
+index 096fa670..5968ea5f 100644
+--- a/drivers/power/reset/Makefile
++++ b/drivers/power/reset/Makefile
+@@ -20,3 +20,5 @@ obj-$(CONFIG_POWER_RESET_SYSCON) += syscon-reboot.o
+ obj-$(CONFIG_POWER_RESET_SYSCON_POWEROFF) += syscon-poweroff.o
+ obj-$(CONFIG_POWER_RESET_RMOBILE) += rmobile-reset.o
+ obj-$(CONFIG_POWER_RESET_ZX) += zx-reboot.o
++
++obj-$(CONFIG_POWER_RESET_WINGRAY) += wingray-power.o
+diff --git a/drivers/power/reset/wingray-power.c b/drivers/power/reset/wingray-power.c
+new file mode 100644
+index 00000000..632b140a
+--- /dev/null
++++ b/drivers/power/reset/wingray-power.c
+@@ -0,0 +1,114 @@
++/* Motorola Xoom reset/poweroff integration. GNU GPL version 2. */
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/mfd/motorola-cpcap.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/reboot.h>
++#include <linux/regmap.h>
++
++struct wingray_power {
++	struct regmap *regmap;
++	struct gpio_desc *restart, *poweroff;
++	struct notifier_block reboot_nb, restart_nb;
++};
++static struct wingray_power *wingray_power;
++
++static int wingray_reboot(struct notifier_block *nb, unsigned long event, void *arg)
++{
++	struct wingray_power *power = container_of(nb, struct wingray_power, reboot_nb);
++	const char *mode = arg;
++	unsigned int mask = 0x0816; /* BOOT_MODE, SOFT_RESET, FOTA_MODE, AP_KERNEL_PANIC */
++	unsigned int value = 0;
++	int ret;
++
++	if (event == SYS_RESTART && mode) {
++		if (!strcmp(mode, "recovery"))
++			value = 0x0004;
++		else if (!strcmp(mode, "bootloader"))
++			value = 0x0800;
++	}
++	ret = regmap_update_bits(power->regmap, CPCAP_REG_VAL1, mask, value);
++	if (ret)
++		pr_err("Wingray: failed to save reboot mode: %d\n", ret);
++	return NOTIFY_DONE;
++}
++
++static int wingray_restart(struct notifier_block *nb, unsigned long event, void *arg)
++{
++	struct wingray_power *power = container_of(nb, struct wingray_power, restart_nb);
++
++	/* Match the original board's CPCAP uC pulse, then let Tegra PMC reset. */
++	gpiod_set_value(power->restart, 1);
++	mdelay(100);
++	gpiod_set_value(power->restart, 0);
++	mdelay(100);
++	return NOTIFY_DONE;
++}
++
++static void wingray_poweroff(void)
++{
++	gpiod_set_value(wingray_power->poweroff, 1);
++	mdelay(3000);
++	pr_emerg("Wingray: poweroff did not complete\n");
++}
++
++static int wingray_power_probe(struct platform_device *pdev)
++{
++	struct wingray_power *power;
++	int ret;
++
++	if (wingray_power || pm_power_off)
++		return -EBUSY;
++	power = devm_kzalloc(&pdev->dev, sizeof(*power), GFP_KERNEL);
++	if (!power)
++		return -ENOMEM;
++	power->regmap = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!power->regmap)
++		return -EPROBE_DEFER;
++	power->restart = devm_gpiod_get(&pdev->dev, "restart", GPIOD_OUT_LOW);
++	if (IS_ERR(power->restart))
++		return PTR_ERR(power->restart);
++	power->poweroff = devm_gpiod_get(&pdev->dev, "poweroff", GPIOD_OUT_LOW);
++	if (IS_ERR(power->poweroff))
++		return PTR_ERR(power->poweroff);
++	if (gpiod_cansleep(power->restart) || gpiod_cansleep(power->poweroff))
++		return -EINVAL;
++	power->reboot_nb.notifier_call = wingray_reboot;
++	power->restart_nb.notifier_call = wingray_restart;
++	power->restart_nb.priority = 192;
++	ret = register_reboot_notifier(&power->reboot_nb);
++	if (ret)
++		return ret;
++	ret = register_restart_handler(&power->restart_nb);
++	if (ret) {
++		unregister_reboot_notifier(&power->reboot_nb);
++		return ret;
++	}
++	platform_set_drvdata(pdev, power);
++	wingray_power = power;
++	pm_power_off = wingray_poweroff;
++	return 0;
++}
++
++static int wingray_power_remove(struct platform_device *pdev)
++{
++	struct wingray_power *power = platform_get_drvdata(pdev);
++	pm_power_off = NULL;
++	wingray_power = NULL;
++	unregister_restart_handler(&power->restart_nb);
++	unregister_reboot_notifier(&power->reboot_nb);
++	return 0;
++}
++
++static const struct of_device_id wingray_power_match[] = {
++	{ .compatible = "motorola,wingray-power" }, { }
++};
++MODULE_DEVICE_TABLE(of, wingray_power_match);
++static struct platform_driver wingray_power_driver = {
++	.probe = wingray_power_probe, .remove = wingray_power_remove,
++	.driver = { .name = "wingray-power", .of_match_table = wingray_power_match },
++};
++module_platform_driver(wingray_power_driver);
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/regulator/Kconfig b/drivers/regulator/Kconfig
+index 00676208..45c5d963 100644
+--- a/drivers/regulator/Kconfig
++++ b/drivers/regulator/Kconfig
+@@ -787,3 +787,7 @@ config REGULATOR_WM8994
+ 
+ endif
+ 
++
++config REGULATOR_CPCAP
++	tristate "Motorola CPCAP regulators"
++	depends on MFD_CPCAP
+diff --git a/drivers/regulator/Makefile b/drivers/regulator/Makefile
+index 0f817491..d94ef568 100644
+--- a/drivers/regulator/Makefile
++++ b/drivers/regulator/Makefile
+@@ -104,3 +104,5 @@ obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
+ 
+ 
+ ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
++
++obj-$(CONFIG_REGULATOR_CPCAP) += cpcap-regulator.o
+diff --git a/drivers/regulator/cpcap-regulator.c b/drivers/regulator/cpcap-regulator.c
+new file mode 100644
+index 00000000..8e374986
+--- /dev/null
++++ b/drivers/regulator/cpcap-regulator.c
+@@ -0,0 +1,657 @@
++/*
++ * Motorola CPCAP PMIC regulator driver
++ *
++ * Based on cpcap-regulator.c from Motorola Linux kernel tree
++ * Copyright (C) 2009-2011 Motorola, Inc.
++ *
++ * Rewritten for mainline kernel to use device tree and regmap
++ * Copyright (C) 2017 Tony Lindgren <tony@atomide.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation version 2.
++ *
++ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
++ * kind, whether express or implied; without even the implied warranty
++ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/err.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_platform.h>
++#include <linux/regmap.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/machine.h>
++#include <linux/regulator/of_regulator.h>
++#include <linux/mfd/motorola-cpcap.h>
++
++/*
++ * Resource assignment register bits. These seem to control the state
++ * idle modes adn are used at least for omap4.
++ */
++
++/* CPCAP_REG_ASSIGN2 bits - Resource Assignment 2 */
++#define CPCAP_BIT_VSDIO_SEL		BIT(15)
++#define CPCAP_BIT_VDIG_SEL		BIT(14)
++#define CPCAP_BIT_VCAM_SEL		BIT(13)
++#define CPCAP_BIT_SW6_SEL		BIT(12)
++#define CPCAP_BIT_SW5_SEL		BIT(11)
++#define CPCAP_BIT_SW4_SEL		BIT(10)
++#define CPCAP_BIT_SW3_SEL		BIT(9)
++#define CPCAP_BIT_SW2_SEL		BIT(8)
++#define CPCAP_BIT_SW1_SEL		BIT(7)
++
++/* CPCAP_REG_ASSIGN3 bits - Resource Assignment 3 */
++#define CPCAP_BIT_VUSBINT2_SEL		BIT(15)
++#define CPCAP_BIT_VUSBINT1_SEL		BIT(14)
++#define CPCAP_BIT_VVIB_SEL		BIT(13)
++#define CPCAP_BIT_VWLAN1_SEL		BIT(12)
++#define CPCAP_BIT_VRF1_SEL		BIT(11)
++#define CPCAP_BIT_VHVIO_SEL		BIT(10)
++#define CPCAP_BIT_VDAC_SEL		BIT(9)
++#define CPCAP_BIT_VUSB_SEL		BIT(8)
++#define CPCAP_BIT_VSIM_SEL		BIT(7)
++#define CPCAP_BIT_VRFREF_SEL		BIT(6)
++#define CPCAP_BIT_VPLL_SEL		BIT(5)
++#define CPCAP_BIT_VFUSE_SEL		BIT(4)
++#define CPCAP_BIT_VCSI_SEL		BIT(3)
++#define CPCAP_BIT_SPARE_14_2		BIT(2)
++#define CPCAP_BIT_VWLAN2_SEL		BIT(1)
++#define CPCAP_BIT_VRF2_SEL		BIT(0)
++
++/* CPCAP_REG_ASSIGN4 bits - Resource Assignment 4 */
++#define CPCAP_BIT_VAUDIO_SEL		BIT(0)
++
++/*
++ * Enable register bits. At least CPCAP_BIT_AUDIO_LOW_PWR is generic,
++ * and not limited to audio regulator. Let's use the Motorola kernel
++ * naming for now until we have a better understanding of the other
++ * enable register bits. No idea why BIT(3) is not defined.
++ */
++#define CPCAP_BIT_AUDIO_LOW_PWR		BIT(6)
++#define CPCAP_BIT_AUD_LOWPWR_SPEED	BIT(5)
++#define CPCAP_BIT_VAUDIOPRISTBY		BIT(4)
++#define CPCAP_BIT_VAUDIO_MODE1		BIT(2)
++#define CPCAP_BIT_VAUDIO_MODE0		BIT(1)
++#define CPCAP_BIT_V_AUDIO_EN		BIT(0)
++
++#define CPCAP_BIT_AUDIO_NORMAL_MODE	0x00
++
++/*
++ * Off mode configuration bit. Used currently only by SW5 on omap4. There's
++ * the following comment in Motorola Linux kernel tree for it:
++ *
++ * When set in the regulator mode, the regulator assignment will be changed
++ * to secondary when the regulator is disabled. The mode will be set back to
++ * primary when the regulator is turned on.
++ */
++#define CPCAP_REG_OFF_MODE_SEC		BIT(15)
++
++/**
++ * SoC specific configuraion for CPCAP regulator. There are at least three
++ * different SoCs each with their own parameters: omap3, omap4 and tegra2.
++ *
++ * The assign_reg and assign_mask seem to allow toggling between primary
++ * and secondary mode that at least omap4 uses for off mode.
++ */
++struct cpcap_regulator {
++	struct regulator_desc rdesc;
++	const u16 assign_reg;
++	const u16 assign_mask;
++	const u16 vsel_shift;
++};
++
++#define CPCAP_REG(_ID, reg, assignment_reg, assignment_mask, val_tbl,	\
++		mode_mask, volt_mask, volt_shft,			\
++		mode_val, off_val, volt_trans_time) {			\
++	.rdesc = {							\
++		.name = #_ID,						\
++		.of_match = of_match_ptr(#_ID),				\
++		.ops = &cpcap_regulator_ops,				\
++		.regulators_node = of_match_ptr("regulators"),		\
++		.type = REGULATOR_VOLTAGE,				\
++		.id = CPCAP_##_ID,					\
++		.owner = THIS_MODULE,					\
++		.n_voltages = ARRAY_SIZE(val_tbl),			\
++		.volt_table = (val_tbl),				\
++		.vsel_reg = (reg),					\
++		.vsel_mask = (volt_mask),				\
++		.enable_reg = (reg),					\
++		.enable_mask = (mode_mask),				\
++		.enable_val = (mode_val),				\
++		.disable_val = (off_val),				\
++		.ramp_delay = (volt_trans_time),			\
++		.of_map_mode = cpcap_map_mode,				\
++	},								\
++	.assign_reg = (assignment_reg),					\
++	.assign_mask = (assignment_mask),				\
++	.vsel_shift = (volt_shft),					\
++}
++
++struct cpcap_ddata {
++	struct regmap *reg;
++	struct device *dev;
++	const struct cpcap_regulator *soc;
++};
++
++enum cpcap_regulator_id {
++	CPCAP_SW1,
++	CPCAP_SW2,
++	CPCAP_SW3,
++	CPCAP_SW4,
++	CPCAP_SW5,
++	CPCAP_SW6,
++	CPCAP_VCAM,
++	CPCAP_VCSI,
++	CPCAP_VDAC,
++	CPCAP_VDIG,
++	CPCAP_VFUSE,
++	CPCAP_VHVIO,
++	CPCAP_VSDIO,
++	CPCAP_VPLL,
++	CPCAP_VRF1,
++	CPCAP_VRF2,
++	CPCAP_VRFREF,
++	CPCAP_VWLAN1,
++	CPCAP_VWLAN2,
++	CPCAP_VSIM,
++	CPCAP_VSIMCARD,
++	CPCAP_VVIB,
++	CPCAP_VUSB,
++	CPCAP_VAUDIO,
++	CPCAP_NR_REGULATORS,
++};
++
++/*
++ * We need to also configure regulator idle mode for SoC off mode if
++ * CPCAP_REG_OFF_MODE_SEC is set.
++ */
++static int cpcap_regulator_enable(struct regulator_dev *rdev)
++{
++	struct cpcap_regulator *regulator = rdev_get_drvdata(rdev);
++	int error, ignore;
++
++	error = regulator_enable_regmap(rdev);
++	if (error)
++		return error;
++
++	if (rdev->desc->enable_val & CPCAP_REG_OFF_MODE_SEC) {
++		error = regmap_update_bits(rdev->regmap, regulator->assign_reg,
++					   regulator->assign_mask,
++					   regulator->assign_mask);
++		if (error)
++			ignore = regulator_disable_regmap(rdev);
++	}
++
++	return error;
++}
++
++/*
++ * We need to also configure regulator idle mode for SoC off mode if
++ * CPCAP_REG_OFF_MODE_SEC is set.
++ */
++static int cpcap_regulator_disable(struct regulator_dev *rdev)
++{
++	struct cpcap_regulator *regulator = rdev_get_drvdata(rdev);
++	int error, ignore;
++
++	if (rdev->desc->enable_val & CPCAP_REG_OFF_MODE_SEC) {
++		error = regmap_update_bits(rdev->regmap, regulator->assign_reg,
++					   regulator->assign_mask, 0);
++		if (error)
++			return error;
++	}
++
++	error = regulator_disable_regmap(rdev);
++	if (error && (rdev->desc->enable_val & CPCAP_REG_OFF_MODE_SEC)) {
++		ignore = regmap_update_bits(rdev->regmap, regulator->assign_reg,
++					    regulator->assign_mask,
++					    regulator->assign_mask);
++	}
++
++	return error;
++}
++
++static unsigned int cpcap_map_mode(unsigned int mode)
++{
++	switch (mode) {
++	case CPCAP_BIT_AUDIO_NORMAL_MODE:
++		return REGULATOR_MODE_NORMAL;
++	case CPCAP_BIT_AUDIO_LOW_PWR:
++		return REGULATOR_MODE_STANDBY;
++	default:
++		return -EINVAL;
++	}
++}
++
++static unsigned int cpcap_regulator_get_mode(struct regulator_dev *rdev)
++{
++	int value;
++
++	regmap_read(rdev->regmap, rdev->desc->enable_reg, &value);
++
++	if (value & CPCAP_BIT_AUDIO_LOW_PWR)
++		return REGULATOR_MODE_STANDBY;
++
++	return REGULATOR_MODE_NORMAL;
++}
++
++static int cpcap_regulator_set_mode(struct regulator_dev *rdev,
++				    unsigned int mode)
++{
++	int value;
++
++	switch (mode) {
++	case REGULATOR_MODE_NORMAL:
++		value = CPCAP_BIT_AUDIO_NORMAL_MODE;
++		break;
++	case REGULATOR_MODE_STANDBY:
++		value = CPCAP_BIT_AUDIO_LOW_PWR;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return regmap_update_bits(rdev->regmap, rdev->desc->enable_reg,
++				  CPCAP_BIT_AUDIO_LOW_PWR, value);
++}
++
++static struct regulator_ops cpcap_regulator_ops = {
++	.enable = cpcap_regulator_enable,
++	.disable = cpcap_regulator_disable,
++	.is_enabled = regulator_is_enabled_regmap,
++	.list_voltage = regulator_list_voltage_table,
++	.map_voltage = regulator_map_voltage_iterate,
++	.get_voltage_sel = regulator_get_voltage_sel_regmap,
++	.set_voltage_sel = regulator_set_voltage_sel_regmap,
++	.get_mode = cpcap_regulator_get_mode,
++	.set_mode = cpcap_regulator_set_mode,
++};
++
++static const unsigned int unknown_val_tbl[] = { 0, };
++static const unsigned int sw5_val_tbl[] = { 0, 5050000, };
++static const unsigned int vcam_val_tbl[] = { 2600000, 2700000, 2800000,
++					     2900000, };
++static const unsigned int vcsi_val_tbl[] = { 1200000, 1800000, };
++static const unsigned int vdac_val_tbl[] = { 1200000, 1500000, 1800000,
++					     2500000,};
++static const unsigned int vdig_val_tbl[] = { 1200000, 1350000, 1500000,
++					     1875000, };
++static const unsigned int vfuse_val_tbl[] = { 1500000, 1600000, 1700000,
++					      1800000, 1900000, 2000000,
++					      2100000, 2200000, 2300000,
++					      2400000, 2500000, 2600000,
++					      2700000, 3150000, };
++static const unsigned int vhvio_val_tbl[] = { 2775000, };
++static const unsigned int vsdio_val_tbl[] = { 1500000, 1600000, 1800000,
++					      2600000, 2700000, 2800000,
++					      2900000, 3000000, };
++static const unsigned int vpll_val_tbl[] = { 1200000, 1300000, 1400000,
++					     1800000, };
++/* Quirk: 2775000 is before 2500000 for vrf1 regulator */
++static const unsigned int vrf1_val_tbl[] = { 2775000, 2500000, };
++static const unsigned int vrf2_val_tbl[] = { 0, 2775000, };
++static const unsigned int vrfref_val_tbl[] = { 2500000, 2775000, };
++static const unsigned int vwlan1_val_tbl[] = { 1800000, 1900000, };
++static const unsigned int vwlan2_val_tbl[] = { 2775000, 3000000, 3300000,
++					       3300000, };
++static const unsigned int vsim_val_tbl[] = { 1800000, 2900000, };
++static const unsigned int vsimcard_val_tbl[] = { 1800000, 2900000, };
++static const unsigned int vvib_val_tbl[] = { 1300000, 1800000, 2000000,
++					     3000000, };
++static const unsigned int vusb_val_tbl[] = { 0, 3300000, };
++static const unsigned int vaudio_val_tbl[] = { 0, 2775000, };
++
++/**
++ * SoC specific configuration for omap4. The data below is comes from Motorola
++ * Linux kernel tree. It's basically the values of cpcap_regltr_data,
++ * cpcap_regulator_mode_values and cpcap_regulator_off_mode_values, see
++ * CPCAP_REG macro above.
++ *
++ * SW1 to SW4 and SW6 seems to be unused for mapphone. Note that VSIM and
++ * VSIMCARD have a shared resource assignment bit.
++ */
++static struct cpcap_regulator omap4_regulators[] = {
++	CPCAP_REG(SW1, CPCAP_REG_S1C1, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_SW1_SEL, unknown_val_tbl,
++		  0, 0, 0, 0, 0, 0),
++	CPCAP_REG(SW2, CPCAP_REG_S2C1, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_SW2_SEL, unknown_val_tbl,
++		  0, 0, 0, 0, 0, 0),
++	CPCAP_REG(SW3, CPCAP_REG_S3C, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_SW3_SEL, unknown_val_tbl,
++		  0, 0, 0, 0, 0, 0),
++	CPCAP_REG(SW4, CPCAP_REG_S4C1, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_SW4_SEL, unknown_val_tbl,
++		  0, 0, 0, 0, 0, 0),
++	CPCAP_REG(SW5, CPCAP_REG_S5C, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_SW5_SEL, sw5_val_tbl,
++		  0x28, 0, 0, 0x20 | CPCAP_REG_OFF_MODE_SEC, 0, 0),
++	CPCAP_REG(SW6, CPCAP_REG_S6C, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_SW6_SEL, unknown_val_tbl,
++		  0, 0, 0, 0, 0, 0),
++	CPCAP_REG(VCAM, CPCAP_REG_VCAMC, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_VCAM_SEL, vcam_val_tbl,
++		  0x87, 0x30, 4, 0x3, 0, 420),
++	CPCAP_REG(VCSI, CPCAP_REG_VCSIC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VCSI_SEL, vcsi_val_tbl,
++		  0x47, 0x10, 4, 0x43, 0x41, 350),
++	CPCAP_REG(VDAC, CPCAP_REG_VDACC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VDAC_SEL, vdac_val_tbl,
++		  0x87, 0x30, 4, 0x3, 0, 420),
++	CPCAP_REG(VDIG, CPCAP_REG_VDIGC, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_VDIG_SEL, vdig_val_tbl,
++		  0x87, 0x30, 4, 0x82, 0, 420),
++	CPCAP_REG(VFUSE, CPCAP_REG_VFUSEC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VFUSE_SEL, vfuse_val_tbl,
++		  0x80, 0xf, 0, 0x80, 0, 420),
++	CPCAP_REG(VHVIO, CPCAP_REG_VHVIOC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VHVIO_SEL, vhvio_val_tbl,
++		  0x17, 0, 0, 0, 0x12, 0),
++	CPCAP_REG(VSDIO, CPCAP_REG_VSDIOC, CPCAP_REG_ASSIGN2,
++		  CPCAP_BIT_VSDIO_SEL, vsdio_val_tbl,
++		  0x87, 0x38, 3, 0x82, 0, 420),
++	CPCAP_REG(VPLL, CPCAP_REG_VPLLC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VPLL_SEL, vpll_val_tbl,
++		  0x43, 0x18, 3, 0x2, 0, 420),
++	CPCAP_REG(VRF1, CPCAP_REG_VRF1C, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VRF1_SEL, vrf1_val_tbl,
++		  0xac, 0x2, 1, 0x4, 0, 10),
++	CPCAP_REG(VRF2, CPCAP_REG_VRF2C, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VRF2_SEL, vrf2_val_tbl,
++		  0x23, 0x8, 3, 0, 0, 10),
++	CPCAP_REG(VRFREF, CPCAP_REG_VRFREFC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VRFREF_SEL, vrfref_val_tbl,
++		  0x23, 0x8, 3, 0, 0, 420),
++	CPCAP_REG(VWLAN1, CPCAP_REG_VWLAN1C, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VWLAN1_SEL, vwlan1_val_tbl,
++		  0x47, 0x10, 4, 0, 0, 420),
++	CPCAP_REG(VWLAN2, CPCAP_REG_VWLAN2C, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VWLAN2_SEL, vwlan2_val_tbl,
++		  0x20c, 0xc0, 6, 0x20c, 0, 420),
++	CPCAP_REG(VSIM, CPCAP_REG_VSIMC, CPCAP_REG_ASSIGN3,
++		  0xffff, vsim_val_tbl,
++		  0x23, 0x8, 3, 0x3, 0, 420),
++	CPCAP_REG(VSIMCARD, CPCAP_REG_VSIMC, CPCAP_REG_ASSIGN3,
++		  0xffff, vsimcard_val_tbl,
++		  0x1e80, 0x8, 3, 0x1e00, 0, 420),
++	CPCAP_REG(VVIB, CPCAP_REG_VVIBC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VVIB_SEL, vvib_val_tbl,
++		  0x1, 0xc, 2, 0x1, 0, 500),
++	CPCAP_REG(VUSB, CPCAP_REG_VUSBC, CPCAP_REG_ASSIGN3,
++		  CPCAP_BIT_VUSB_SEL, vusb_val_tbl,
++		  0x11c, 0x40, 6, 0xc, 0, 0),
++	CPCAP_REG(VAUDIO, CPCAP_REG_VAUDIOC, CPCAP_REG_ASSIGN4,
++		  CPCAP_BIT_VAUDIO_SEL, vaudio_val_tbl,
++		  0x16, 0x1, 0, 0x4, 0, 0),
++	{ /* sentinel */ },
++};
++
++/* Motorola Xoom values from the original board and regulator drivers. */
++static const unsigned int sw2_sw4_val_tbl[] = {
++600000, 612500, 625000, 637500, 650000, 662500, 675000, 687500, 700000, 712500, 725000, 737500, 750000, 762500, 775000, 787500, 800000, 812500, 825000, 837500, 850000, 862500, 875000, 887500, 900000, 912500, 925000, 937500, 950000, 962500, 975000, 987500, 1000000, 1012500, 1025000, 1037500, 1050000, 1062500, 1075000, 1087500, 1100000, 1112500, 1125000, 1137500, 1150000, 1162500, 1175000, 1187500, 1200000, 1212500, 1225000, 1237500, 1250000, 1262500, 1275000, 1287500, 1300000, 1312500, 1325000, 1337500, 1350000, 1362500, 1375000, 1387500, 1400000, 1412500, 1425000, 1437500, 1450000
++};
++static struct regulator_ops wingray_regulator_ops = {
++	.enable = regulator_enable_regmap,
++	.disable = regulator_disable_regmap,
++	.is_enabled = regulator_is_enabled_regmap,
++	.list_voltage = regulator_list_voltage_table,
++	.map_voltage = regulator_map_voltage_iterate,
++	.get_voltage_sel = regulator_get_voltage_sel_regmap,
++	.set_voltage_sel = regulator_set_voltage_sel_regmap,
++};
++static struct cpcap_regulator wingray_regulators[] = {
++	{ .rdesc = { .name = "SW4", .of_match = "SW4",
++	  .regulators_node = "regulators", .id = CPCAP_SW4,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(sw2_sw4_val_tbl),
++	  .volt_table = sw2_sw4_val_tbl, .vsel_reg = CPCAP_REG_S4C1, .vsel_mask = 0x007F,
++	  .enable_reg = CPCAP_REG_S4C1, .enable_mask = 0x0F00,
++	  .enable_val = 0x0900, .disable_val = 0,
++	  .enable_time = 1500 } },
++	{ .rdesc = { .name = "SW5", .of_match = "SW5",
++	  .regulators_node = "regulators", .id = CPCAP_SW5,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(sw5_val_tbl),
++	  .volt_table = sw5_val_tbl, .vsel_reg = CPCAP_REG_S5C, .vsel_mask = 0x0000,
++	  .enable_reg = CPCAP_REG_S5C, .enable_mask = 0x002A,
++	  .enable_val = 0x0022, .disable_val = 0,
++	  .enable_time = 1500 } },
++	{ .rdesc = { .name = "VCAM", .of_match = "VCAM",
++	  .regulators_node = "regulators", .id = CPCAP_VCAM,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vcam_val_tbl),
++	  .volt_table = vcam_val_tbl, .vsel_reg = CPCAP_REG_VCAMC, .vsel_mask = 0x0030,
++	  .enable_reg = CPCAP_REG_VCAMC, .enable_mask = 0x0087,
++	  .enable_val = 0x0007, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VCSI", .of_match = "VCSI",
++	  .regulators_node = "regulators", .id = CPCAP_VCSI,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vcsi_val_tbl),
++	  .volt_table = vcsi_val_tbl, .vsel_reg = CPCAP_REG_VCSIC, .vsel_mask = 0x0010,
++	  .enable_reg = CPCAP_REG_VCSIC, .enable_mask = 0x0047,
++	  .enable_val = 0x0007, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VDAC", .of_match = "VDAC",
++	  .regulators_node = "regulators", .id = CPCAP_VDAC,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vdac_val_tbl),
++	  .volt_table = vdac_val_tbl, .vsel_reg = CPCAP_REG_VDACC, .vsel_mask = 0x0030,
++	  .enable_reg = CPCAP_REG_VDACC, .enable_mask = 0x0087,
++	  .enable_val = 0x0003, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VDIG", .of_match = "VDIG",
++	  .regulators_node = "regulators", .id = CPCAP_VDIG,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vdig_val_tbl),
++	  .volt_table = vdig_val_tbl, .vsel_reg = CPCAP_REG_VDIGC, .vsel_mask = 0x0030,
++	  .enable_reg = CPCAP_REG_VDIGC, .enable_mask = 0x0087,
++	  .enable_val = 0x0005, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VFUSE", .of_match = "VFUSE",
++	  .regulators_node = "regulators", .id = CPCAP_VFUSE,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vfuse_val_tbl),
++	  .volt_table = vfuse_val_tbl, .vsel_reg = CPCAP_REG_VFUSEC, .vsel_mask = 0x000F,
++	  .enable_reg = CPCAP_REG_VFUSEC, .enable_mask = 0x0080,
++	  .enable_val = 0x0080, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VHVIO", .of_match = "VHVIO",
++	  .regulators_node = "regulators", .id = CPCAP_VHVIO,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vhvio_val_tbl),
++	  .volt_table = vhvio_val_tbl, .vsel_reg = CPCAP_REG_VHVIOC, .vsel_mask = 0x0000,
++	  .enable_reg = CPCAP_REG_VHVIOC, .enable_mask = 0x0017,
++	  .enable_val = 0x0002, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VSDIO", .of_match = "VSDIO",
++	  .regulators_node = "regulators", .id = CPCAP_VSDIO,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vsdio_val_tbl),
++	  .volt_table = vsdio_val_tbl, .vsel_reg = CPCAP_REG_VSDIOC, .vsel_mask = 0x0038,
++	  .enable_reg = CPCAP_REG_VSDIOC, .enable_mask = 0x0087,
++	  .enable_val = 0x0002, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VPLL", .of_match = "VPLL",
++	  .regulators_node = "regulators", .id = CPCAP_VPLL,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vpll_val_tbl),
++	  .volt_table = vpll_val_tbl, .vsel_reg = CPCAP_REG_VPLLC, .vsel_mask = 0x0018,
++	  .enable_reg = CPCAP_REG_VPLLC, .enable_mask = 0x0043,
++	  .enable_val = 0x0001, .disable_val = 0,
++	  .enable_time = 100 } },
++	{ .rdesc = { .name = "VRF1", .of_match = "VRF1",
++	  .regulators_node = "regulators", .id = CPCAP_VRF1,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vrf1_val_tbl),
++	  .volt_table = vrf1_val_tbl, .vsel_reg = CPCAP_REG_VRF1C, .vsel_mask = 0x0002,
++	  .enable_reg = CPCAP_REG_VRF1C, .enable_mask = 0x00AC,
++	  .enable_val = 0x000C, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VRF2", .of_match = "VRF2",
++	  .regulators_node = "regulators", .id = CPCAP_VRF2,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vrf2_val_tbl),
++	  .volt_table = vrf2_val_tbl, .vsel_reg = CPCAP_REG_VRF2C, .vsel_mask = 0x0008,
++	  .enable_reg = CPCAP_REG_VRF2C, .enable_mask = 0x0023,
++	  .enable_val = 0x0003, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VRFREF", .of_match = "VRFREF",
++	  .regulators_node = "regulators", .id = CPCAP_VRFREF,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vrfref_val_tbl),
++	  .volt_table = vrfref_val_tbl, .vsel_reg = CPCAP_REG_VRFREFC, .vsel_mask = 0x0008,
++	  .enable_reg = CPCAP_REG_VRFREFC, .enable_mask = 0x0023,
++	  .enable_val = 0x0003, .disable_val = 0,
++	  .enable_time = 100 } },
++	{ .rdesc = { .name = "VWLAN1", .of_match = "VWLAN1",
++	  .regulators_node = "regulators", .id = CPCAP_VWLAN1,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vwlan1_val_tbl),
++	  .volt_table = vwlan1_val_tbl, .vsel_reg = CPCAP_REG_VWLAN1C, .vsel_mask = 0x0010,
++	  .enable_reg = CPCAP_REG_VWLAN1C, .enable_mask = 0x0047,
++	  .enable_val = 0x0005, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VWLAN2", .of_match = "VWLAN2",
++	  .regulators_node = "regulators", .id = CPCAP_VWLAN2,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vwlan2_val_tbl),
++	  .volt_table = vwlan2_val_tbl, .vsel_reg = CPCAP_REG_VWLAN2C, .vsel_mask = 0x00C0,
++	  .enable_reg = CPCAP_REG_VWLAN2C, .enable_mask = 0x020C,
++	  .enable_val = 0x0008, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VSIM", .of_match = "VSIM",
++	  .regulators_node = "regulators", .id = CPCAP_VSIM,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vsim_val_tbl),
++	  .volt_table = vsim_val_tbl, .vsel_reg = CPCAP_REG_VSIMC, .vsel_mask = 0x0008,
++	  .enable_reg = CPCAP_REG_VSIMC, .enable_mask = 0x0023,
++	  .enable_val = 0x0003, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VSIMCARD", .of_match = "VSIMCARD",
++	  .regulators_node = "regulators", .id = CPCAP_VSIMCARD,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vsimcard_val_tbl),
++	  .volt_table = vsimcard_val_tbl, .vsel_reg = CPCAP_REG_VSIMC, .vsel_mask = 0x0008,
++	  .enable_reg = CPCAP_REG_VSIMC, .enable_mask = 0x1E80,
++	  .enable_val = 0x1E00, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VVIB", .of_match = "VVIB",
++	  .regulators_node = "regulators", .id = CPCAP_VVIB,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vvib_val_tbl),
++	  .volt_table = vvib_val_tbl, .vsel_reg = CPCAP_REG_VVIBC, .vsel_mask = 0x000C,
++	  .enable_reg = CPCAP_REG_VVIBC, .enable_mask = 0x0001,
++	  .enable_val = 0x0001, .disable_val = 0,
++	  .enable_time = 500 } },
++	{ .rdesc = { .name = "VUSB", .of_match = "VUSB",
++	  .regulators_node = "regulators", .id = CPCAP_VUSB,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vusb_val_tbl),
++	  .volt_table = vusb_val_tbl, .vsel_reg = CPCAP_REG_VUSBC, .vsel_mask = 0x0040,
++	  .enable_reg = CPCAP_REG_VUSBC, .enable_mask = 0x011C,
++	  .enable_val = 0x000C, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ .rdesc = { .name = "VAUDIO", .of_match = "VAUDIO",
++	  .regulators_node = "regulators", .id = CPCAP_VAUDIO,
++	  .type = REGULATOR_VOLTAGE, .owner = THIS_MODULE,
++	  .ops = &wingray_regulator_ops, .n_voltages = ARRAY_SIZE(vaudio_val_tbl),
++	  .volt_table = vaudio_val_tbl, .vsel_reg = CPCAP_REG_VAUDIOC, .vsel_mask = 0x0001,
++	  .enable_reg = CPCAP_REG_VAUDIOC, .enable_mask = 0x0016,
++	  .enable_val = 0x0004, .disable_val = 0,
++	  .enable_time = 1000 } },
++	{ },
++};
++
++static const struct of_device_id cpcap_regulator_id_table[] = {
++	{ .compatible = "motorola,wingray-cpcap-regulator", .data = wingray_regulators },
++	{
++		.compatible = "motorola,cpcap-regulator",
++	},
++	{
++		.compatible = "motorola,mapphone-cpcap-regulator",
++		.data = omap4_regulators,
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(of, cpcap_regulator_id_table);
++
++static int cpcap_regulator_probe(struct platform_device *pdev)
++{
++	struct cpcap_ddata *ddata;
++	const struct of_device_id *match;
++	struct regulator_config config;
++	struct regulator_init_data init_data;
++	int i;
++
++	match = of_match_device(of_match_ptr(cpcap_regulator_id_table),
++				&pdev->dev);
++	if (!match)
++		return -EINVAL;
++
++	if (!match->data) {
++		dev_err(&pdev->dev, "no configuration data found\n");
++
++		return -ENODEV;
++	}
++
++	ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
++	if (!ddata)
++		return -ENOMEM;
++
++	ddata->reg = dev_get_regmap(pdev->dev.parent, NULL);
++	if (!ddata->reg)
++		return -ENODEV;
++
++	ddata->dev = &pdev->dev;
++	ddata->soc = match->data;
++	platform_set_drvdata(pdev, ddata);
++
++	memset(&config, 0, sizeof(config));
++	memset(&init_data, 0, sizeof(init_data));
++	config.dev = &pdev->dev;
++	config.regmap = ddata->reg;
++	config.init_data = &init_data;
++
++	for (i = 0; i < CPCAP_NR_REGULATORS; i++) {
++		const struct cpcap_regulator *regulator = &ddata->soc[i];
++		struct regulator_dev *rdev;
++
++		if (!regulator->rdesc.name)
++			break;
++
++		if (regulator->rdesc.volt_table == unknown_val_tbl)
++			continue;
++
++		config.driver_data = (void *)regulator;
++		rdev = devm_regulator_register(&pdev->dev,
++					       &regulator->rdesc,
++					       &config);
++		if (IS_ERR(rdev)) {
++			dev_err(&pdev->dev, "failed to register regulator %s\n",
++				regulator->rdesc.name);
++
++			return PTR_ERR(rdev);
++		}
++	}
++
++	return 0;
++}
++
++static struct platform_driver cpcap_regulator_driver = {
++	.probe		= cpcap_regulator_probe,
++	.driver		= {
++		.name	= "cpcap-regulator",
++		.of_match_table = of_match_ptr(cpcap_regulator_id_table),
++	},
++};
++
++module_platform_driver(cpcap_regulator_driver);
++
++MODULE_ALIAS("platform:cpcap-regulator");
++MODULE_AUTHOR("Tony Lindgren <tony@atomide.com>");
++MODULE_DESCRIPTION("CPCAP regulator driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/regulator/max8649.c b/drivers/regulator/max8649.c
+index 81229579..911db836 100644
+--- a/drivers/regulator/max8649.c
++++ b/drivers/regulator/max8649.c
+@@ -17,6 +17,8 @@
+ #include <linux/slab.h>
+ #include <linux/regulator/max8649.h>
+ #include <linux/regmap.h>
++#include <linux/of.h>
++#include <linux/regulator/of_regulator.h>
+ 
+ #define MAX8649_DCDC_VMIN	750000		/* uV */
+ #define MAX8649_DCDC_VMAX	1380000		/* uV */
+@@ -148,6 +150,29 @@ static const struct regmap_config max8649_regmap_config = {
+ 	.val_bits = 8,
+ };
+ 
++static struct max8649_platform_data *max8649_parse_dt(struct device *dev)
++{
++	struct max8649_platform_data *pdata;
++	u32 mode, ramp = 0;
++
++	if (!dev->of_node)
++		return ERR_PTR(-EINVAL);
++	if (of_property_read_u32(dev->of_node, "maxim,vid-mode", &mode) || mode > 3)
++		return ERR_PTR(-EINVAL);
++	of_property_read_u32(dev->of_node, "maxim,ramp-timing", &ramp);
++	if (ramp > 7)
++		return ERR_PTR(-EINVAL);
++	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
++	if (!pdata)
++		return ERR_PTR(-ENOMEM);
++	pdata->mode = mode;
++	pdata->ramp_timing = ramp;
++	pdata->regulator = of_get_regulator_init_data(dev, dev->of_node, &dcdc_desc);
++	if (!pdata->regulator)
++		return ERR_PTR(-EINVAL);
++	return pdata;
++}
++
+ static int max8649_regulator_probe(struct i2c_client *client,
+ 					     const struct i2c_device_id *id)
+ {
+@@ -159,6 +184,12 @@ static int max8649_regulator_probe(struct i2c_client *client,
+ 	unsigned char data;
+ 	int ret;
+ 
++	if (!pdata) {
++		pdata = max8649_parse_dt(&client->dev);
++		if (IS_ERR(pdata))
++			return PTR_ERR(pdata);
++	}
++
+ 	info = devm_kzalloc(&client->dev, sizeof(struct max8649_regulator_info),
+ 			    GFP_KERNEL);
+ 	if (!info)
+@@ -228,6 +259,7 @@ static int max8649_regulator_probe(struct i2c_client *client,
+ 	}
+ 
+ 	config.dev = &client->dev;
++	config.of_node = client->dev.of_node;
+ 	config.init_data = pdata->regulator;
+ 	config.driver_data = info;
+ 	config.regmap = info->regmap;
+@@ -249,10 +281,17 @@ static const struct i2c_device_id max8649_id[] = {
+ };
+ MODULE_DEVICE_TABLE(i2c, max8649_id);
+ 
++static const struct of_device_id max8649_of_match[] = {
++	{ .compatible = "maxim,max8649" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, max8649_of_match);
++
+ static struct i2c_driver max8649_driver = {
+ 	.probe		= max8649_regulator_probe,
+ 	.driver		= {
+ 		.name	= "max8649",
++		.of_match_table = of_match_ptr(max8649_of_match),
+ 	},
+ 	.id_table	= max8649_id,
+ };
+diff --git a/drivers/video/backlight/Kconfig b/drivers/video/backlight/Kconfig
+index 1485e5af..115eeb22 100644
+--- a/drivers/video/backlight/Kconfig
++++ b/drivers/video/backlight/Kconfig
+@@ -462,7 +462,7 @@ config BACKLIGHT_BD6107
+ 
+ config BACKLIGHT_CMC623_PWM
+         bool "CMC623 PWM Backlight Driver"
+-        depends on BACKLIGHT_CLASS_DEVICE 
++        depends on BACKLIGHT_CLASS_DEVICE && MACH_SAMSUNG_P4WIFI
+         default y
+         help
+           Say Y to enalbe the backlight driven by CMC623
+diff --git a/include/linux/mfd/motorola-cpcap.h b/include/linux/mfd/motorola-cpcap.h
+new file mode 100644
+index 00000000..aefc49cb
+--- /dev/null
++++ b/include/linux/mfd/motorola-cpcap.h
+@@ -0,0 +1,297 @@
++/*
++ * The register defines are based on earlier cpcap.h in Motorola Linux kernel
++ * tree.
++ *
++ * Copyright (C) 2007-2009 Motorola, Inc.
++ *
++ * Rewritten for the real register offsets instead of enumeration
++ * to make the defines usable with Linux kernel regmap support
++ *
++ * Copyright (C) 2016 Tony Lindgren <tony@atomide.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/device.h>
++#include <linux/regmap.h>
++
++#define CPCAP_VENDOR_ST		0
++#define CPCAP_VENDOR_TI		1
++
++#define CPCAP_REVISION_MAJOR(r)	(((r) >> 4) + 1)
++#define CPCAP_REVISION_MINOR(r)	((r) & 0xf)
++
++#define CPCAP_REVISION_1_0	0x08
++#define CPCAP_REVISION_1_1	0x09
++#define CPCAP_REVISION_2_0	0x10
++#define CPCAP_REVISION_2_1	0x11
++
++/* CPCAP registers */
++#define CPCAP_REG_INT1		0x0000	/* Interrupt 1 */
++#define CPCAP_REG_INT2		0x0004	/* Interrupt 2 */
++#define CPCAP_REG_INT3		0x0008	/* Interrupt 3 */
++#define CPCAP_REG_INT4		0x000c	/* Interrupt 4 */
++#define CPCAP_REG_INTM1		0x0010	/* Interrupt Mask 1 */
++#define CPCAP_REG_INTM2		0x0014	/* Interrupt Mask 2 */
++#define CPCAP_REG_INTM3		0x0018	/* Interrupt Mask 3 */
++#define CPCAP_REG_INTM4		0x001c	/* Interrupt Mask 4 */
++#define CPCAP_REG_INTS1		0x0020	/* Interrupt Sense 1 */
++#define CPCAP_REG_INTS2		0x0024	/* Interrupt Sense 2 */
++#define CPCAP_REG_INTS3		0x0028	/* Interrupt Sense 3 */
++#define CPCAP_REG_INTS4		0x002c	/* Interrupt Sense 4 */
++#define CPCAP_REG_ASSIGN1	0x0030	/* Resource Assignment 1 */
++#define CPCAP_REG_ASSIGN2	0x0034	/* Resource Assignment 2 */
++#define CPCAP_REG_ASSIGN3	0x0038	/* Resource Assignment 3 */
++#define CPCAP_REG_ASSIGN4	0x003c	/* Resource Assignment 4 */
++#define CPCAP_REG_ASSIGN5	0x0040	/* Resource Assignment 5 */
++#define CPCAP_REG_ASSIGN6	0x0044	/* Resource Assignment 6 */
++#define CPCAP_REG_VERSC1	0x0048	/* Version Control 1 */
++#define CPCAP_REG_VERSC2	0x004c	/* Version Control 2 */
++
++#define CPCAP_REG_MI1		0x0200	/* Macro Interrupt 1 */
++#define CPCAP_REG_MIM1		0x0204	/* Macro Interrupt Mask 1 */
++#define CPCAP_REG_MI2		0x0208	/* Macro Interrupt 2 */
++#define CPCAP_REG_MIM2		0x020c	/* Macro Interrupt Mask 2 */
++#define CPCAP_REG_UCC1		0x0210	/* UC Control 1 */
++#define CPCAP_REG_UCC2		0x0214	/* UC Control 2 */
++
++#define CPCAP_REG_PC1		0x021c	/* Power Cut 1 */
++#define CPCAP_REG_PC2		0x0220	/* Power Cut 2 */
++#define CPCAP_REG_BPEOL		0x0224	/* BP and EOL */
++#define CPCAP_REG_PGC		0x0228	/* Power Gate and Control */
++#define CPCAP_REG_MT1		0x022c	/* Memory Transfer 1 */
++#define CPCAP_REG_MT2		0x0230	/* Memory Transfer 2 */
++#define CPCAP_REG_MT3		0x0234	/* Memory Transfer 3 */
++#define CPCAP_REG_PF		0x0238	/* Print Format */
++
++#define CPCAP_REG_SCC		0x0400	/* System Clock Control */
++#define CPCAP_REG_SW1		0x0404	/* Stop Watch 1 */
++#define CPCAP_REG_SW2		0x0408	/* Stop Watch 2 */
++#define CPCAP_REG_UCTM		0x040c	/* UC Turbo Mode */
++#define CPCAP_REG_TOD1		0x0410	/* Time of Day 1 */
++#define CPCAP_REG_TOD2		0x0414	/* Time of Day 2 */
++#define CPCAP_REG_TODA1		0x0418	/* Time of Day Alarm 1 */
++#define CPCAP_REG_TODA2		0x041c	/* Time of Day Alarm 2 */
++#define CPCAP_REG_DAY		0x0420	/* Day */
++#define CPCAP_REG_DAYA		0x0424	/* Day Alarm */
++#define CPCAP_REG_VAL1		0x0428	/* Validity 1 */
++#define CPCAP_REG_VAL2		0x042c	/* Validity 2 */
++
++#define CPCAP_REG_SDVSPLL	0x0600	/* Switcher DVS and PLL */
++#define CPCAP_REG_SI2CC1	0x0604	/* Switcher I2C Control 1 */
++#define CPCAP_REG_Si2CC2	0x0608	/* Switcher I2C Control 2 */
++#define CPCAP_REG_S1C1		0x060c	/* Switcher 1 Control 1 */
++#define CPCAP_REG_S1C2		0x0610	/* Switcher 1 Control 2 */
++#define CPCAP_REG_S2C1		0x0614	/* Switcher 2 Control 1 */
++#define CPCAP_REG_S2C2		0x0618	/* Switcher 2 Control 2 */
++#define CPCAP_REG_S3C		0x061c	/* Switcher 3 Control */
++#define CPCAP_REG_S4C1		0x0620	/* Switcher 4 Control 1 */
++#define CPCAP_REG_S4C2		0x0624	/* Switcher 4 Control 2 */
++#define CPCAP_REG_S5C		0x0628	/* Switcher 5 Control */
++#define CPCAP_REG_S6C		0x062c	/* Switcher 6 Control */
++#define CPCAP_REG_VCAMC		0x0630	/* VCAM Control */
++#define CPCAP_REG_VCSIC		0x0634	/* VCSI Control */
++#define CPCAP_REG_VDACC		0x0638	/* VDAC Control */
++#define CPCAP_REG_VDIGC		0x063c	/* VDIG Control */
++#define CPCAP_REG_VFUSEC	0x0640	/* VFUSE Control */
++#define CPCAP_REG_VHVIOC	0x0644	/* VHVIO Control */
++#define CPCAP_REG_VSDIOC	0x0648	/* VSDIO Control */
++#define CPCAP_REG_VPLLC		0x064c	/* VPLL Control */
++#define CPCAP_REG_VRF1C		0x0650	/* VRF1 Control */
++#define CPCAP_REG_VRF2C		0x0654	/* VRF2 Control */
++#define CPCAP_REG_VRFREFC	0x0658	/* VRFREF Control */
++#define CPCAP_REG_VWLAN1C	0x065c	/* VWLAN1 Control */
++#define CPCAP_REG_VWLAN2C	0x0660	/* VWLAN2 Control */
++#define CPCAP_REG_VSIMC		0x0664	/* VSIM Control */
++#define CPCAP_REG_VVIBC		0x0668	/* VVIB Control */
++#define CPCAP_REG_VUSBC		0x066c	/* VUSB Control */
++#define CPCAP_REG_VUSBINT1C	0x0670	/* VUSBINT1 Control */
++#define CPCAP_REG_VUSBINT2C	0x0674	/* VUSBINT2 Control */
++#define CPCAP_REG_URT		0x0678	/* Useroff Regulator Trigger */
++#define CPCAP_REG_URM1		0x067c	/* Useroff Regulator Mask 1 */
++#define CPCAP_REG_URM2		0x0680	/* Useroff Regulator Mask 2 */
++
++#define CPCAP_REG_VAUDIOC	0x0800	/* VAUDIO Control */
++#define CPCAP_REG_CC		0x0804	/* Codec Control */
++#define CPCAP_REG_CDI		0x0808	/* Codec Digital Interface */
++#define CPCAP_REG_SDAC		0x080c	/* Stereo DAC */
++#define CPCAP_REG_SDACDI	0x0810	/* Stereo DAC Digital Interface */
++#define CPCAP_REG_TXI		0x0814	/* TX Inputs */
++#define CPCAP_REG_TXMP		0x0818	/* TX MIC PGA's */
++#define CPCAP_REG_RXOA		0x081c	/* RX Output Amplifiers */
++#define CPCAP_REG_RXVC		0x0820	/* RX Volume Control */
++#define CPCAP_REG_RXCOA		0x0824	/* RX Codec to Output Amps */
++#define CPCAP_REG_RXSDOA	0x0828	/* RX Stereo DAC to Output Amps */
++#define CPCAP_REG_RXEPOA	0x082c	/* RX External PGA to Output Amps */
++#define CPCAP_REG_RXLL		0x0830	/* RX Low Latency */
++#define CPCAP_REG_A2LA		0x0834	/* A2 Loudspeaker Amplifier */
++#define CPCAP_REG_MIPIS1	0x0838	/* MIPI Slimbus 1 */
++#define CPCAP_REG_MIPIS2	0x083c	/* MIPI Slimbus 2 */
++#define CPCAP_REG_MIPIS3	0x0840	/* MIPI Slimbus 3. */
++#define CPCAP_REG_LVAB		0x0844	/* LMR Volume and A4 Balanced. */
++
++#define CPCAP_REG_CCC1		0x0a00	/* Coulomb Counter Control 1 */
++#define CPCAP_REG_CRM		0x0a04	/* Charger and Reverse Mode */
++#define CPCAP_REG_CCCC2		0x0a08	/* Coincell and Coulomb Ctr Ctrl 2 */
++#define CPCAP_REG_CCS1		0x0a0c	/* Coulomb Counter Sample 1 */
++#define CPCAP_REG_CCS2		0x0a10	/* Coulomb Counter Sample 2 */
++#define CPCAP_REG_CCA1		0x0a14	/* Coulomb Counter Accumulator 1 */
++#define CPCAP_REG_CCA2		0x0a18	/* Coulomb Counter Accumulator 2 */
++#define CPCAP_REG_CCM		0x0a1c	/* Coulomb Counter Mode */
++#define CPCAP_REG_CCO		0x0a20	/* Coulomb Counter Offset */
++#define CPCAP_REG_CCI		0x0a24	/* Coulomb Counter Integrator */
++
++#define CPCAP_REG_ADCC1		0x0c00	/* A/D Converter Configuration 1 */
++#define CPCAP_REG_ADCC2		0x0c04	/* A/D Converter Configuration 2 */
++#define CPCAP_REG_ADCD0		0x0c08	/* A/D Converter Data 0 */
++#define CPCAP_REG_ADCD1		0x0c0c	/* A/D Converter Data 1 */
++#define CPCAP_REG_ADCD2		0x0c10	/* A/D Converter Data 2 */
++#define CPCAP_REG_ADCD3		0x0c14	/* A/D Converter Data 3 */
++#define CPCAP_REG_ADCD4		0x0c18	/* A/D Converter Data 4 */
++#define CPCAP_REG_ADCD5		0x0c1c	/* A/D Converter Data 5 */
++#define CPCAP_REG_ADCD6		0x0c20	/* A/D Converter Data 6 */
++#define CPCAP_REG_ADCD7		0x0c24	/* A/D Converter Data 7 */
++#define CPCAP_REG_ADCAL1	0x0c28	/* A/D Converter Calibration 1 */
++#define CPCAP_REG_ADCAL2	0x0c2c	/* A/D Converter Calibration 2 */
++
++#define CPCAP_REG_USBC1		0x0e00	/* USB Control 1 */
++#define CPCAP_REG_USBC2		0x0e04	/* USB Control 2 */
++#define CPCAP_REG_USBC3		0x0e08	/* USB Control 3 */
++#define CPCAP_REG_UVIDL		0x0e0c	/* ULPI Vendor ID Low */
++#define CPCAP_REG_UVIDH		0x0e10	/* ULPI Vendor ID High */
++#define CPCAP_REG_UPIDL		0x0e14	/* ULPI Product ID Low */
++#define CPCAP_REG_UPIDH		0x0e18	/* ULPI Product ID High */
++#define CPCAP_REG_UFC1		0x0e1c	/* ULPI Function Control 1 */
++#define CPCAP_REG_UFC2		0x0e20	/* ULPI Function Control 2 */
++#define CPCAP_REG_UFC3		0x0e24	/* ULPI Function Control 3 */
++#define CPCAP_REG_UIC1		0x0e28	/* ULPI Interface Control 1 */
++#define CPCAP_REG_UIC2		0x0e2c	/* ULPI Interface Control 2 */
++#define CPCAP_REG_UIC3		0x0e30	/* ULPI Interface Control 3 */
++#define CPCAP_REG_USBOTG1	0x0e34	/* USB OTG Control 1 */
++#define CPCAP_REG_USBOTG2	0x0e38	/* USB OTG Control 2 */
++#define CPCAP_REG_USBOTG3	0x0e3c	/* USB OTG Control 3 */
++#define CPCAP_REG_UIER1		0x0e40	/* USB Interrupt Enable Rising 1 */
++#define CPCAP_REG_UIER2		0x0e44	/* USB Interrupt Enable Rising 2 */
++#define CPCAP_REG_UIER3		0x0e48	/* USB Interrupt Enable Rising 3 */
++#define CPCAP_REG_UIEF1		0x0e4c	/* USB Interrupt Enable Falling 1 */
++#define CPCAP_REG_UIEF2		0x0e50	/* USB Interrupt Enable Falling 1 */
++#define CPCAP_REG_UIEF3		0x0e54	/* USB Interrupt Enable Falling 1 */
++#define CPCAP_REG_UIS		0x0e58	/* USB Interrupt Status */
++#define CPCAP_REG_UIL		0x0e5c	/* USB Interrupt Latch */
++#define CPCAP_REG_USBD		0x0e60	/* USB Debug */
++#define CPCAP_REG_SCR1		0x0e64	/* Scratch 1 */
++#define CPCAP_REG_SCR2		0x0e68	/* Scratch 2 */
++#define CPCAP_REG_SCR3		0x0e6c	/* Scratch 3 */
++
++#define CPCAP_REG_VMC		0x0eac	/* Video Mux Control */
++#define CPCAP_REG_OWDC		0x0eb0	/* One Wire Device Control */
++#define CPCAP_REG_GPIO0		0x0eb4	/* GPIO 0 Control */
++
++#define CPCAP_REG_GPIO1		0x0ebc	/* GPIO 1 Control */
++
++#define CPCAP_REG_GPIO2		0x0ec4	/* GPIO 2 Control */
++
++#define CPCAP_REG_GPIO3		0x0ecc	/* GPIO 3 Control */
++
++#define CPCAP_REG_GPIO4		0x0ed4	/* GPIO 4 Control */
++
++#define CPCAP_REG_GPIO5		0x0edc	/* GPIO 5 Control */
++
++#define CPCAP_REG_GPIO6		0x0ee4	/* GPIO 6 Control */
++
++#define CPCAP_REG_MDLC		0x1000	/* Main Display Lighting Control */
++#define CPCAP_REG_KLC		0x1004	/* Keypad Lighting Control */
++#define CPCAP_REG_ADLC		0x1008	/* Aux Display Lighting Control */
++#define CPCAP_REG_REDC		0x100c	/* Red Triode Control */
++#define CPCAP_REG_GREENC	0x1010	/* Green Triode Control */
++#define CPCAP_REG_BLUEC		0x1014	/* Blue Triode Control */
++#define CPCAP_REG_CFC		0x1018	/* Camera Flash Control */
++#define CPCAP_REG_ABC		0x101c	/* Adaptive Boost Control */
++#define CPCAP_REG_BLEDC		0x1020	/* Bluetooth LED Control */
++#define CPCAP_REG_CLEDC		0x1024	/* Camera Privacy LED Control */
++
++#define CPCAP_REG_OW1C		0x1200	/* One Wire 1 Command */
++#define CPCAP_REG_OW1D		0x1204	/* One Wire 1 Data */
++#define CPCAP_REG_OW1I		0x1208	/* One Wire 1 Interrupt */
++#define CPCAP_REG_OW1IE		0x120c	/* One Wire 1 Interrupt Enable */
++
++#define CPCAP_REG_OW1		0x1214	/* One Wire 1 Control */
++
++#define CPCAP_REG_OW2C		0x1220	/* One Wire 2 Command */
++#define CPCAP_REG_OW2D		0x1224	/* One Wire 2 Data */
++#define CPCAP_REG_OW2I		0x1228	/* One Wire 2 Interrupt */
++#define CPCAP_REG_OW2IE		0x122c	/* One Wire 2 Interrupt Enable */
++
++#define CPCAP_REG_OW2		0x1234	/* One Wire 2 Control */
++
++#define CPCAP_REG_OW3C		0x1240	/* One Wire 3 Command */
++#define CPCAP_REG_OW3D		0x1244	/* One Wire 3 Data */
++#define CPCAP_REG_OW3I		0x1248	/* One Wire 3 Interrupt */
++#define CPCAP_REG_OW3IE		0x124c	/* One Wire 3 Interrupt Enable */
++
++#define CPCAP_REG_OW3		0x1254	/* One Wire 3 Control */
++#define CPCAP_REG_GCAIC		0x1258	/* GCAI Clock Control */
++#define CPCAP_REG_GCAIM		0x125c	/* GCAI GPIO Mode */
++#define CPCAP_REG_LGDIR		0x1260	/* LMR GCAI GPIO Direction */
++#define CPCAP_REG_LGPU		0x1264	/* LMR GCAI GPIO Pull-up */
++#define CPCAP_REG_LGPIN		0x1268	/* LMR GCAI GPIO Pin */
++#define CPCAP_REG_LGMASK	0x126c	/* LMR GCAI GPIO Mask */
++#define CPCAP_REG_LDEB		0x1270	/* LMR Debounce Settings */
++#define CPCAP_REG_LGDET		0x1274	/* LMR GCAI Detach Detect */
++#define CPCAP_REG_LMISC		0x1278	/* LMR Misc Bits */
++#define CPCAP_REG_LMACE		0x127c	/* LMR Mace IC Support */
++
++#define CPCAP_REG_TEST		0x7c00	/* Test */
++
++#define CPCAP_REG_ST_TEST1	0x7d08	/* ST Test1 */
++
++#define CPCAP_REG_ST_TEST2	0x7d18	/* ST Test2 */
++
++/*
++ * Helpers for child devices to check the revision and vendor.
++ *
++ * REVISIT: No documentation for the bits below, please update
++ * to use proper names for defines when available.
++ */
++
++static inline int cpcap_get_revision(struct device *dev,
++				     struct regmap *regmap,
++				     u16 *revision)
++{
++	unsigned int val;
++	int ret;
++
++	ret = regmap_read(regmap, CPCAP_REG_VERSC1, &val);
++	if (ret) {
++		dev_err(dev, "Could not read revision\n");
++
++		return ret;
++	}
++
++	*revision = ((val >> 3) & 0x7) | ((val << 3) & 0x38);
++
++	return 0;
++}
++
++static inline int cpcap_get_vendor(struct device *dev,
++				   struct regmap *regmap,
++				   u16 *vendor)
++{
++	unsigned int val;
++	int ret;
++
++	ret = regmap_read(regmap, CPCAP_REG_VERSC1, &val);
++	if (ret) {
++		dev_err(dev, "Could not read vendor\n");
++
++		return ret;
++	}
++
++	*vendor = (val >> 6) & 0x7;
++
++	return 0;
++}
++
++extern int cpcap_sense_virq(struct regmap *regmap, int virq);
+-- 
+2.43.0
+
