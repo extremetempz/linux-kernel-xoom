@@ -1,0 +1,57 @@
+From fa97178354faf7af5c1dab1f156be7dad1ba62fd Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 18 Oct 2026 22:00:04 +1100
+Subject: [PATCH] ARM: tegra: branch over Wingray trace entry literal pool
+
+---
+ arch/arm/boot/compressed/head.S          | 15 +++++++++++++++
+ arch/arm/configs/wingray_trace_defconfig |  2 +-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/compressed/head.S b/arch/arm/boot/compressed/head.S
+index 2270326f..4b8481d1 100644
+--- a/arch/arm/boot/compressed/head.S
++++ b/arch/arm/boot/compressed/head.S
+@@ -184,7 +184,18 @@ not_angel:
+ 		 * by the linker here, but it should preserve r7, r8, and r9.
+ 		 */
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		/* GAS keeps literal pools per input section. Flush .start's
++		 * trace constants behind a branch before falling into .text.
++		 */
++		b	wingray_trace_text_start
++		.ltorg
++#endif
+ 		.text
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		.global wingray_trace_text_start
++wingray_trace_text_start:
++#endif
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
+ 		ldr ip, =(WINGRAY_TRACE_BASE + WINGRAY_TRACE_SCTLR)
+ 		mrc p15, 0, r3, c1, c0, 0
+@@ -197,6 +208,10 @@ not_angel:
+ 		dsb sy
+ #endif
+ 		wingray_trace_store WINGRAY_TRACE_MODE, 1
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		.global wingray_trace_mode_end
++wingray_trace_mode_end:
++#endif
+ 
+ #if defined(CONFIG_MACH_MOTOROLA_WINGRAY)
+ 		/* Xoom's Android boot header loads zImage at 0x10008000,
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index e4f67653..9f033e77 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0001
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0002
+-- 
+2.43.0
+
