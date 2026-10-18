@@ -43,12 +43,23 @@ assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
 emmc = nodes['/sdhci@c8000600']
 assert emmc['status'] == b'okay\0' and 'motorola,xoom-bigpart' in emmc
 assert struct.unpack('>I', emmc['bus-width'])[0] == 8
-assert nodes['/host1x@50000000']['status'] == b'disabled\0'
+assert nodes['/host1x@50000000']['status'] == b'okay\0'
 assert nodes['/usb@c5000000']['compatible'] == b'nvidia,tegra20-udc\0'
 assert nodes['/usb-phy@c5000000']['dr_mode'] == b'peripheral\0'
+# Board-specific peripheral wiring must survive DT compilation.
+assert nodes['/panel']['compatible'] == b'motorola,wingray-auo-panel\0'
+assert nodes['/i2c@7000c000/backlight@2c']['compatible'] == b'ti,lp8550\0'
+touch = nodes['/i2c@7000c000/touchscreen@5b']
+assert touch['compatible'].split(b'\0')[0] == b'motorola,wingray-maxtouch'
+assert struct.unpack('>II', touch['interrupts']) == (170, 8), 'P3 touch IRQ must be PV2, level-low'
+assert nodes['/sdhci@c8000200']['status'] == b'okay\0'
+assert nodes['/sdhci@c8000200/wifi@1']['compatible'] == b'brcm,bcm4329-fmac\0'
+assert struct.unpack('>I', nodes['/sdhci@c8000200']['nvidia,tap-delay'])[0] == 6
 config = (artifacts / 'kernel.config').read_text().splitlines()
 for option in ['MACH_MOTOROLA_WINGRAY', 'MOTOROLA_XOOM_BIGPART', 'MMC_SDHCI_TEGRA',
-               'ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'USB_CHIPIDEA_UDC', 'USB_G_SERIAL', 'PSTORE_RAM']:
+               'ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'USB_CHIPIDEA_UDC', 'USB_G_SERIAL', 'PSTORE_RAM', 'MFD_CPCAP', 'REGULATOR_CPCAP', 'REGULATOR_MAX8649',
+               'DRM_TEGRA', 'DRM_PANEL_SIMPLE', 'TOUCHSCREEN_ATMEL_MXT', 'BACKLIGHT_LP855X', 'BRCMFMAC',
+               'BRCMFMAC_SDIO', 'POWER_RESET_WINGRAY', 'DMA_CMA']:
     assert f'CONFIG_{option}=y' in config, option
 for option in ['NEON', 'CPU_FREQ', 'CPU_IDLE', 'SUSPEND', 'BIGSYS', 'MACH_SAMSUNG_P4WIFI', 'TEGRA_DOWNSTREAM']:
     assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
