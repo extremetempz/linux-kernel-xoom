@@ -1,0 +1,723 @@
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index 97d1b371..7684f08f 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -794,3 +794,6 @@ targets += $(DTB_LIST)
+ 
+ always		:= $(DTB_LIST)
+ clean-files	:= *.dtb
++
++# Motorola Xoom Wi-Fi, separate from the Samsung donor board.
++dtb-$(CONFIG_MACH_MOTOROLA_WINGRAY) += tegra20-motorola-wingray.dtb
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray.dts b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+new file mode 100644
+index 00000000..9873dcb9
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+@@ -0,0 +1,149 @@
++/*
++ * Motorola Xoom Wi-Fi (MZ604 / Wingray) initial board description.
++ * Wiring derived from Motorola/Google's GPLv2 board-stingray sources.
++ * This file is licensed under the GNU General Public License version 2.
++ */
++/dts-v1/;
++
++#include <dt-bindings/input/input.h>
++#include "tegra20.dtsi"
++
++/ {
++	model = "Motorola Xoom Wi-Fi (MZ604)";
++	compatible = "motorola,wingray", "nvidia,tegra20";
++
++	aliases {
++		serial0 = &uartb;
++		mmc0 = "/sdhci@c8000600";
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	clk32k_in: clock-32k {
++		compatible = "fixed-clock";
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++	};
++
++	memory {
++		device_type = "memory";
++		reg = <0x00000000 0x40000000>;
++	};
++
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++
++		safety@0 {
++			reg = <0x0 0x1000>;
++			no-map;
++		};
++
++		/* Legacy stingray_reserve removes the last 2 MiB below 512 MiB. */
++		legacy-console@1fe00000 {
++			reg = <0x1fe00000 0x00200000>;
++			no-map;
++		};
++
++		/* Preserve legacy framebuffer/carveout memory during bring-up. */
++		legacy-video@2e800000 {
++			reg = <0x2e800000 0x11800000>;
++			no-map;
++		};
++	};
++
++	ramoops@1ff00000 {
++		compatible = "ramoops";
++		reg = <0x1ff00000 0x00100000>;
++		record-size = <0x20000>;
++		console-size = <0x80000>;
++		pmsg-size = <0x20000>;
++	};
++
++	/* CPCAP and MAX8649 are deliberately left in the firmware state.
++	 * No Samsung TPS6586x, WM8994 or CMC623 devices belong on this board.
++	 * CPU frequency scaling and suspend are disabled in the bring-up config.
++	 */
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		volume-up {
++			label = "Volume Up";
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_LOW>;
++		};
++
++		volume-down {
++			label = "Volume Down";
++			linux,code = <KEY_VOLUMEDOWN>;
++			gpios = <&gpio TEGRA_GPIO(R, 1) GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	gpio@6000d000 {
++		/* Shared column for the two volume switches. */
++		keypad-column {
++			gpio-hog;
++			gpios = <TEGRA_GPIO(Q, 0) GPIO_ACTIVE_HIGH>;
++			output-low;
++			line-name = "wingray-keypad-column";
++		};
++
++		usb-data-enable {
++			gpio-hog;
++			gpios = <TEGRA_GPIO(V, 4) GPIO_ACTIVE_HIGH>;
++			output-high;
++			line-name = "wingray-usb-data-enable";
++		};
++
++		usb-forceon-n {
++			gpio-hog;
++			gpios = <TEGRA_GPIO(C, 5) GPIO_ACTIVE_HIGH>;
++			output-high;
++			line-name = "wingray-usb-forceon-n";
++		};
++	};
++
++	usb@c5000000 {
++		compatible = "nvidia,tegra20-udc";
++		status = "okay";
++		dr_mode = "peripheral";
++	};
++
++	usb-phy@c5000000 {
++		status = "okay";
++		dr_mode = "peripheral";
++		nvidia,hssync-start-delay = <9>;
++		nvidia,idle-wait-delay = <17>;
++		nvidia,elastic-limit = <16>;
++		nvidia,term-range-adj = <6>;
++		nvidia,xcvr-setup = <15>;
++		nvidia,xcvr-lsfslew = <1>;
++		nvidia,xcvr-lsrslew = <1>;
++	};
++
++	/* First image uses RAM initramfs and eMMC only. External SD and Wi-Fi
++	 * stay disabled until power sequencing and SDMMC tap delays are ported.
++	 */
++	sdhci@c8000600 {
++		status = "okay";
++		bus-width = <8>;
++		non-removable;
++		max-frequency = <25000000>;
++		motorola,xoom-bigpart;
++	};
++
++	/* Do not probe downstream video engines without Xoom power support. */
++	host1x@50000000 {
++		status = "disabled";
++	};
++};
++
++&uartb {
++	status = "okay";
++	clock-frequency = <26000000>;
++};
+diff --git a/arch/arm/configs/wingray_bringup_defconfig b/arch/arm/configs/wingray_bringup_defconfig
+new file mode 100644
+index 00000000..0d5514a1
+--- /dev/null
++++ b/arch/arm/configs/wingray_bringup_defconfig
+@@ -0,0 +1,71 @@
++CONFIG_LOCALVERSION="-wingray-bringup"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_NR_CPUS=2
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++# CONFIG_SUSPEND is not set
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray"
++CONFIG_CMDLINE="console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x70006040 ignore_loglevel clk_ignore_unused regulator_ignore_unused ro"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_EXT4_FS=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_KEYBOARD_GPIO=y
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_LL=y
++CONFIG_TEGRA_DEBUG_UARTB=y
++CONFIG_EARLY_PRINTK=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_PMSG=y
++CONFIG_PSTORE_RAM=y
++# CONFIG_TEGRA_DOWNSTREAM is not set
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index 2b5438a8..c193264a 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -63,6 +63,13 @@ config ARCH_TEGRA_124_SOC
+ 	  Support for NVIDIA Tegra T124 processor family, based on the
+ 	  ARM CortexA15MP CPU
+ 
++config MACH_MOTOROLA_WINGRAY
++	bool "Motorola Xoom Wi-Fi (MZ604) bring-up"
++	depends on ARCH_TEGRA_2x_SOC
++	help
++	  Experimental device-tree support for the Wi-Fi Xoom. Power,
++	  display and suspend support still require hardware validation.
++
+ config MACH_SAMSUNG_VARIATION_TEGRA
+        bool "Samsung variations based on Tegra 2"
+        help
+diff --git a/arch/arm/mach-tegra/Makefile b/arch/arm/mach-tegra/Makefile
+index 15384c7d..5a915183 100644
+--- a/arch/arm/mach-tegra/Makefile
++++ b/arch/arm/mach-tegra/Makefile
+@@ -36,5 +36,7 @@ endif
+ 
+ obj-$(CONFIG_ARCH_TEGRA_2x_SOC)		+= board-paz00.o
+ 
+-obj-$(CONFIG_ARCH_TEGRA_2x_SOC)		+= board-p4wifi.o
+-obj-$(CONFIG_ARCH_TEGRA_2x_SOC)		+= board-p4-gpio.o
++obj-$(CONFIG_MACH_SAMSUNG_P4WIFI)		+= board-p4wifi.o
++obj-$(CONFIG_MACH_SAMSUNG_P4WIFI)		+= board-p4-gpio.o
++
++obj-$(CONFIG_MACH_MOTOROLA_WINGRAY) += board-wingray.o
+diff --git a/arch/arm/mach-tegra/board-wingray.c b/arch/arm/mach-tegra/board-wingray.c
+new file mode 100644
+index 00000000..86896d96
+--- /dev/null
++++ b/arch/arm/mach-tegra/board-wingray.c
+@@ -0,0 +1,51 @@
++/* Motorola Xoom early memory preservation. GNU GPL version 2. */
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/memblock.h>
++#include <linux/of_fdt.h>
++
++static phys_addr_t wingray_fb_start, wingray_fb_size;
++static phys_addr_t wingray_lp0_start, wingray_lp0_size;
++
++static int __init wingray_parse_region(char *arg, phys_addr_t *start,
++				      phys_addr_t *size)
++{
++	char *p = arg;
++	u64 length = memparse(p, &p), address;
++
++	if (!of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray"))
++		return 0;
++	if (*p != '@')
++		return -EINVAL;
++	address = memparse(p + 1, &p);
++	if (*p || !length || address >= 0x40000000ULL ||
++	    length > 0x40000000ULL - address)
++		return -EINVAL;
++	*start = address;
++	*size = length;
++	return 0;
++}
++
++static int __init wingray_fb_arg(char *arg)
++{
++	return wingray_parse_region(arg, &wingray_fb_start, &wingray_fb_size);
++}
++early_param("tegra_fbmem", wingray_fb_arg);
++
++static int __init wingray_lp0_arg(char *arg)
++{
++	return wingray_parse_region(arg, &wingray_lp0_start, &wingray_lp0_size);
++}
++early_param("lp0_vec", wingray_lp0_arg);
++
++void __init wingray_reserve(void)
++{
++	if (!of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray"))
++		return;
++	if (wingray_fb_size &&
++	    memblock_reserve(wingray_fb_start, wingray_fb_size))
++		panic("Wingray: cannot preserve bootloader framebuffer");
++	if (wingray_lp0_size &&
++	    memblock_reserve(wingray_lp0_start, wingray_lp0_size))
++		panic("Wingray: cannot preserve bootloader LP0 vector");
++}
+diff --git a/arch/arm/mach-tegra/tegra.c b/arch/arm/mach-tegra/tegra.c
+index f3b9ceae..b222a483 100644
+--- a/arch/arm/mach-tegra/tegra.c
++++ b/arch/arm/mach-tegra/tegra.c
+@@ -145,9 +145,10 @@ static void __init tegra_dt_init_late(void)
+ 		}
+ 	}
+ 
+-	if (IS_ENABLED(CONFIG_ARCH_TEGRA_2x_SOC) &&
+-	    of_machine_is_compatible("nvidia,samsung_p3"))
++	#ifdef CONFIG_MACH_SAMSUNG_P4WIFI
++	if (of_machine_is_compatible("nvidia,samsung_p3"))
+ 		p4wifi_machine_init();
++#endif
+ }
+ 
+ static const char * const tegra_dt_board_compat[] = {
+@@ -158,11 +159,18 @@ static const char * const tegra_dt_board_compat[] = {
+ 	NULL
+ };
+ 
+-DT_MACHINE_START(TEGRA_DT, "p3")
++#ifdef CONFIG_MACH_MOTOROLA_WINGRAY
++void __init wingray_reserve(void);
++#endif
++
++DT_MACHINE_START(TEGRA_DT, "NVIDIA Tegra (Flattened Device Tree)")
+ 	.l2c_aux_val	= 0x3c400001,
+ 	.l2c_aux_mask	= 0xc20fc3fe,
+ 	.smp		= smp_ops(tegra_smp_ops),
+ 	.map_io		= tegra_map_common_io,
++#ifdef CONFIG_MACH_MOTOROLA_WINGRAY
++	.reserve	= wingray_reserve,
++#endif
+ 	.init_early	= tegra_init_early,
+ 	.init_irq	= tegra_dt_init_irq,
+ 	.init_machine	= tegra_dt_init,
+diff --git a/block/partitions/Kconfig b/block/partitions/Kconfig
+index 4dc17c55..ae245e90 100644
+--- a/block/partitions/Kconfig
++++ b/block/partitions/Kconfig
+@@ -275,3 +275,11 @@ config BIGSYS
+ 	  Say Y here if you would like to repartition the Samsung
+ 	  Galaxy Tab 10.1. The system and cache partition are combined
+ 	  into one large system partition.
++
++config MOTOROLA_XOOM_BIGPART
++	bool "Motorola Xoom Wi-Fi BigPart GPT view"
++	depends on EFI_PARTITION && MACH_MOTOROLA_WINGRAY && !BIGSYS
++	help
++	  Preserve the legacy BigPart in-memory sector remapping on MZ604.
++	  Requires motorola,xoom-bigpart on the eMMC controller in DT.
++	  Never use with stock-formatted filesystems. Does not write the GPT.
+diff --git a/block/partitions/efi.c b/block/partitions/efi.c
+index 92e7496e..1dc8a79f 100644
+--- a/block/partitions/efi.c
++++ b/block/partitions/efi.c
+@@ -670,6 +670,10 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
+         return 0;
+ }
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BIGPART
++#include "xoom-bigpart-gpt.h"
++#endif
++
+ #ifdef CONFIG_BIGSYS
+ #define SYSTEM_LABEL    "AP"
+ #define CACHE_LABEL     "CC"
+@@ -775,6 +779,10 @@ int efi_partition(struct parsed_partitions *state)
+ {
+ 	gpt_header *gpt = NULL;
+ 	gpt_entry *ptes = NULL;
++#ifdef CONFIG_MOTOROLA_XOOM_BIGPART
++	int bigpart, xoom_slots[3];
++	struct xoom_bigpart_extent xoom_parts[3];
++#endif
+ 	u32 i;
+ 	unsigned ssz = bdev_logical_block_size(state->bdev) / 512;
+ #ifdef CONFIG_BIGSYS
+@@ -800,6 +808,16 @@ int efi_partition(struct parsed_partitions *state)
+ 
+ 	pr_debug("GUID Partition Table is valid!  Yea!\n");
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BIGPART
++	bigpart = xoom_bigpart_prepare(state, gpt, ptes, xoom_slots, xoom_parts);
++	if (bigpart < 0) {
++		pr_err("Xoom: refusing unrecognised BigPart geometry\n");
++		kfree(gpt);
++		kfree(ptes);
++		return bigpart;
++	}
++#endif
++
+ #ifdef CONFIG_BIGSYS
+ 	// Prepare for BigSys
+ 	pr_info("GUID Partition Table entries: %d\n",
+@@ -886,6 +904,20 @@ int efi_partition(struct parsed_partitions *state)
+ 		}
+ #endif /* CONFIG_BIGSYS */
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BIGPART
++		if (bigpart > 0) {
++			unsigned int j;
++
++			for (j = 0; j < 3; j++) {
++				if (i != xoom_slots[j])
++					continue;
++				start = xoom_parts[j].start;
++				size = xoom_parts[j].size;
++				break;
++			}
++		}
++#endif
++
+ 		put_partition(state, i+1, start * ssz, size * ssz);
+ 
+ 		/* If this is a RAID volume, tell md */
+diff --git a/block/partitions/xoom-bigpart-gpt.h b/block/partitions/xoom-bigpart-gpt.h
+new file mode 100644
+index 00000000..b139bca4
+--- /dev/null
++++ b/block/partitions/xoom-bigpart-gpt.h
+@@ -0,0 +1,84 @@
++#ifndef _XOOM_BIGPART_GPT_H
++#define _XOOM_BIGPART_GPT_H
++/*
++ * Motorola Xoom Wi-Fi BigPart GPT view. GPL version 2.
++ * Based on Schischu's 2013 BigPart sector remapping, with board, controller,
++ * geometry and overlap checks. This never writes a partition table.
++ */
++#include <linux/device.h>
++#include <linux/of.h>
++#include <linux/string.h>
++
++#include "xoom-bigpart.h"
++
++/* Included by efi.c so we can use its validated GPT types and helpers. */
++static bool xoom_bigpart_enabled(struct parsed_partitions *state)
++{
++	struct device *dev;
++
++	if (!of_machine_is_compatible("motorola,wingray"))
++		return false;
++	for (dev = disk_to_dev(state->bdev->bd_disk); dev; dev = dev->parent)
++		if (dev->of_node &&
++		    of_property_read_bool(dev->of_node, "motorola,xoom-bigpart"))
++			return true;
++	return false;
++}
++
++static int xoom_bigpart_prepare(struct parsed_partitions *state,
++			       gpt_header *gpt, gpt_entry *ptes,
++			       int slots[3], struct xoom_bigpart_extent p[3])
++{
++	u32 i, j, count = le32_to_cpu(gpt->num_partition_entries);
++	u64 last = le64_to_cpu(gpt->last_usable_lba);
++	const u64 starts[3] = {
++		XOOM_SYSTEM_START, XOOM_CACHE_START, XOOM_DATA_START
++	};
++
++	if (!xoom_bigpart_enabled(state))
++		return 0;
++	if (bdev_logical_block_size(state->bdev) != 512)
++		return -EINVAL;
++	for (j = 0; j < 3; j++)
++		slots[j] = -1;
++	for (i = 0; i < count; i++) {
++		u64 start = le64_to_cpu(ptes[i].starting_lba);
++		u64 end = le64_to_cpu(ptes[i].ending_lba);
++
++		if (!is_pte_valid(&ptes[i], last_lba(state->bdev)))
++			continue;
++		if (end < start || end > last)
++			return -EINVAL;
++		for (j = 0; j < 3; j++) {
++			if (start != starts[j])
++				continue;
++			if (slots[j] >= 0 || end < start || i >= state->limit - 1)
++				return -EINVAL;
++			slots[j] = i;
++			p[j].start = start;
++			p[j].size = end - start + 1;
++		}
++	}
++	for (j = 0; j < 3; j++)
++		if (slots[j] < 0)
++			return -EINVAL;
++	if (xoom_bigpart_layout(p, last))
++		return -EINVAL;
++
++	/* Refuse layouts where expansion would cover another valid entry. */
++	for (i = 0; i < count; i++) {
++		u64 start = le64_to_cpu(ptes[i].starting_lba);
++		u64 end = le64_to_cpu(ptes[i].ending_lba);
++
++		if (i == slots[0] || i == slots[1] || i == slots[2] ||
++		    !is_pte_valid(&ptes[i], last_lba(state->bdev)))
++			continue;
++		for (j = 0; j < 3; j++)
++			if (start < p[j].start + p[j].size && end >= p[j].start)
++				return -EINVAL;
++	}
++	pr_info("Xoom: using Wingray BigPart GPT view (system 1 GiB, cache 512 MiB)\n");
++	return 1;
++}
++
++#endif
+diff --git a/block/partitions/xoom-bigpart.h b/block/partitions/xoom-bigpart.h
+new file mode 100644
+index 00000000..6ea31ad1
+--- /dev/null
++++ b/block/partitions/xoom-bigpart.h
+@@ -0,0 +1,43 @@
++/* Motorola Xoom BigPart geometry, in 512-byte sectors. GPL-2.0 */
++#ifndef _XOOM_BIGPART_H
++#define _XOOM_BIGPART_H
++
++struct xoom_bigpart_extent {
++	u64 start;
++	u64 size;
++};
++
++#define XOOM_SYSTEM_START 0x1d000ULL
++#define XOOM_CACHE_START  0x9d000ULL
++#define XOOM_DATA_START   0xf1800ULL
++#define XOOM_SYSTEM_OLD   0x80000ULL
++#define XOOM_CACHE_OLD    0x54800ULL
++#define XOOM_SYSTEM_NEW  0x200000ULL
++#define XOOM_CACHE_NEW   0x100000ULL
++#define XOOM_DATA_SHIFT  ((XOOM_SYSTEM_NEW - XOOM_SYSTEM_OLD) + \
++			 (XOOM_CACHE_NEW - XOOM_CACHE_OLD))
++
++/* Check the whole legacy triplet before changing any entry. Return zero
++ * only for the original Wingray geometry. An already-remapped table must
++ * never be shifted a second time. Callers also validate other GPT entries.
++ */
++static inline int xoom_bigpart_layout(struct xoom_bigpart_extent p[3],
++				      u64 last_usable)
++{
++	if (p[0].start != XOOM_SYSTEM_START || p[0].size != XOOM_SYSTEM_OLD ||
++	    p[1].start != XOOM_CACHE_START || p[1].size != XOOM_CACHE_OLD ||
++	    p[2].start != XOOM_DATA_START || p[2].size <= XOOM_DATA_SHIFT)
++		return -1;
++	if (p[2].start > last_usable ||
++	    p[2].size - 1 > last_usable - p[2].start)
++		return -1;
++
++	p[0].size = XOOM_SYSTEM_NEW;
++	p[1].start += XOOM_SYSTEM_NEW - XOOM_SYSTEM_OLD;
++	p[1].size = XOOM_CACHE_NEW;
++	p[2].start += XOOM_DATA_SHIFT;
++	p[2].size -= XOOM_DATA_SHIFT;
++	return 0;
++}
++
++#endif
+diff --git a/drivers/gpio/gpio-tegra.c b/drivers/gpio/gpio-tegra.c
+index e5c93ad7..0ddfcc90 100644
+--- a/drivers/gpio/gpio-tegra.c
++++ b/drivers/gpio/gpio-tegra.c
+@@ -31,8 +31,10 @@
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/pm.h>
+ 
++#ifdef CONFIG_MACH_SAMSUNG_P4WIFI
+ #include "../../arch/arm/mach-tegra/gpio-sec.h"
+ struct sec_gpio_table_st sec_gpio_table;
++#endif
+ 
+ #define GPIO_BANK(x)		((x) >> 5)
+ #define GPIO_PORT(x)		(((x) >> 3) & 0x3)
+@@ -307,6 +309,7 @@ static void tegra_gpio_irq_handler(struct irq_desc *desc)
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
++#ifdef CONFIG_MACH_SAMSUNG_P4WIFI
+ void tegra_set_sleep_gpio_table(void)
+ {
+ 	int cnt;
+@@ -376,6 +379,8 @@ void tegra_set_gpio_init_table(void)
+ 	}
+ }
+ 
++#endif /* CONFIG_MACH_SAMSUNG_P4WIFI */
++
+ static int tegra_gpio_resume(struct device *dev)
+ {
+ 	unsigned long flags;
+@@ -425,7 +430,9 @@ static int tegra_gpio_suspend(struct device *dev)
+ 		}
+ 	}
+ 	local_irq_restore(flags);
++#ifdef CONFIG_MACH_SAMSUNG_P4WIFI
+ 	tegra_set_sleep_gpio_table();
++#endif
+ 	return 0;
+ }
+ 
+@@ -648,7 +655,9 @@ static int tegra_gpio_probe(struct platform_device *pdev)
+ 
+ 	tegra_gpio_debuginit();
+ 
++#if defined(CONFIG_MACH_SAMSUNG_P4WIFI) && defined(CONFIG_PM_SLEEP)
+ 	tegra_set_gpio_init_table();
++#endif
+ 
+ 	return 0;
+ }
+@@ -664,7 +673,9 @@ static struct platform_driver tegra_gpio_driver = {
+ 
+ static int __init tegra_gpio_init(void)
+ {
++#ifdef CONFIG_MACH_SAMSUNG_P4WIFI
+ 	tegra_gpio_register_table(&sec_gpio_table);
++#endif
+ 	return platform_driver_register(&tegra_gpio_driver);
+ }
+ postcore_initcall(tegra_gpio_init);
+diff --git a/drivers/of/platform.c b/drivers/of/platform.c
+index 478531be..b334ea59 100644
+--- a/drivers/of/platform.c
++++ b/drivers/of/platform.c
+@@ -23,7 +23,9 @@
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+ 
++#ifdef CONFIG_TEGRA_GRHOST
+ #include <../drivers/staging/tegra/include/linux/nvhost.h>
++#endif
+ 
+ const struct of_device_id of_default_bus_match_table[] = {
+ 	{ .compatible = "simple-bus", },
+@@ -319,6 +321,7 @@ static const struct of_dev_auxdata *of_dev_lookup(const struct of_dev_auxdata *l
+ /**
+  * Assume that all child devices belongs to nvhost
+  */
++#ifdef CONFIG_TEGRA_GRHOST
+ static int of_nvhost_bus_create(struct device_node *node,
+ 				const struct of_dev_auxdata *lookup)
+ {
+@@ -352,6 +355,8 @@ static int of_nvhost_bus_create(struct device_node *node,
+ 	return rc;
+ }
+ 
++#endif /* CONFIG_TEGRA_GRHOST */
++
+ /**
+  * of_platform_bus_create() - Create a device for a node and its children.
+  * @bus: device node of the bus to instantiate
+@@ -397,6 +402,7 @@ static int of_platform_bus_create(struct device_node *bus,
+ 		return 0;
+ 	}
+ 
++#ifdef CONFIG_TEGRA_GRHOST
+ 	if (of_device_is_compatible(bus, "nvhost-bus")) {
+ 		rc = of_nvhost_bus_create(bus, tegra20_auxdata_lookup);
+ 		// Some devices can be disabled which will return -ENODEV
+@@ -404,6 +410,7 @@ static int of_platform_bus_create(struct device_node *bus,
+ 			of_node_set_flag(bus, OF_POPULATED_BUS);
+ 		return 0;
+ 	}
++#endif
+ 
+ 	dev = of_platform_device_create_pdata(bus, bus_id, platform_data, parent);
+ 	if (!dev || !of_match_node(matches, bus))
+diff --git a/scripts/dtc/dtc-lexer.l b/scripts/dtc/dtc-lexer.l
+index c6006030..bc40a01f 100644
+--- a/scripts/dtc/dtc-lexer.l
++++ b/scripts/dtc/dtc-lexer.l
+@@ -38,7 +38,7 @@ LINECOMMENT	"//".*\n
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ extern bool treesource_error;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
+diff --git a/scripts/dtc/dtc-lexer.lex.c_shipped b/scripts/dtc/dtc-lexer.lex.c_shipped
+index 2c862bc8..4f91c16c 100644
+--- a/scripts/dtc/dtc-lexer.lex.c_shipped
++++ b/scripts/dtc/dtc-lexer.lex.c_shipped
+@@ -631,7 +631,7 @@ char *yytext;
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ extern bool treesource_error;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
