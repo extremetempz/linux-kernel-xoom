@@ -16,7 +16,7 @@ bash scripts/test-bigpart.sh
 bash scripts/build-wingray.sh
 ```
 
-The new target is `wingray_bringup_defconfig` with `tegra20-motorola-wingray.dts`. It separates Samsung-only initialization, enables eMMC, GPIO keys, UART, USB gadget serial and persistent logging, preserves boot memory, and scopes BigPart remapping to the Xoom eMMC controller. Display, touch, Wi-Fi, audio, CPCAP/MAX8649 power management and suspend remain unfinished. Do not move on to a ROM until kernel bring-up is validated.
+The new target is `wingray_bringup_defconfig` with `tegra20-motorola-wingray.dts`. It separates Samsung-only initialization, enables eMMC, GPIO keys, UART, USB gadget serial and persistent logging, preserves boot memory, and scopes BigPart remapping to the Xoom eMMC controller. A second patch adds P3/AUO display, touch, BCM4329 wiring, CPCAP/MAX8649 rails and restart support. These drivers are not yet boot tested; suspend, charging and other peripherals remain unfinished. See [hardware validation](docs/hardware-validation.md). Do not move on to a ROM until kernel bring-up is validated.
 
 GitHub destination: `extremetempz/linux-kernel-xoom`. Repository visibility was changed to private on 18 October 2026.
 
