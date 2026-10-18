@@ -1,5 +1,10 @@
 # Trace retrieval: reviewed mapping method
 
+**Subsequent status:** the user approved one hardware preflight, which succeeded
+on 18 October 2026. See [the preflight results](trace-retrieval-preflight.md).
+The proposal below records the review before that test. Reset retention and
+retrieval after a 4.4 boot remain untested.
+
 ## Decision
 
 Use a bounded **read-only userspace `mmap2()` snapshot** for the next proposed
