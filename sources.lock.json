@@ -1,0 +1,30 @@
+[
+  {
+    "name": "baseline",
+    "url": "https://github.com/Schischu/android_kernel_moto_wingray.git",
+    "ref": "jb-mr2",
+    "commit": "6b3d70fff905b7395fd15992c3779b27d1b6c101",
+    "path": "sources/kernel-baseline"
+  },
+  {
+    "name": "wingray",
+    "url": "https://github.com/Schischu/android_device_moto_wingray.git",
+    "ref": "marshmallow-release",
+    "commit": "057937ecd971591397b6a38030b8f8a9ae138da0",
+    "path": "sources/device-wingray"
+  },
+  {
+    "name": "donor",
+    "url": "https://github.com/Decatf/linux.git",
+    "ref": "android-4.4-p4wifi",
+    "commit": "bbcece6d21c83b6280061a91d27566aff1951c94",
+    "path": "sources/kernel-donor"
+  },
+  {
+    "name": "manifest",
+    "url": "https://github.com/Decatf/manifest.git",
+    "ref": "aosp-8.1",
+    "commit": "86da0eca29258e6fa7e891cb887069cb577f9bba",
+    "path": "sources/oreo-manifest"
+  }
+]
