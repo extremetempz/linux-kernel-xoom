@@ -53,3 +53,38 @@ flash the candidate, mount Android storage writable, or change BigPart. Confirm
 boot logs, CPCAP identity, rail state, display/backlight, touch input and SDIO
 probe before enabling suspend or attempting a ROM. Cross-compilation alone is
 not evidence of working hardware.
+
+## Physical boot attempt, 2026-10-18
+
+Bootloader 1050 identifies `xoom-wifi` and reports `unlocked: yes`. It accepts
+image downloads but rejects `fastboot boot` with remote error 0x8. The user
+confirmed the on-screen message: “Boot command is not allowed on consumer
+devices.” No kernel execution occurred through the RAM boot command. A matching
+historical report is at https://groups.google.com/g/android-kernel/c/tawg8KHJSQA .
+
+The user subsequently authorized writing a diagnostic image to boot and restoring
+the original afterward. The diagnostic image uses the measured v0 image layout,
+a BusyBox-based initramfs with dependency closure copied from the tablet, and
+no Android partition mounts. Its SHA256 is
+`c7245a700685f175b390a883316c127a911611a136ee4755746211ed3f4df493`.
+
+Fastboot reported successful boot-partition writing and reboot. The screen stayed
+at the Motorola logo, and no diagnostic USB ACM gadget appeared within 45 seconds.
+This is a failed bring-up test: there is no evidence yet of how far the kernel
+executed. Display, touch, Wi-Fi and power drivers remain unvalidated. Do not infer
+a specific failing driver from the boot logo. Restoration is the immediate next
+step; record its verification separately.
+
+The diagnostic image and its proprietary runtime remain local under ignored
+`artifacts/`. Only the construction scripts belong in GitHub. `0003` enables
+kernel debugfs for diagnostics; it does not fix the boot failure.
+
+### Restoration verified
+
+Fastboot successfully wrote the complete original boot backup and rebooted.
+ADB confirmed Android 4.4.4, kernel `2.6.39.4-ElementalX-Xoom-2.1+` and
+`sys.boot_completed=1`. A fresh read of the entire 8 MiB boot partition matched
+the original backup byte for byte. Recovery and partition layout were not
+written during the test. The retained `/proc/last_kmsg` contains Linux 2.6.39
+output, not a diagnostic Linux 4.4 log. The test therefore does not locate the
+new kernel's failure. No further flashing is scheduled in this session.
