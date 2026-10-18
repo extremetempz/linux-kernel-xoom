@@ -1,0 +1,127 @@
+From 881f6d98057d2c50e4f7368f1769215fb6ec2c26 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 18 Oct 2026 21:04:08 +1100
+Subject: [PATCH] Add isolated Wingray early-boot profile without peripheral
+ probes
+
+---
+ .../dts/tegra20-motorola-wingray-early.dts    | 17 ++++++
+ .../arm/boot/dts/tegra20-motorola-wingray.dts |  2 +
+ arch/arm/configs/wingray_early_defconfig      | 54 +++++++++++++++++++
+ arch/arm/configs/wingray_early_uart.fragment  |  7 +++
+ 4 files changed, 80 insertions(+)
+ create mode 100644 arch/arm/boot/dts/tegra20-motorola-wingray-early.dts
+ create mode 100644 arch/arm/configs/wingray_early_defconfig
+ create mode 100644 arch/arm/configs/wingray_early_uart.fragment
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-early.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-early.dts
+new file mode 100644
+index 00000000..838f4e48
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-early.dts
+@@ -0,0 +1,17 @@
++/* Boot-path isolation only: preserve firmware state, probe no peripherals.
++ * GNU GPL version 2. This is not a hardware-validated board configuration.
++ */
++#define WINGRAY_EARLY_BOOT
++#include "tegra20-motorola-wingray.dts"
++/ {
++	model = "Motorola Xoom Wi-Fi early boot isolation";
++	/delete-node/ gpio-keys;
++	gpio@6000d000 {
++		/delete-node/ keypad-column;
++		/delete-node/ usb-data-enable;
++		/delete-node/ usb-forceon-n;
++	};
++	usb@c5000000 { status = "disabled"; };
++	usb-phy@c5000000 { status = "disabled"; };
++	sdhci@c8000600 { status = "disabled"; };
++};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray.dts b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+index edfb5996..58ec956f 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+@@ -148,5 +148,7 @@
+ 	clock-frequency = <26000000>;
+ };
+ 
++#ifndef WINGRAY_EARLY_BOOT
+ #include "tegra20-motorola-wingray-pinmux.dtsi"
+ #include "tegra20-motorola-wingray-peripherals.dtsi"
++#endif
+diff --git a/arch/arm/configs/wingray_early_defconfig b/arch/arm/configs/wingray_early_defconfig
+new file mode 100644
+index 00000000..6705e8b1
+--- /dev/null
++++ b/arch/arm/configs/wingray_early_defconfig
+@@ -0,0 +1,54 @@
++CONFIG_LOCALVERSION="-wingray-early"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++# CONFIG_SMP is not set
++# CONFIG_CACHE_L2X0 is not set
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++# CONFIG_SUSPEND is not set
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-early"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++# CONFIG_BLOCK is not set
++# CONFIG_NET is not set
++# CONFIG_INPUT is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
+diff --git a/arch/arm/configs/wingray_early_uart.fragment b/arch/arm/configs/wingray_early_uart.fragment
+new file mode 100644
+index 00000000..96ca9f7e
+--- /dev/null
++++ b/arch/arm/configs/wingray_early_uart.fragment
+@@ -0,0 +1,7 @@
++# Opt-in only AFTER UARTB clock/reset, physical access and capture are verified.
++# CONFIG_DEBUG_LL enables an implicit CONFIG_DEBUG_UNCOMPRESS=y in this tree.
++# Both low-level transmit loops and earlyprintk can block if UART status sticks.
++CONFIG_DEBUG_LL=y
++CONFIG_TEGRA_DEBUG_UARTB=y
++CONFIG_EARLY_PRINTK=y
++CONFIG_CMDLINE="console=ttyS0,115200n8 earlyprintk ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0"
+-- 
+2.43.0
+
