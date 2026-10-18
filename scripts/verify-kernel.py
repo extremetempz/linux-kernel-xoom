@@ -6,9 +6,9 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-assert profile in ('early', 'peripherals')
+assert profile in ('early', 'trace', 'peripherals')
 image = (artifacts / 'zImage').read_bytes()
-dtname = 'tegra20-motorola-wingray-early' if profile == 'early' else 'tegra20-motorola-wingray'
+dtname = 'tegra20-motorola-wingray-early' if profile in ('early', 'trace') else 'tegra20-motorola-wingray'
 dtb = (artifacts / (dtname + '.dtb')).read_bytes()
 assert struct.unpack_from('<I', image, 36)[0] == 0x016F2818, 'Invalid ARM zImage magic'
 assert (artifacts / 'zImage-dtb').read_bytes() == image + dtb, 'Appended DTB mismatch'
@@ -43,7 +43,7 @@ assert nodes['/']['compatible'].split(b'\0')[:2] == [b'motorola,wingray', b'nvid
 memories = [n for n, p in nodes.items() if p.get('device_type') == b'memory\0']
 assert memories == ['/memory'], 'Duplicate memory nodes could corrupt ATAG fixups'
 assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
-if profile == 'early':
+if profile in ('early', 'trace'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'BLOCK',
                    'MMC', 'USB', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC']:
@@ -54,6 +54,7 @@ if profile == 'early':
     for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM', 'SERIAL_8250_CONSOLE']:
         assert f'CONFIG_{option}=y' in config, option
     assert not any('earlycon=' in line or 'earlyprintk' in line for line in config if line.startswith('CONFIG_CMDLINE='))
+    assert (f'CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y' in config) == (profile == 'trace')
     print('Verified early profile: ARM/DTB/memory handoff, UP, no L2 driver, no pre-console UART polling or peripheral probes.')
     sys.exit(0)
 emmc = nodes['/sdhci@c8000600']
