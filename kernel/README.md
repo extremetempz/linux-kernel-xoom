@@ -1,5 +1,10 @@
 # Linux 4.4.147 Wingray bring-up
 
+**Early-boot review:** [findings and staged plan](../docs/early-boot-review.md).
+The existing 0x8000 decompression fix was verified in the failed binary.
+No root cause or new hardware fix is established. A separate UP/no-peripheral
+profile compiles; it has not been boot tested. Original images are preserved.
+
 **Latest physical test:** bootloader 1050 rejects RAM boot. With user approval,
 a diagnostic image was written to boot; it remained at the Motorola logo and
 produced no USB serial device. The new kernel is not boot validated. See
