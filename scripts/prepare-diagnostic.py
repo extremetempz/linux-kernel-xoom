@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
-"""Build a local-only diagnostic Android boot image. Never flashes a device."""
+"""Build a new local diagnostic image; never overwrite evidence or flash a device."""
 from pathlib import Path
-import gzip, hashlib, json, re, stat, struct, subprocess
+import argparse, gzip, hashlib, json, re, stat, struct, subprocess
 root = Path(__file__).resolve().parents[1]
 private = root / 'artifacts/hardware-private'
-out = root / 'artifacts/diagnostic'
-out.mkdir(exist_ok=True)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--output-dir', type=Path, required=True,
+                    help='New directory under artifacts/; existing directories are refused')
+parser.add_argument('--kernel-dir', type=Path, default=root/'artifacts/wingray44')
+parser.add_argument('--panic-seconds', type=int, default=0,
+                    help='Default 0 preserves a panic for inspection instead of rebooting')
+args = parser.parse_args()
+if not 0 <= args.panic_seconds <= 3600:
+    parser.error('panic-seconds must be between 0 and 3600')
+out = args.output_dir.resolve()
+if not out.is_relative_to((root/'artifacts').resolve()):
+    parser.error('Keep the proprietary diagnostic runtime under ignored artifacts/.')
+if out.exists():
+    parser.error('Output already exists; preserved test images must not be overwritten.')
 backup = (private / 'backup-boot.img').read_bytes()
 assert backup[:8] == b'ANDROID!'
 ks, ka, rs, ra, ss, sa, tags, page = struct.unpack_from('<8I', backup, 8)
 assert (ka, ra, tags, page) == (0x10008000, 0x11000000, 0x10000100, 2048)
 assert ss == 0
-kernel = (root / 'artifacts/wingray44/zImage-dtb').read_bytes()
+kernel = (args.kernel_dir / 'zImage-dtb').read_bytes()
 # Dependency closure from the tablet's own BusyBox, never the host's libraries.
 files = {'bin/busybox': private/'busybox', 'system/bin/linker': private/'linker'}
 pending = [private/'busybox', private/'linker']
@@ -83,7 +95,7 @@ header = bytearray(page)
 header[:8] = b'ANDROID!'
 struct.pack_into('<10I',header,8,len(kernel),ka,len(ramdisk),ra,0,sa,tags,page,0,0)
 header[48:48+len(b'wingray-diag')] = b'wingray-diag'
-cmd = b'androidboot.carrier=wifi-only product_type=w rdinit=/init panic=30'
+cmd = f'androidboot.carrier=wifi-only product_type=w rdinit=/init panic={args.panic_seconds}'.encode()
 header[64:64+len(cmd)] = cmd
 h = hashlib.sha1()
 for data in (kernel,ramdisk,b''):
@@ -91,8 +103,9 @@ for data in (kernel,ramdisk,b''):
 header[576:596] = h.digest()
 def padded(data):return data+b'\0'*(-len(data)%page)
 image = bytes(header)+padded(kernel)+padded(ramdisk)
+out.mkdir(parents=True, exist_ok=False)
 (out/'wingray-diagnostic.img').write_bytes(image)
 (out/'ramdisk.cpio.gz').write_bytes(ramdisk)
-(out/'manifest.json').write_text(json.dumps({'purpose':'temporary RAM boot only; no flashing','kernel_address':hex(ka),'ramdisk_address':hex(ra),'tags_address':hex(tags),'page_size':page,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'runtime_files':sorted(files),'storage_mounts':[]},indent=2)+'\n')
+(out/'manifest.json').write_text(json.dumps({'purpose':'experimental diagnostic image; builder performs no device operations','kernel_address':hex(ka),'ramdisk_address':hex(ra),'tags_address':hex(tags),'page_size':page,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'runtime_files':sorted(files),'storage_mounts':[], 'bootloader_note':'Xoom consumer bootloader 1050 rejects fastboot boot; any boot-partition test requires separate explicit approval'},indent=2)+'\n')
 print('Prepared local-only image:',out/'wingray-diagnostic.img')
 print('SHA256:',hashlib.sha256(image).hexdigest())
