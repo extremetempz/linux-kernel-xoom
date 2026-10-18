@@ -1,0 +1,395 @@
+From 361622c8634ca9c8959932a1b5462febf177b51e Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 18 Oct 2026 21:33:38 +1100
+Subject: [PATCH] ARM: tegra: add optional Wingray RAM boot-stage
+ instrumentation
+
+---
+ arch/arm/boot/compressed/head.S            | 39 +++++++++++++++
+ arch/arm/configs/wingray_trace_defconfig   | 56 ++++++++++++++++++++++
+ arch/arm/include/debug/wingray-boottrace.S | 52 ++++++++++++++++++++
+ arch/arm/kernel/head.S                     | 20 +++++++-
+ arch/arm/mach-tegra/Kconfig                | 18 +++++++
+ arch/arm/mach-tegra/board-wingray.c        | 35 ++++++++++++++
+ arch/arm/mach-tegra/tegra.c                |  7 +++
+ include/soc/tegra/wingray-boottrace.h      | 26 ++++++++++
+ 8 files changed, 252 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm/configs/wingray_trace_defconfig
+ create mode 100644 arch/arm/include/debug/wingray-boottrace.S
+ create mode 100644 include/soc/tegra/wingray-boottrace.h
+
+diff --git a/arch/arm/boot/compressed/head.S b/arch/arm/boot/compressed/head.S
+index 1629783e..2270326f 100644
+--- a/arch/arm/boot/compressed/head.S
++++ b/arch/arm/boot/compressed/head.S
+@@ -11,6 +11,7 @@
+ #include <linux/linkage.h>
+ #include <asm/assembler.h>
+ #include <asm/v7m.h>
++#include <debug/wingray-boottrace.S>
+ 
+  AR_CLASS(	.arch	armv7-a	)
+  M_CLASS(	.arch	armv7-m	)
+@@ -141,6 +142,14 @@ start:
+  THUMB(		.thumb			)
+ 1:
+  ARM_BE8(	setend	be		)	@ go BE8 if compiled for BE8
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		.global wingray_trace_zentry_begin, wingray_trace_zentry_end
++wingray_trace_zentry_begin:
++#endif
++		wingray_trace_enter
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++wingray_trace_zentry_end:
++#endif
+  AR_CLASS(	mrs	r9, cpsr	)
+ #ifdef CONFIG_ARM_VIRT_EXT
+ 		bl	__hyp_stub_install	@ get into SVC mode, reversibly
+@@ -176,6 +185,18 @@ not_angel:
+ 		 */
+ 
+ 		.text
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		ldr ip, =(WINGRAY_TRACE_BASE + WINGRAY_TRACE_SCTLR)
++		mrc p15, 0, r3, c1, c0, 0
++		str r3, [ip]
++		mcr p15, 0, ip, c7, c10, 1
++		ldr ip, =(WINGRAY_TRACE_BASE + WINGRAY_TRACE_CPUID)
++		mrc p15, 0, r3, c0, c0, 0
++		str r3, [ip]
++		mcr p15, 0, ip, c7, c10, 1
++		dsb sy
++#endif
++		wingray_trace_store WINGRAY_TRACE_MODE, 1
+ 
+ #if defined(CONFIG_MACH_MOTOROLA_WINGRAY)
+ 		/* Xoom's Android boot header loads zImage at 0x10008000,
+@@ -343,6 +364,22 @@ restart:	adr	r0, LC0
+ 		mov	r2, r5
+ 		bleq	atags_to_fdt
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		.global wingray_trace_atag_begin, wingray_trace_atag_end
++wingray_trace_atag_begin:
++		/* r3/ip are saved on the stack here; r0 is converter status. */
++		ldr ip, =(WINGRAY_TRACE_BASE + WINGRAY_TRACE_ATAG_RC)
++		str r0, [ip]
++		mcr p15, 0, ip, c7, c10, 1
++		ldr ip, =(WINGRAY_TRACE_BASE + WINGRAY_TRACE_FDT)
++		str r6, [ip]
++		mcr p15, 0, ip, c7, c10, 1
++		dsb sy
++#endif
++		wingray_trace_store WINGRAY_TRACE_ATAG, 2
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++wingray_trace_atag_end:
++#endif
+ 		ldmfd	sp!, {r0-r3, ip, lr}
+ 		sub	sp, sp, r5
+ #endif
+@@ -543,11 +580,13 @@ not_relocated:	mov	r0, #0
+  *   r7  = architecture ID
+  *   r8  = atags pointer
+  */
++		wingray_trace_store WINGRAY_TRACE_INFLATE, 3
+ 		mov	r0, r4
+ 		mov	r1, sp			@ malloc space above stack
+ 		add	r2, sp, #0x10000	@ 64k max
+ 		mov	r3, r7
+ 		bl	decompress_kernel
++		wingray_trace_store WINGRAY_TRACE_INFLATED, 4
+ 		bl	cache_clean_flush
+ 		bl	cache_off
+ 		mov	r1, r7			@ restore architecture number
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+new file mode 100644
+index 00000000..e4f67653
+--- /dev/null
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -0,0 +1,56 @@
++CONFIG_LOCALVERSION="-wingray-trace"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++# CONFIG_SMP is not set
++# CONFIG_CACHE_L2X0 is not set
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++# CONFIG_SUSPEND is not set
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-early"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++# CONFIG_BLOCK is not set
++# CONFIG_NET is not set
++# CONFIG_INPUT is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0001
+diff --git a/arch/arm/include/debug/wingray-boottrace.S b/arch/arm/include/debug/wingray-boottrace.S
+new file mode 100644
+index 00000000..7f780e7f
+--- /dev/null
++++ b/arch/arm/include/debug/wingray-boottrace.S
+@@ -0,0 +1,52 @@
++/* Optional stack-free physical RAM breadcrumbs. GNU GPL version 2.
++ * Clobbers r3 and ip ONLY; preserves flags and boot arguments.
++ * Call only with MMU off. The first 128 bytes of the reserved lower legacy
++ * console MiB are separate from ramoops at 0x1ff00000. Clean by MVA and DSB
++ * make writes visible before reset; this does not repair bootloader state.
++ */
++#include <soc/tegra/wingray-boottrace.h>
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	.macro wingray_trace_store offset, value
++	ldr ip, =(WINGRAY_TRACE_BASE + \offset)
++	ldr r3, =\value
++	str r3, [ip]
++	mcr p15, 0, ip, c7, c10, 1
++	dsb sy
++	.endm
++
++	.macro wingray_trace_enter
++	ldr ip, =WINGRAY_TRACE_BASE
++	mov r3, #0
++	.irp offset,0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60,64,68,72,76,80,84,88,92,96,100,104,108,112,116,120,124
++	str r3, [ip, #\offset]
++	.endr
++	str r0, [ip, #WINGRAY_TRACE_R0]
++	str r1, [ip, #WINGRAY_TRACE_R1]
++	str r2, [ip, #WINGRAY_TRACE_R2]
++	mov r3, pc
++	str r3, [ip, #WINGRAY_TRACE_ENTRY_PC]
++	mrs r3, cpsr
++	str r3, [ip, #WINGRAY_TRACE_CPSR]
++	mov r3, #WINGRAY_TRACE_VERSION
++	str r3, [ip, #4]
++	ldr r3, =CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE
++	str r3, [ip, #WINGRAY_TRACE_COOKIE]
++	ldr r3, =0xdeadffff
++	str r3, [ip, #WINGRAY_TRACE_ATAG_RC]
++	ldr r3, =WINGRAY_TRACE_MAGIC
++	str r3, [ip]
++	mcr p15, 0, ip, c7, c10, 1
++	add ip, ip, #32
++	mcr p15, 0, ip, c7, c10, 1
++	add ip, ip, #32
++	mcr p15, 0, ip, c7, c10, 1
++	add ip, ip, #32
++	mcr p15, 0, ip, c7, c10, 1
++	dsb sy
++	.endm
++#else
++	.macro wingray_trace_store offset, value
++	.endm
++	.macro wingray_trace_enter
++	.endm
++#endif
+diff --git a/arch/arm/kernel/head.S b/arch/arm/kernel/head.S
+index 04286fd9..cf680a27 100644
+--- a/arch/arm/kernel/head.S
++++ b/arch/arm/kernel/head.S
+@@ -22,6 +22,7 @@
+ #include <asm/memory.h>
+ #include <asm/thread_info.h>
+ #include <asm/pgtable.h>
++#include <debug/wingray-boottrace.S>
+ 
+ #if defined(CONFIG_DEBUG_LL) && !defined(CONFIG_DEBUG_SEMIHOSTING)
+ #include CONFIG_DEBUG_LL_INCLUDE
+@@ -78,6 +79,14 @@
+ 
+ 	__HEAD
+ ENTRY(stext)
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	.global wingray_trace_stext_begin, wingray_trace_stext_end
++wingray_trace_stext_begin:
++#endif
++	wingray_trace_store WINGRAY_TRACE_STEXT, 5
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++wingray_trace_stext_end:
++#endif
+  ARM_BE8(setend	be )			@ ensure we are in BE8 mode
+ 
+  THUMB(	badr	r9, 1f		)	@ Kernel is always entered in ARM.
+@@ -158,7 +167,16 @@ ENTRY(stext)
+ 	ldr	r12, [r10, #PROCINFO_INITFUNC]
+ 	add	r12, r12, r10
+ 	ret	r12
+-1:	b	__enable_mmu
++1:
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	.global wingray_trace_mmu_begin, wingray_trace_mmu_end
++wingray_trace_mmu_begin:
++#endif
++	wingray_trace_store WINGRAY_TRACE_MMU, 6
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++wingray_trace_mmu_end:
++#endif
++	b	__enable_mmu
+ ENDPROC(stext)
+ 	.ltorg
+ #ifndef CONFIG_XIP_KERNEL
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index c193264a..653fe6de 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -70,6 +70,24 @@ config MACH_MOTOROLA_WINGRAY
+ 	  Experimental device-tree support for the Wi-Fi Xoom. Power,
+ 	  display and suspend support still require hardware validation.
+ 
++config MOTOROLA_XOOM_BOOT_TRACE
++	bool "Experimental Wingray early RAM breadcrumbs"
++	depends on MACH_MOTOROLA_WINGRAY && !SMP && !THUMB2_KERNEL
++	default n
++	help
++	  Instrument the decompressor and pre-MMU kernel entry without UART.
++	  Writes the first 128 bytes at physical 0x1fe00000 in the already
++	  reserved legacy console region. Verify ownership and readback before
++	  any hardware test. Never enable for an ordinary ROM build.
++
++config MOTOROLA_XOOM_BOOT_TRACE_COOKIE
++	hex "Wingray trace build identifier"
++	depends on MOTOROLA_XOOM_BOOT_TRACE
++	default 0x584d0001
++	help
++	  Choose a different value for every candidate build. This identifies
++	  a build, not a unique boot attempt. A stale record must be excluded.
++
+ config MACH_SAMSUNG_VARIATION_TEGRA
+        bool "Samsung variations based on Tegra 2"
+        help
+diff --git a/arch/arm/mach-tegra/board-wingray.c b/arch/arm/mach-tegra/board-wingray.c
+index 86896d96..715505c4 100644
+--- a/arch/arm/mach-tegra/board-wingray.c
++++ b/arch/arm/mach-tegra/board-wingray.c
+@@ -49,3 +49,38 @@ void __init wingray_reserve(void)
+ 	    memblock_reserve(wingray_lp0_start, wingray_lp0_size))
+ 		panic("Wingray: cannot preserve bootloader LP0 vector");
+ }
++
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++#include <linux/io.h>
++#include <linux/of.h>
++#include <soc/tegra/wingray-boottrace.h>
++
++static void __init wingray_boottrace_mark(unsigned int offset, u32 value)
++{
++	void __iomem *trace;
++
++	if (!of_machine_is_compatible("motorola,wingray"))
++		return;
++	trace = ioremap_nocache(WINGRAY_TRACE_BASE, WINGRAY_TRACE_SIZE);
++	if (!trace)
++		return;
++	if (readl(trace) == WINGRAY_TRACE_MAGIC &&
++	    readl(trace + WINGRAY_TRACE_COOKIE) == CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE)
++		writel(value, trace + offset);
++	readl(trace + offset); /* drain posted write */
++	iounmap(trace);
++}
++
++void __init wingray_boottrace_c_early(void)
++{
++	wingray_boottrace_mark(WINGRAY_TRACE_C_EARLY, 7);
++}
++
++static int __init wingray_boottrace_initcall(void)
++{
++	wingray_boottrace_mark(WINGRAY_TRACE_INITCALL, 8);
++	pr_info("Wingray boot trace reached early initcall\n");
++	return 0;
++}
++early_initcall(wingray_boottrace_initcall);
++#endif
+diff --git a/arch/arm/mach-tegra/tegra.c b/arch/arm/mach-tegra/tegra.c
+index b222a483..70ffcacf 100644
+--- a/arch/arm/mach-tegra/tegra.c
++++ b/arch/arm/mach-tegra/tegra.c
+@@ -71,8 +71,15 @@ u32 tegra_uart_config[3] = {
+ 	0,
+ };
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++void __init wingray_boottrace_c_early(void);
++#endif
++
+ static void __init tegra_init_early(void)
+ {
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	wingray_boottrace_c_early();
++#endif
+ 	of_register_trusted_foundations();
+ 	tegra_cpu_reset_handler_init();
+ 	tegra_flowctrl_init();
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+new file mode 100644
+index 00000000..9e731dce
+--- /dev/null
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -0,0 +1,26 @@
++/* Optional Wingray RAM boot trace. GNU GPL version 2. */
++#ifndef __WINGRAY_BOOTTRACE_H
++#define __WINGRAY_BOOTTRACE_H
++#define WINGRAY_TRACE_BASE       0x1fe00000
++#define WINGRAY_TRACE_MAGIC      0x584f4f4d
++#define WINGRAY_TRACE_VERSION    1
++#define WINGRAY_TRACE_SIZE       0x80
++#define WINGRAY_TRACE_COOKIE     0x08
++#define WINGRAY_TRACE_ENTRY_PC   0x0c
++#define WINGRAY_TRACE_R0         0x10
++#define WINGRAY_TRACE_R1         0x14
++#define WINGRAY_TRACE_R2         0x18
++#define WINGRAY_TRACE_CPSR       0x1c
++#define WINGRAY_TRACE_SCTLR      0x20
++#define WINGRAY_TRACE_CPUID      0x24
++#define WINGRAY_TRACE_MODE       0x28
++#define WINGRAY_TRACE_ATAG_RC    0x2c
++#define WINGRAY_TRACE_FDT        0x30
++#define WINGRAY_TRACE_ATAG       0x34
++#define WINGRAY_TRACE_INFLATE    0x38
++#define WINGRAY_TRACE_INFLATED   0x3c
++#define WINGRAY_TRACE_STEXT      0x40
++#define WINGRAY_TRACE_MMU        0x44
++#define WINGRAY_TRACE_C_EARLY    0x48
++#define WINGRAY_TRACE_INITCALL   0x4c
++#endif
+-- 
+2.43.0
+
