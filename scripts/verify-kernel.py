@@ -5,8 +5,11 @@ import struct
 import sys
 
 artifacts = Path(sys.argv[1])
+profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
+assert profile in ('early', 'peripherals')
 image = (artifacts / 'zImage').read_bytes()
-dtb = (artifacts / 'tegra20-motorola-wingray.dtb').read_bytes()
+dtname = 'tegra20-motorola-wingray-early' if profile == 'early' else 'tegra20-motorola-wingray'
+dtb = (artifacts / (dtname + '.dtb')).read_bytes()
 assert struct.unpack_from('<I', image, 36)[0] == 0x016F2818, 'Invalid ARM zImage magic'
 assert (artifacts / 'zImage-dtb').read_bytes() == image + dtb, 'Appended DTB mismatch'
 magic, total, off_struct, off_strings = struct.unpack_from('>4I', dtb)
@@ -40,6 +43,19 @@ assert nodes['/']['compatible'].split(b'\0')[:2] == [b'motorola,wingray', b'nvid
 memories = [n for n, p in nodes.items() if p.get('device_type') == b'memory\0']
 assert memories == ['/memory'], 'Duplicate memory nodes could corrupt ATAG fixups'
 assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
+if profile == 'early':
+    config = (artifacts / 'kernel.config').read_text().splitlines()
+    for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'BLOCK',
+                   'MMC', 'USB', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC']:
+        assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
+    for node in ['/host1x@50000000', '/sdhci@c8000600', '/usb@c5000000', '/usb-phy@c5000000']:
+        assert nodes[node]['status'] == b'disabled\0', node
+    assert '/panel' not in nodes and '/i2c@7000c000/touchscreen@5b' not in nodes
+    for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM', 'SERIAL_8250_CONSOLE']:
+        assert f'CONFIG_{option}=y' in config, option
+    assert not any('earlycon=' in line or 'earlyprintk' in line for line in config if line.startswith('CONFIG_CMDLINE='))
+    print('Verified early profile: ARM/DTB/memory handoff, UP, no L2 driver, no pre-console UART polling or peripheral probes.')
+    sys.exit(0)
 emmc = nodes['/sdhci@c8000600']
 assert emmc['status'] == b'okay\0' and 'motorola,xoom-bigpart' in emmc
 assert struct.unpack('>I', emmc['bus-width'])[0] == 8

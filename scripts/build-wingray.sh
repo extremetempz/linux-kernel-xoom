@@ -2,6 +2,13 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 src="$root/sources/kernel-donor"
+profile="${XOOM_PROFILE:-peripherals}"
+case "$profile" in
+  peripherals) defconfig=wingray_bringup_defconfig; dtname=tegra20-motorola-wingray; default_dest="$root/artifacts/wingray44";;
+  early) defconfig=wingray_early_defconfig; dtname=tegra20-motorola-wingray-early; default_dest="$root/artifacts/wingray-early";;
+  *) echo 'XOOM_PROFILE must be peripherals or early.' >&2; exit 1;;
+esac
+dest="${XOOM_ARTIFACT_DIR:-$default_dest}"
 toolchain="${XOOM_TOOLCHAIN_DIR:-$root/toolchains/android-gcc49}"
 build="${XOOM_BUILD_ROOT:-$(mktemp -d /tmp/xoom-wingray44.XXXXXX)}"
 case "$build" in *' '*|*:* ) echo 'XOOM_BUILD_ROOT must not contain spaces or colons.' >&2; exit 1;; esac
@@ -13,7 +20,7 @@ test -x "$toolchain/bin/arm-linux-androideabi-gcc" || {
 }
 # Linux 4.4 makefiles reject paths containing spaces. Keep the checkout in
 # the user's workspace and compile a mirror in a dedicated temporary folder.
-mkdir -p "$build/source" "$build/toolchain" "$build/out" "$root/artifacts/wingray44"
+mkdir -p "$build/source" "$build/toolchain" "$build/out" "$dest"
 rsync -a --exclude=.git "$src/" "$build/source/"
 rsync -a "$toolchain/" "$build/toolchain/"
 export KBUILD_BUILD_TIMESTAMP='2026-10-18 00:00:00 +0000'
@@ -23,14 +30,13 @@ export KBUILD_BUILD_VERSION=1
 args=(-C "$build/source" O="$build/out" ARCH=arm
   CROSS_COMPILE="$build/toolchain/bin/arm-linux-androideabi-"
   KCFLAGS='-fno-unwind-tables -fno-asynchronous-unwind-tables')
-make "${args[@]}" wingray_bringup_defconfig
+make "${args[@]}" "$defconfig"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
-dest="$root/artifacts/wingray44"
 cp "$build/out/arch/arm/boot/zImage" "$build/out/arch/arm/boot/zImage-dtb" "$dest/"
-cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray.dtb" "$dest/"
+cp "$build/out/arch/arm/boot/dts/$dtname.dtb" "$dest/"
 cp "$build/out/.config" "$dest/kernel.config"
 cp "$build/out/System.map" "$dest/"
-(cd "$dest" && sha256sum zImage zImage-dtb tegra20-motorola-wingray.dtb kernel.config System.map > SHA256SUMS)
-python3 "$root/scripts/verify-kernel.py" "$dest"
+(cd "$dest" && sha256sum zImage zImage-dtb "$dtname.dtb" kernel.config System.map > SHA256SUMS)
+python3 "$root/scripts/verify-kernel.py" "$dest" "$profile"
 printf 'Build directory: %s\nArtifacts: %s\n' "$build" "$dest"
 echo 'Experimental bring-up kernel only; this is not a flashable boot image.'
