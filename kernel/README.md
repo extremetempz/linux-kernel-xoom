@@ -46,3 +46,18 @@ The source cross-compiles to an ARM zImage and appended Wingray DTB. Native test
 **Not yet a finished kernel port.** No hardware boot, eMMC read test, USB enumeration or GPIO key test has occurred. Screen, touch, Wi-Fi, audio, Bluetooth, cameras, battery/charging control and suspend are not implemented or validated. CPU frequency scaling, CPU idle and suspend are disabled, and the kernel relies on firmware-initialized power rails. The video engines remain disabled and legacy reserved memory is intentionally retained.
 
 Further development requires CPCAP/MAX8649 power support, Xoom pinmux and peripheral sequencing, then hardware boot logs and storage geometry validation. Do not flash this kernel over a working install or use it to start ROM integration yet. No flashing/repartitioning scripts are supplied.
+
+## Peripheral bring-up update
+
+Source commit `4242b8a1` is preserved by `patches/0002-wingray-peripherals.patch`.
+The second patch adds the actual P3/AUO board pinmux, display/backlight,
+maXTouch reset/wake/IRQ, BCM4329 SDIO sequencing, external SD, CPCAP MFD and
+Wingray regulators, MAX8649 DT support and restart/power-off GPIOs. It also
+handles the measured relocated GPT and fixes decompression for the existing
+Android boot image load address. The first milestone's limitations above
+describe its original build; current hardware evidence and remaining work
+are maintained in [hardware-validation.md](../docs/hardware-validation.md).
+
+These additions do not prove working display, touch or Wi-Fi. No new-kernel
+boot has been attempted. Suspend, DVFS, charging, fuel gauge, audio, Bluetooth,
+cameras and sensors remain pending. Keep the existing ROM and recovery.

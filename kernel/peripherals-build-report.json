@@ -1,0 +1,59 @@
+{
+  "status": "Cross-compiled; working-ROM hardware inventory verified; new-kernel hardware untested",
+  "source_commit": "4242b8a104577ed819c63311217f7bddeb0f6e33",
+  "kernel_release": "4.4.147-wingray-bringup",
+  "artifacts": {
+    "COPYING": {
+      "size": 18693,
+      "sha256": "af8067302947c01fd9eee72befa54c7e3ef8a48fecde7fd71277f2290b2bf0f7"
+    },
+    "SHA256SUMS": {
+      "size": 402,
+      "sha256": "7f3d97d03ac5250207b94c08096f28eb89e7960d639a33ba4a1270899e82f88b"
+    },
+    "SOURCE.txt": {
+      "size": 359,
+      "sha256": "04c2bc92f6e94050ab6137cea5a8a0e3ebb773ceec769e7d328cdfae7f0ac7b8"
+    },
+    "System.map": {
+      "size": 806265,
+      "sha256": "e8dc62f83da323210b00f7ddaf833c775d20d1683c3d7d12eda1701fad6633f5"
+    },
+    "build-report.json": {
+      "size": 2169,
+      "sha256": "0783dfc0dd2dc61a02989339c0550eca153b633943cf87407d7678b79cfb648d"
+    },
+    "kernel.config": {
+      "size": 72774,
+      "sha256": "7f44eff1017379b903b787b30b025e0be48e0bb02485fb34e5aaafe33e9023d3"
+    },
+    "repository-proof.jpg": {
+      "size": 44178,
+      "sha256": "c0d6d0e01d84dcc6a986eec6511f52b9c2ded3842ccaaf33df5466e51bdfe6e5"
+    },
+    "tegra20-motorola-wingray.dtb": {
+      "size": 29444,
+      "sha256": "7c81fa803e1fa5fee8fde59025040812bc5095981e5163fa9c076d0e9beffd9c"
+    },
+    "zImage": {
+      "size": 2944968,
+      "sha256": "5abd5f68b56b237258880d0a2890adbb52b53909922178a93f400ca3b61b2a5a"
+    },
+    "zImage-dtb": {
+      "size": 2974412,
+      "sha256": "ad7ac2d7b4575aabfa9b2e5b5e5d02d061ac6fe25371738426d5e6fdea2c6268"
+    }
+  },
+  "tests": [
+    "Cross compile and link",
+    "ARM zImage/DTB/config/peripheral wiring verification",
+    "BigPart host tests with sanitizers",
+    "Working ROM GPT header/entry CRC and live BigPart geometry capture",
+    "Both patch files reconstruct source commit tree exactly"
+  ],
+  "limitations": "No new-kernel boot. Suspend, DVFS, battery/charging and additional peripherals pending.",
+  "patches": {
+    "0001-wingray-bringup.patch": "e3c1933825b501bed59844cd299ef4ef0ac383379398bae12a63c1d215832826",
+    "0002-wingray-peripherals.patch": "b6c87173c88eef27378a8eab4ff9b807eee5abf6193606d325bb63a667325efe"
+  }
+}

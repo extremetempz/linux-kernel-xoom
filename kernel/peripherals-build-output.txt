@@ -1,0 +1,71 @@
+make: Entering directory '/tmp/xoom-wingray-peripherals/source'
+make[1]: Entering directory '/tmp/xoom-wingray-peripherals/out'
+  GEN     ./Makefile
+#
+# configuration written to .config
+#
+make[1]: Leaving directory '/tmp/xoom-wingray-peripherals/out'
+make: Leaving directory '/tmp/xoom-wingray-peripherals/source'
+make: Entering directory '/tmp/xoom-wingray-peripherals/source'
+make[1]: Entering directory '/tmp/xoom-wingray-peripherals/out'
+  GEN     ./Makefile
+scripts/kconfig/conf  --silentoldconfig Kconfig
+  CHK     include/config/kernel.release
+  GEN     ./Makefile
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/utsrelease.h
+  Using /tmp/xoom-wingray-peripherals/source as source for kernel
+  CHK     scripts/mod/devicetable-offsets.h
+make[2]: 'include/generated/mach-types.h' is up to date.
+  CHK     include/generated/timeconst.h
+  CHK     include/generated/bounds.h
+  CHK     include/generated/asm-offsets.h
+  CALL    /tmp/xoom-wingray-peripherals/source/scripts/checksyscalls.sh
+  CHK     include/generated/compile.h
+  GZIP    kernel/config_data.gz
+  CHK     kernel/config_data.h
+  UPD     kernel/config_data.h
+  CC      kernel/configs.o
+  LD      kernel/built-in.o
+  CC      drivers/hid/hid-core.o
+  CC      drivers/hid/hid-input.o
+  CC      drivers/hid/hid-generic.o
+  CC      drivers/hid/usbhid/hid-core.o
+  CC      drivers/hid/usbhid/hid-quirks.o
+  LD      drivers/hid/hid.o
+  LD      drivers/hid/usbhid/usbhid.o
+  LD      drivers/hid/usbhid/built-in.o
+  LD      drivers/hid/built-in.o
+  CC      drivers/power/power_supply_core.o
+  CC      drivers/power/power_supply_sysfs.o
+  CC      drivers/power/reset/wingray-power.o
+  LD      drivers/power/reset/built-in.o
+  LD      drivers/power/power_supply.o
+  LD      drivers/power/built-in.o
+  LD      drivers/built-in.o
+  LINK    vmlinux
+  LD      vmlinux.o
+  MODPOST vmlinux.o
+  GEN     .version
+  CHK     include/generated/compile.h
+  KSYM    .tmp_kallsyms1.o
+  KSYM    .tmp_kallsyms2.o
+  LD      vmlinux
+  SORTEX  vmlinux
+  SYSMAP  System.map
+  OBJCOPY arch/arm/boot/Image
+  DTC     arch/arm/boot/dts/tegra20-motorola-wingray.dtb
+  Kernel: arch/arm/boot/Image is ready
+  GZIP    arch/arm/boot/compressed/piggy.gzip
+  AS      arch/arm/boot/compressed/piggy.gzip.o
+  LD      arch/arm/boot/compressed/vmlinux
+  OBJCOPY arch/arm/boot/zImage
+  Kernel: arch/arm/boot/zImage is ready
+  CAT     arch/arm/boot/zImage-dtb
+  Kernel: arch/arm/boot/zImage-dtb is ready
+make[1]: Leaving directory '/tmp/xoom-wingray-peripherals/out'
+make: Leaving directory '/tmp/xoom-wingray-peripherals/source'
+Verified ARM image, appended Wingray DTB, memory, eMMC/BigPart, USB and configuration gates.
+Build directory: /tmp/xoom-wingray-peripherals
+Artifacts: /home/justin/Documents/ChatGPT/Linux Kernel Porting Xoom/artifacts/wingray44
+Experimental bring-up kernel only; this is not a flashable boot image.
