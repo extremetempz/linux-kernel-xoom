@@ -9,4 +9,4 @@
 7. **Android integration.** Start with minimal no-GApps non-NEON builds; use 7.1.2 as a diagnostic milestone if necessary, then 8.1. Validate binder/ashmem, SELinux policy, init, graphics allocation/composition and media. Do not blindly carry the old SELinux-disabled cmdline into a finished ROM.
 8. **Acceptance.** Repeated cold boots; usable UI and ADB; correct storage geometry; Wi-Fi reconnect; audio; battery/charging; screen off/on; suspend/resume; stress without OOM loops; measured RAM and performance; reliable recovery and rollback. Camera/video/GPS/Bluetooth status must be stated explicitly.
 
-Current status: source research and scaffold only. No compiler, build result, flashable image, hardware test or working Oreo port is claimed.
+Current status: the initial Wingray Linux 4.4.147 source changes cross-compile to zImage and appended DTB. See `kernel/README.md` for implemented paths, verification and unfinished drivers. There is no flashable boot image, hardware boot result or working Oreo port yet.
