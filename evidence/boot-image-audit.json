@@ -1,0 +1,92 @@
+{
+  "working": {
+    "file": "backup-boot.img",
+    "sha256": "64b45fa5b2127685310dcbd58acc5a154e5b7d54c7535354211eb87a5066e588",
+    "page_size": 2048,
+    "kernel_size": 4240020,
+    "kernel_load": "0x10008000",
+    "ramdisk_size": 368416,
+    "ramdisk_load": "0x11000000",
+    "tags_address": "0x10000100",
+    "second_load": "0x10f00000",
+    "zimage_start_word": "0x0",
+    "zimage_end_word": "0x40b294",
+    "zimage_size": 4240020,
+    "gzip_offset": 20644,
+    "decompressed_image_size": 8467428,
+    "decompressed_range_at_0x8000": [
+      "0x8000",
+      "0x81b3e4"
+    ],
+    "kernel_component_sha256": "d2186522421faf1362a50fb3b58f0a6c5d3863f5120f0aa9efa45275a7efd10a",
+    "v0_sha1_id_matches": false,
+    "header_cmdline": "androidboot.carrier=wifi-only product_type=w",
+    "ramdisk_gzip_valid": true,
+    "embedded_config_sha256": "f9f880e3f065a7ceefb61d29875169d4c0de670c43bc6f31a6e04531cccee421",
+    "embedded_boot_config": [
+      "CONFIG_CPU_V7=y",
+      "CONFIG_SMP=y",
+      "CONFIG_PAGE_OFFSET=0xC0000000",
+      "CONFIG_CMDLINE=\"mem=448M@0M console=ttyS0,115200n8 earlyprintk init=/bin/ash\""
+    ],
+    "early_r4_pc_relative_literals": [
+      {
+        "instruction_offset": "0x60",
+        "literal_offset": "0x7ac",
+        "value": "0x8000"
+      }
+    ],
+    "fixed_destination_0x8000_instruction_offsets": []
+  },
+  "diagnostic": {
+    "file": "wingray-diagnostic.img",
+    "sha256": "c7245a700685f175b390a883316c127a911611a136ee4755746211ed3f4df493",
+    "page_size": 2048,
+    "kernel_size": 3022148,
+    "kernel_load": "0x10008000",
+    "ramdisk_size": 718282,
+    "ramdisk_load": "0x11000000",
+    "tags_address": "0x10000100",
+    "second_load": "0x10f00000",
+    "zimage_start_word": "0x0",
+    "zimage_end_word": "0x2daa40",
+    "zimage_size": 2992704,
+    "gzip_offset": 31064,
+    "decompressed_image_size": 5951456,
+    "decompressed_range_at_0x8000": [
+      "0x8000",
+      "0x5b4fe0"
+    ],
+    "kernel_component_sha256": "0ff1722ac7a1e3c94524140fa961a5f18260fd8a38c22cffaf01a5ace5f16c61",
+    "v0_sha1_id_matches": true,
+    "header_cmdline": "androidboot.carrier=wifi-only product_type=w rdinit=/init panic=30",
+    "appended_dtb": {
+      "size": 29444,
+      "address_before_fixup": "0x102e2a40",
+      "sha256": "7c81fa803e1fa5fee8fde59025040812bc5095981e5163fa9c076d0e9beffd9c"
+    },
+    "ramdisk_gzip_valid": true,
+    "embedded_config_sha256": "f40bfc790d82dd3e1021e3d410ef90f29ccb48e3c4ac10a5160bb34218d7ed3d",
+    "embedded_boot_config": [
+      "CONFIG_CPU_V7=y",
+      "CONFIG_ARM_VIRT_EXT=y",
+      "CONFIG_SMP=y",
+      "CONFIG_PAGE_OFFSET=0xC0000000",
+      "CONFIG_ARM_APPENDED_DTB=y",
+      "CONFIG_ARM_ATAG_DTB_COMPAT=y",
+      "CONFIG_CMDLINE=\"console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x70006040 ignore_loglevel clk_ignore_unused regulator_ignore_unused ro\"",
+      "CONFIG_AUTO_ZRELADDR=y",
+      "CONFIG_DEBUG_LL=y",
+      "CONFIG_DEBUG_UNCOMPRESS=y"
+    ],
+    "early_r4_pc_relative_literals": [],
+    "fixed_destination_0x8000_instruction_offsets": [
+      "0xa0"
+    ]
+  },
+  "limits": [
+    "Header addresses are declarations, not a capture of entry registers or actual bootloader placement.",
+    "No live ATAG list or CPU/MMU/cache state was captured.",
+    "Old v0 SHA1 ID mismatch alone does not establish a boot defect."
+  ]
+}

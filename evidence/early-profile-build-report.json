@@ -1,0 +1,48 @@
+{
+  "source_commit": "881f6d98057d2c50e4f7368f1769215fb6ec2c26",
+  "profile": "wingray_early_defconfig",
+  "hardware_status": "Not boot tested; review request authorizes no device writes",
+  "artifacts": {
+    "SHA256SUMS": {
+      "size": 408,
+      "sha256": "af0fc3d5e6fa164656dae444902efa9a55edc2d725c0ddde8673b78d72212adb"
+    },
+    "System.map": {
+      "size": 335047,
+      "sha256": "0e4db04a2509dcfa39f9b0886f7c944104ac5dfe55119065a97bb34943f71377"
+    },
+    "kernel.config": {
+      "size": 29247,
+      "sha256": "efec8661f9de7e5872f44fe3251aa68d001894a543d4565d7a32817be89395a1"
+    },
+    "tegra20-motorola-wingray-early.dtb": {
+      "size": 15449,
+      "sha256": "ab186459f800c309124302757b2e883f757d80d3cf8d2314869fa7890fc18949"
+    },
+    "zImage": {
+      "size": 1029560,
+      "sha256": "76d1aa3939d3dae0d30e30b83238d4c6b382047599d5f5733bd73290d2a24461"
+    },
+    "zImage-dtb": {
+      "size": 1045009,
+      "sha256": "75ebc6473cc7f4fc15f0c0efda41e61d91ac90130e5132e3d9931ce804f12072"
+    }
+  },
+  "checks": [
+    "Cross compile/link",
+    "Resolved UP/no-L2/no-early-UART/no-peripheral profile",
+    "ARM zImage/appended DTB/memory checks",
+    "Actual donor ATAG conversion under ASan/UBSan against both saved and early DTBs",
+    "Diagnostic builder refuses overwrite; original boot/recovery/failed-candidate hashes unchanged",
+    "Normal peripheral DTB rebuild is byte-identical to saved failed-candidate DTB"
+  ],
+  "warnings": [
+    "Host GCC warns about old Kconfig recursion-stack pointer; no target compiler/linker warnings observed"
+  ],
+  "limitations": [
+    "No live r0/r1/r2, CPSR, cache/MMU or actual ATAG capture",
+    "No proven cause for Motorola logo/no USB symptom",
+    "UART fragment proposed only; not built or tested on hardware",
+    "Earliest RAM breadcrumb instrumentation is proposed, not implemented"
+  ]
+}
