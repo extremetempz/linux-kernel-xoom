@@ -1,5 +1,13 @@
 # Linux 4.4.147 Wingray bring-up
 
+**Latest physical test:** bootloader 1050 rejects RAM boot. With user approval,
+a diagnostic image was written to boot; it remained at the Motorola logo and
+produced no USB serial device. The new kernel is not boot validated. See
+[the test record](../docs/hardware-validation.md) for restoration status and
+evidence. The original boot partition has been restored and verified byte for
+byte, and the working Android ROM is running. The sections below preserve the
+earlier compiled milestones.
+
 ## Chosen fork
 
 - Upstream: [Decatf/linux, android-4.4-p4wifi](https://github.com/Decatf/linux/tree/android-4.4-p4wifi).

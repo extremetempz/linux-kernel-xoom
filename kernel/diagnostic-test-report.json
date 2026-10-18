@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-18",
+  "source_commit": "8b8f60ead47121030f7a670bc86933ed1473dd41",
+  "diagnostic_image_sha256": "c7245a700685f175b390a883316c127a911611a136ee4755746211ed3f4df493",
+  "kernel_sha256": "0ff1722ac7a1e3c94524140fa961a5f18260fd8a38c22cffaf01a5ace5f16c61",
+  "bootloader_version": "1050",
+  "ram_boot_result": "Rejected by consumer bootloader, remote error 0x8",
+  "flash_test_result": "Boot partition written successfully; Motorola logo retained; no USB ACM gadget within 45 seconds",
+  "runtime_validation": "Failed bring-up; no new-kernel logs or working-peripheral claims",
+  "restoration": {
+    "original_kernel_running": true,
+    "android_boot_completed": true,
+    "boot_partition_byte_for_byte_match": true,
+    "recovery_written": false,
+    "partition_layout_written": false
+  },
+  "distribution": "Diagnostic image and proprietary runtime kept local; construction scripts published"
+}
