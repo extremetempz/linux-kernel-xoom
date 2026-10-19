@@ -25,6 +25,7 @@ for line in subprocess.check_output([str(root/'toolchains/android-gcc49/bin/arm-
         syms[parts[2]] = int(parts[0], 16)
 config = (args.build/'out/.config').read_text().splitlines()
 cookie = int(next(x.split('=',1)[1] for x in config if x.startswith('CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=')),0)
+version = int(next(x.split()[-1] for x in (args.build/'source/include/soc/tegra/wingray-boottrace.h').read_text().splitlines() if x.startswith('#define WINGRAY_TRACE_VERSION')))
 pool = struct.pack('<4I', 0x1fe00000, cookie, 0xdeadffff, 0x584f4f4d)
 pooloff = blob.index(pool, 0, 1024)
 base = 0x1fe00000
@@ -58,7 +59,7 @@ for load in [0x10008000, 0x00a00800]:
         u.emu_start(load, load+end, count=10000)
         data = bytes(u.mem_read(base,4096))
         word = lambda off: struct.unpack_from('<I',data,off)[0]
-        assert (word(0),word(4),word(8)) == (0x584f4f4d,1,cookie)
+        assert (word(0),word(4),word(8)) == (0x584f4f4d,version,cookie)
         assert data[128:] == b'\xa5'*(4096-128)
         if args.expect_old_pool_trap:
             assert state['literal_executed']

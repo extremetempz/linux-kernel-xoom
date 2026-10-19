@@ -12,6 +12,7 @@ from unicorn.arm_const import *
 p=argparse.ArgumentParser();p.add_argument('build',type=Path);args=p.parse_args()
 config=(args.build/'out/.config').read_text().splitlines()
 cookie=int(next(line.split('=',1)[1] for line in config if line.startswith('CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=')),0)
+version = int(next(x.split()[-1] for x in (args.build/'source/include/soc/tegra/wingray-boottrace.h').read_text().splitlines() if x.startswith('#define WINGRAY_TRACE_VERSION')))
 nm=root/'toolchains/android-gcc49/bin/arm-linux-androideabi-nm'
 def symbols(path):
     result={}
@@ -55,7 +56,7 @@ for name,blob,syms,load,link in cases:
         data=bytes(u.mem_read(base,4096));word=lambda off:struct.unpack_from('<I',data,off)[0]
         assert data[128:]==b'\xa5'*(4096-128)
         if name=='zentry':
-            assert word(0)==0x584f4f4d and word(4)==1 and word(8)==cookie
+            assert word(0)==0x584f4f4d and word(4)==version and word(8)==cookie
             assert word(0x10)==initial[0] and word(0x14)==initial[1] and word(0x18)==initial[2]
             assert word(0x1c)==cpsr and begin<=word(0x0c)<end+8
             assert word(0x2c)==0xdeadffff
@@ -65,6 +66,10 @@ for name,blob,syms,load,link in cases:
             assert set(writes)=={0x2c,0x30,0x34}
         else:
             off,value=(0x40,5) if name=='stext' else (0x44,6)
-            assert word(off)==value and writes==[off]
+            assert word(off)==value
+            if name=='mmu' and version>=2:
+                assert set(writes)=={0x44,0x68,0x6c,0x70,0x74}
+                assert [word(o) for o in (0x68,0x6c,0x70,0x74)]==[initial[i] for i in (0,2,4,13)]
+            else:assert writes==[off]
     print(name+': compiled Cortex-A9 snippet passed 16 flag patterns; boot registers preserved; writes confined to trace window.')
 print('PASS: 64 ARM snippet executions. This does not simulate the full kernel or prove hardware cache/reset retention.')
