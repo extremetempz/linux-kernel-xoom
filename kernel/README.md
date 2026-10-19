@@ -15,7 +15,7 @@ restoration, and Android returned. See the [candidate 11 record](../docs/trace-b
 
 Candidate 12 is built with active-zone bounds and a narrow page-progress
 window around PFN `0x2ebff`. It has passed offline checks but has not been
-physically tested; see the [candidate 12 plan](../docs/trace-node-map-candidate.md).
+physically tested; see the [candidate 12 plan](../docs/trace-boot-attempt-12-prepared.md).
 
 The bootloader 1050 also rejects RAM boot with error 0x8, so diagnostic tests
 use the boot partition only. The original Android ROM is running after the
