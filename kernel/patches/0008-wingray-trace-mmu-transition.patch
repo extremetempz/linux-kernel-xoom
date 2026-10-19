@@ -1,0 +1,266 @@
+From df25016210f09b5c6429321abd44864d69ef6473 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 18 Oct 2026 22:16:38 +1100
+Subject: [PATCH] ARM: tegra: trace MMU transition through a temporary
+ reserved-memory mapping
+
+---
+ arch/arm/configs/wingray_trace_defconfig   |  2 +-
+ arch/arm/include/debug/wingray-boottrace.S | 23 ++++++++++++++-
+ arch/arm/kernel/head-common.S              | 12 ++++++++
+ arch/arm/kernel/head.S                     | 17 +++++++++++
+ arch/arm/kernel/setup.c                    |  5 ++++
+ arch/arm/mach-tegra/Kconfig                |  1 +
+ arch/arm/mach-tegra/board-wingray.c        |  1 +
+ include/soc/tegra/wingray-boottrace.h      | 33 ++++++++++++++++++++++
+ init/main.c                                |  2 ++
+ 9 files changed, 94 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index 9f033e77..b242d180 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0002
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0003
+diff --git a/arch/arm/include/debug/wingray-boottrace.S b/arch/arm/include/debug/wingray-boottrace.S
+index 7f780e7f..bc7cd74b 100644
+--- a/arch/arm/include/debug/wingray-boottrace.S
++++ b/arch/arm/include/debug/wingray-boottrace.S
+@@ -1,6 +1,8 @@
+ /* Optional stack-free physical RAM breadcrumbs. GNU GPL version 2.
+  * Clobbers r3 and ip ONLY; preserves flags and boot arguments.
+- * Call only with MMU off. The first 128 bytes of the reserved lower legacy
++ * Physical macros require MMU off; the virtual macro needs the explicit
++ * initial mapping and must never be called after paging_init().
++ * The first 128 bytes of the reserved lower legacy
+  * console MiB are separate from ramoops at 0x1ff00000. Clean by MVA and DSB
+  * make writes visible before reset; this does not repair bootloader state.
+  */
+@@ -14,6 +16,21 @@
+ 	dsb sy
+ 	.endm
+ 
++	/* Explicit noncached initial mapping, before paging_init() only. */
++	.macro wingray_trace_virtual_store offset, value
++	ldr ip, =(WINGRAY_TRACE_VIRT + \offset)
++	ldr r3, =\value
++	str r3, [ip]
++	dsb sy
++	.endm
++
++	.macro wingray_trace_register offset, reg
++	ldr ip, =(WINGRAY_TRACE_BASE + \offset)
++	str \reg, [ip]
++	mcr p15, 0, ip, c7, c10, 1
++	dsb sy
++	.endm
++
+ 	.macro wingray_trace_enter
+ 	ldr ip, =WINGRAY_TRACE_BASE
+ 	mov r3, #0
+@@ -45,6 +62,10 @@
+ 	dsb sy
+ 	.endm
+ #else
++	.macro wingray_trace_virtual_store offset, value
++	.endm
++	.macro wingray_trace_register offset, reg
++	.endm
+ 	.macro wingray_trace_store offset, value
+ 	.endm
+ 	.macro wingray_trace_enter
+diff --git a/arch/arm/kernel/head-common.S b/arch/arm/kernel/head-common.S
+index 8733012d..920636b1 100644
+--- a/arch/arm/kernel/head-common.S
++++ b/arch/arm/kernel/head-common.S
+@@ -79,6 +79,12 @@ ENDPROC(__vet_atags)
+  */
+ 	__INIT
+ __mmap_switched:
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	.global wingray_trace_switched_begin, wingray_trace_switched_end
++wingray_trace_switched_begin:
++	wingray_trace_virtual_store WINGRAY_TRACE_SWITCHED, 9
++wingray_trace_switched_end:
++#endif
+ 	adr	r3, __mmap_switched_data
+ 
+ 	ldmia	r3!, {r4, r5, r6, r7}
+@@ -101,6 +107,12 @@ __mmap_switched:
+ 	str	r2, [r6]			@ Save atags pointer
+ 	cmp	r7, #0
+ 	strne	r0, [r7]			@ Save control register values
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	.global wingray_trace_bss_begin, wingray_trace_bss_end
++wingray_trace_bss_begin:
++	wingray_trace_virtual_store WINGRAY_TRACE_BSS_DONE, 10
++wingray_trace_bss_end:
++#endif
+ 	b	start_kernel
+ ENDPROC(__mmap_switched)
+ 
+diff --git a/arch/arm/kernel/head.S b/arch/arm/kernel/head.S
+index cf680a27..fd767854 100644
+--- a/arch/arm/kernel/head.S
++++ b/arch/arm/kernel/head.S
+@@ -172,6 +172,10 @@ wingray_trace_stext_end:
+ 	.global wingray_trace_mmu_begin, wingray_trace_mmu_end
+ wingray_trace_mmu_begin:
+ #endif
++	wingray_trace_register WINGRAY_TRACE_CONTROL, r0
++	wingray_trace_register WINGRAY_TRACE_BOOT_DATA, r2
++	wingray_trace_register WINGRAY_TRACE_TTBR, r4
++	wingray_trace_register WINGRAY_TRACE_JUMP, r13
+ 	wingray_trace_store WINGRAY_TRACE_MMU, 6
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
+ wingray_trace_mmu_end:
+@@ -368,6 +372,19 @@ __create_page_tables:
+ #endif
+ #ifdef CONFIG_ARM_LPAE
+ 	sub	r4, r4, #0x1000		@ point to the PGD table
++#endif
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	/* Map only the lower legacy-console MiB, never normal RAM or ramoops.
++	 * Strongly ordered, privileged RW, execute-never, IO domain. This is
++	 * temporary like the debug-UART mapping and is removed by paging_init.
++	 */
++	.global wingray_trace_map_begin, wingray_trace_map_end
++wingray_trace_map_begin:
++	ldr	r0, =(WINGRAY_TRACE_VIRT >> (SECTION_SHIFT - PMD_ORDER))
++	add	r0, r4, r0
++	ldr	r3, =(WINGRAY_TRACE_BASE | PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_XN | PMD_DOMAIN(DOMAIN_IO))
++	str	r3, [r0]
++wingray_trace_map_end:
+ #endif
+ 	ret	lr
+ ENDPROC(__create_page_tables)
+diff --git a/arch/arm/kernel/setup.c b/arch/arm/kernel/setup.c
+index bf63b469..c90a84c7 100644
+--- a/arch/arm/kernel/setup.c
++++ b/arch/arm/kernel/setup.c
+@@ -8,6 +8,7 @@
+  * published by the Free Software Foundation.
+  */
+ #include <linux/export.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/kernel.h>
+ #include <linux/stddef.h>
+ #include <linux/ioport.h>
+@@ -935,6 +936,7 @@ void __init hyp_mode_check(void)
+ void __init setup_arch(char **cmdline_p)
+ {
+ 	const struct machine_desc *mdesc;
++	wingray_boottrace_initial_mark(WINGRAY_TRACE_ARCH, 12);
+ 
+ 	setup_processor();
+ 	mdesc = setup_machine_fdt(__atags_pointer);
+@@ -942,6 +944,7 @@ void __init setup_arch(char **cmdline_p)
+ 		mdesc = setup_machine_tags(__atags_pointer, __machine_arch_type);
+ 	machine_desc = mdesc;
+ 	machine_name = mdesc->name;
++	wingray_boottrace_initial_mark(WINGRAY_TRACE_MACHINE, 13);
+ 	dump_stack_set_arch_desc("%s", mdesc->name);
+ 
+ 	if (mdesc->reboot_mode != REBOOT_HARD)
+@@ -968,6 +971,8 @@ void __init setup_arch(char **cmdline_p)
+ 	sanity_check_meminfo();
+ 	arm_memblock_init(mdesc);
+ 
++	wingray_boottrace_initial_mark(WINGRAY_TRACE_PAGING, 14);
++	/* No more accesses through the temporary trace mapping after this. */
+ 	paging_init(mdesc);
+ 	request_standard_resources(mdesc);
+ 
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index 653fe6de..74f55873 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -73,6 +73,7 @@ config MACH_MOTOROLA_WINGRAY
+ config MOTOROLA_XOOM_BOOT_TRACE
+ 	bool "Experimental Wingray early RAM breadcrumbs"
+ 	depends on MACH_MOTOROLA_WINGRAY && !SMP && !THUMB2_KERNEL
++	depends on !ARM_LPAE && VMSPLIT_3G && !CPU_BIG_ENDIAN
+ 	default n
+ 	help
+ 	  Instrument the decompressor and pre-MMU kernel entry without UART.
+diff --git a/arch/arm/mach-tegra/board-wingray.c b/arch/arm/mach-tegra/board-wingray.c
+index 715505c4..f6f917b2 100644
+--- a/arch/arm/mach-tegra/board-wingray.c
++++ b/arch/arm/mach-tegra/board-wingray.c
+@@ -65,6 +65,7 @@ static void __init wingray_boottrace_mark(unsigned int offset, u32 value)
+ 	if (!trace)
+ 		return;
+ 	if (readl(trace) == WINGRAY_TRACE_MAGIC &&
++	    readl(trace + 4) == WINGRAY_TRACE_VERSION &&
+ 	    readl(trace + WINGRAY_TRACE_COOKIE) == CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE)
+ 		writel(value, trace + offset);
+ 	readl(trace + offset); /* drain posted write */
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index b1147664..e31cb513 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -23,4 +23,37 @@
+ #define WINGRAY_TRACE_MMU        0x44
+ #define WINGRAY_TRACE_C_EARLY    0x48
+ #define WINGRAY_TRACE_INITCALL   0x4c
++#define WINGRAY_TRACE_SWITCHED   0x50
++#define WINGRAY_TRACE_BSS_DONE   0x54
++#define WINGRAY_TRACE_START_C    0x58
++#define WINGRAY_TRACE_ARCH       0x5c
++#define WINGRAY_TRACE_MACHINE    0x60
++#define WINGRAY_TRACE_PAGING     0x64
++#define WINGRAY_TRACE_CONTROL    0x68
++#define WINGRAY_TRACE_BOOT_DATA  0x6c
++#define WINGRAY_TRACE_TTBR       0x70
++#define WINGRAY_TRACE_JUMP       0x74
++/* Temporary explicit section mapping; valid ONLY before paging_init(). */
++#define WINGRAY_TRACE_VIRT       0xdfe00000
++#ifndef __ASSEMBLY__
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++#include <linux/io.h>
++static inline void wingray_boottrace_initial_mark(unsigned int offset,
++						unsigned int value)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_VIRT;
++
++	if (readl_relaxed(trace) == WINGRAY_TRACE_MAGIC &&
++	    readl_relaxed(trace + 4) == WINGRAY_TRACE_VERSION &&
++	    readl_relaxed(trace + WINGRAY_TRACE_COOKIE) == CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE) {
++		/* Avoid platform barrier callbacks before SoC initialization. */
++		writel_relaxed(value, trace + offset);
++		dsb(sy);
++		readl_relaxed(trace + offset);
++	}
++}
++#else
++#define wingray_boottrace_initial_mark(offset, value) do { } while (0)
++#endif
++#endif
+ #endif
+diff --git a/init/main.c b/init/main.c
+index db6b6cbb..981d9fb7 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -12,6 +12,7 @@
+ #define DEBUG		/* Enable initcall_debug */
+ 
+ #include <linux/types.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/module.h>
+ #include <linux/proc_fs.h>
+ #include <linux/kernel.h>
+@@ -497,6 +498,7 @@ asmlinkage __visible void __init start_kernel(void)
+ {
+ 	char *command_line;
+ 	char *after_dashes;
++	wingray_boottrace_initial_mark(WINGRAY_TRACE_START_C, 11);
+ 
+ 	/*
+ 	 * Need to run as early as possible, to initialize the
+-- 
+2.43.0
+
