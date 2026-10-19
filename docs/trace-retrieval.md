@@ -10,6 +10,12 @@ records successful retrieval of the new kernel's entry record after the approved
 boot test and original-image restoration. Boot did not complete. Retention is
 now observed for that one reset sequence, with the limits described in the report.
 
+**Latest hardware status:** [attempts 2 and 3](trace-boot-attempts-2-and-3.md)
+reached main-kernel entry and then early C setup immediately before paging
+initialization. Original boot/recovery readbacks were verified after both tests.
+The report distinguishes hardware facts from instrumentation defects and describes
+the next unbooted candidate.
+
 ## Decision
 
 Use a bounded **read-only userspace `mmap2()` snapshot** for the next proposed
