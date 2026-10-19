@@ -1,50 +1,48 @@
-# Candidate 12: zone bounds and narrow page-progress window
+# Node-map and zone diagnostic candidate
 
-Prepared 19 October 2026. This candidate is built and offline-checked, but has
-not been written to the tablet. Its fresh trace cookie is `0x584d000c`.
+Prepared 19 October 2026 from source commit `fc6250cd`. Patch `0011` adds
+checkpoints only; it does not correct the still-unproven hardware stop.
 
-## Why this candidate
+Candidate SHA256:
+`972e84b4f839d86af09b05e348f5168fb34fb198086a10bac5d2329b312b4812`.
+Trace format 2, cookie `0x584d0006`. Matching build retained at
+`/tmp/xoom-trace-zones`; private image/evidence at
+`artifacts/trace-boot-attempt-6-prepared/`.
 
-Candidate 11 reached its last sparse progress checkpoint after initializing
-PFN `0x2ebff`, inside `memmap_init_zone()`. The trace did not record that
-function returning. This is the last observed checkpoint, not a confirmed
-faulting PFN or proof of a permanent hang. Candidate 12 records the active
-zone's exact bounds and adds a small number of progress samples around that
-checkpoint. It does not alter the memory map, page descriptors, allocator
-operation order, boot parameters, or device drivers.
+Hardware outcome: see [attempt 6](trace-boot-attempt-6.md). The original boot
+image was restored and both boot and recovery readbacks verified.
 
-## Trace changes
+## Checkpoint interpretation
 
-At `memmap_init_zone()` entry, after paging is active, the kernel records the
-exclusive PFN range plus node, zone index, and `MEMMAP_EARLY` or
-`MEMMAP_HOTPLUG` context in the existing 128-byte record. A `WMAP` signature
-at offset `0x74` identifies this interpretation. These four words reuse the
-earlier MMU-handoff fields only after the handoff and paging markers have been
-recorded; the decoder reports the active zone and explicitly notes that the
-handoff words have been replaced.
+- `0x500`–`0x504`: entry, zone sizes, holes, pre-node call, node call returned.
+- `0x510`–`0x515`: node entry, total-page calculation returned, node-map setup
+  returned, node-map debug printk returned, deferred-init reset returned,
+  zone-core setup returned.
+- `0x520`–`0x523`: node-map entry, immediately before allocation, allocation
+  returned, node-map pointer stored. An allocation-return marker does not prove
+  its pointer is non-null or usable.
+- `0x530`: zone-core setup entered.
+- `0x600 + (zone_index << 4) + step`: zone entry (1), before per-CPU pageset
+  initialization (2), pageset returned (3), before usemap allocation (4), usemap
+  returned (5), empty-zone setup and its BUG check passed (6), memmap initialized
+  (7). The zone index is the compiled enumeration, not a fixed zone name.
 
-The existing one-per-512-PFN checkpoint remains enabled. A separately gated
-window records the end PFN of each 16-page block in `0x2ebf0..0x2ec2f`, adding
-four phase stores if the whole window is visited. The more intrusive detailed
-per-page tracing remains disabled. This narrows the observation around the
-repeatable checkpoint while keeping the trace record within the already-tested
-read boundary.
+The rolling slot is not a chronological log: use the source's actual call
+order, including nested calls. A missing marker bounds an unobserved interval;
+it does not by itself prove a particular instruction caused the stop.
 
-## Build and offline checks
+## Validation and scope
 
-- The trace profile built successfully with the pinned Android GCC 4.9 toolchain. The combined `zImage-dtb` SHA-256 is `36e336bd343f491a698119fa032fe5bb98579dff061f7682749f5b69c0093b56`; the standalone DTB SHA-256 is `ab186459f800c309124302757b2e883f757d80d3cf8d2314869fa7890fc18949`.
-- The trace-disabled early profile also built successfully after guarding the trace call. Both profiles passed the ARM image, appended-DTB, single-CPU, and pre-console checks.
-- The compiled `memmap_init_zone()` harness passed 12 cases, including the high-PFN window, zone bounds, hotplug context, and not-ready, bad-cookie, and bad-magic guards. Pageblock update is stubbed; this harness does not emulate real MMU/cache behavior.
-- Other offline checks passed: 64 ARM entry snippets; 32 entry-flow runs; 48 MMU mapping runs, five ATAG converter scenarios and two `start_kernel` prologues; four static-map cases; nine fatal-path cases; 30 allocator checkpoints; 23 decoder cases; and the BigPart suite.
+The trace and trace-disabled early profiles compile and pass profile checks.
+The image audit accepts header layout, gzip payload, appended DTB and component
+checksums. Existing compiled entry, ATAG, MMU, static-map and fatal-hook tests
+pass. Thirty compiled allocator-helper cases check the readiness, magic,
+version and cookie guards and bounded phase writes. The trace-disabled binary
+has neither the helper nor its readiness state. Fifteen offline decoder cases
+pass, including node-map/per-zone records and unknown phases.
 
-## Staged hardware test
-
-The candidate is only a diagnostic kernel-plus-DTB build, not a flashable
-Android boot image. The Xoom bootloader rejects RAM boot. Under the user's
-existing authorization, a future hardware attempt may write only the boot
-partition, first verify the original boot and recovery readbacks, then restore
-the exact original boot image and verify both images and Android startup. The
-trace should be retrieved once through the bounded read-only reader after
-restoration. Recovery, partition layout, and Android data are not part of this
-test. A new checkpoint would narrow where execution stopped; it would not by
-itself prove a particular fault or fix the boot.
+Emulation does not execute the real allocator or ARM page-table walker and
+cannot establish a hardware boot. No memory-bank size, HIGHMEM setting,
+allocator algorithm, partition layout, original image or recovery image was
+changed. The standing authorization covers a boot-partition test followed by
+original restoration, one bounded trace retrieval and readback verification.

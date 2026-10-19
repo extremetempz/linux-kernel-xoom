@@ -139,6 +139,6 @@ across 64 PFNs around `0x2ebff`, while retaining the 512-PFN global sampling
 interval and leaving page initialization unchanged. The compiled allocator
 harness and existing boot-entry, mapping, fatal-path, trace-reader, and
 BigPart checks passed. The trace-disabled early profile also builds. See the
-[candidate 12 design and build record](trace-node-map-candidate.md). A later
+[candidate 12 design and build record](trace-boot-attempt-12-prepared.md). A later
 boot-partition test must continue to restore and verify the original boot and
 recovery images before interpreting the trace.
