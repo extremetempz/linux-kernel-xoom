@@ -1,0 +1,180 @@
+From fc6250cd2079d2bdda37904159b8553539fde65b Mon Sep 17 00:00:00 2001
+From: Xoom kernel port work
+Date: Mon, 19 Oct 2026 17:18:58 +1100
+Subject: [PATCH] ARM: tegra: bracket node-map allocation and per-zone setup
+
+---
+ arch/arm/configs/wingray_trace_defconfig |  2 +-
+ arch/arm/mm/init.c                       |  6 +++++
+ mm/page_alloc.c                          | 31 ++++++++++++++++++++++++
+ 3 files changed, 38 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index fee696c2..6e217b1e 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0005
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0006
+diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
+index 0aa3469c..519e45ed 100644
+--- a/arch/arm/mm/init.c
++++ b/arch/arm/mm/init.c
+@@ -144,6 +144,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
+ 	/*
+ 	 * initialise the zones.
+ 	 */
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x500);
+ 	memset(zone_size, 0, sizeof(zone_size));
+ 
+ 	/*
+@@ -160,6 +161,7 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
+ 	 * Calculate the size of the holes.
+ 	 *  holes = node_size - sum(bank_sizes)
+ 	 */
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x501);
+ 	memcpy(zhole_size, zone_size, sizeof(zhole_size));
+ 	for_each_memblock(memory, reg) {
+ 		unsigned long start = memblock_region_memory_base_pfn(reg);
+@@ -177,6 +179,8 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
+ #endif
+ 	}
+ 
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x502);
++
+ #ifdef CONFIG_ZONE_DMA
+ 	/*
+ 	 * Adjust the sizes according to any special requirements for
+@@ -187,7 +191,9 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max_low,
+ 			arm_dma_zone_size >> PAGE_SHIFT);
+ #endif
+ 
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x503);
+ 	free_area_init_node(0, zone_size, min, zhole_size);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x504);
+ }
+ 
+ #ifdef CONFIG_HAVE_ARCH_PFN_VALID
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 5b7402ab..cc5da74e 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -68,6 +68,19 @@
+ #include <asm/div64.h>
+ #include "internal.h"
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++#include <soc/tegra/wingray-boottrace.h>
++/* No allocation, DT walk or printk in allocator checkpoints. */
++static noinline void wingray_alloc_trace(unsigned int phase)
++{
++	if (wingray_boottrace_static_ready)
++		wingray_boottrace_mapped_mark(WINGRAY_TRACE_STATIC_VIRT,
++					WINGRAY_TRACE_PHASE, phase);
++}
++#else
++#define wingray_alloc_trace(phase) do { } while (0)
++#endif
++
+ /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
+ static DEFINE_MUTEX(pcp_batch_high_lock);
+ #define MIN_PERCPU_PAGELIST_FRACTION	(8)
+@@ -5256,6 +5269,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
+ 	unsigned long zone_start_pfn = pgdat->node_start_pfn;
+ 	int ret;
+ 
++	wingray_alloc_trace(0x530);
+ 	pgdat_resize_init(pgdat);
+ #ifdef CONFIG_NUMA_BALANCING
+ 	spin_lock_init(&pgdat->numabalancing_migrate_lock);
+@@ -5270,6 +5284,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
+ 		struct zone *zone = pgdat->node_zones + j;
+ 		unsigned long size, realsize, freesize, memmap_pages;
+ 
++		wingray_alloc_trace(0x600 + (j << 4) + 1);
+ 		size = zone->spanned_pages;
+ 		realsize = freesize = zone->present_pages;
+ 
+@@ -5323,7 +5338,9 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
+ 		spin_lock_init(&zone->lru_lock);
+ 		zone_seqlock_init(zone);
+ 		zone->zone_pgdat = pgdat;
++		wingray_alloc_trace(0x600 + (j << 4) + 2);
+ 		zone_pcp_init(zone);
++		wingray_alloc_trace(0x600 + (j << 4) + 3);
+ 
+ 		/* For bootup, initialized properly in watermark setup */
+ 		mod_zone_page_state(zone, NR_ALLOC_BATCH, zone->managed_pages);
+@@ -5333,10 +5350,14 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
+ 			continue;
+ 
+ 		set_pageblock_order();
++		wingray_alloc_trace(0x600 + (j << 4) + 4);
+ 		setup_usemap(pgdat, zone, zone_start_pfn, size);
++		wingray_alloc_trace(0x600 + (j << 4) + 5);
+ 		ret = init_currently_empty_zone(zone, zone_start_pfn, size);
+ 		BUG_ON(ret);
++		wingray_alloc_trace(0x600 + (j << 4) + 6);
+ 		memmap_init(size, nid, j, zone_start_pfn);
++		wingray_alloc_trace(0x600 + (j << 4) + 7);
+ 		zone_start_pfn += size;
+ 	}
+ }
+@@ -5346,6 +5367,7 @@ static void __init_refok alloc_node_mem_map(struct pglist_data *pgdat)
+ 	unsigned long __maybe_unused start = 0;
+ 	unsigned long __maybe_unused offset = 0;
+ 
++	wingray_alloc_trace(0x520);
+ 	/* Skip empty nodes */
+ 	if (!pgdat->node_spanned_pages)
+ 		return;
+@@ -5366,11 +5388,14 @@ static void __init_refok alloc_node_mem_map(struct pglist_data *pgdat)
+ 		end = pgdat_end_pfn(pgdat);
+ 		end = ALIGN(end, MAX_ORDER_NR_PAGES);
+ 		size =  (end - start) * sizeof(struct page);
++		wingray_alloc_trace(0x521);
+ 		map = alloc_remap(pgdat->node_id, size);
+ 		if (!map)
+ 			map = memblock_virt_alloc_node_nopanic(size,
+ 							       pgdat->node_id);
++		wingray_alloc_trace(0x522);
+ 		pgdat->node_mem_map = map + offset;
++		wingray_alloc_trace(0x523);
+ 	}
+ #ifndef CONFIG_NEED_MULTIPLE_NODES
+ 	/*
+@@ -5394,6 +5419,7 @@ void __paginginit free_area_init_node(int nid, unsigned long *zones_size,
+ 	unsigned long start_pfn = 0;
+ 	unsigned long end_pfn = 0;
+ 
++	wingray_alloc_trace(0x510);
+ 	/* pg_data_t should be reset to zero when it's allocated */
+ 	WARN_ON(pgdat->nr_zones || pgdat->classzone_idx);
+ 
+@@ -5408,15 +5434,20 @@ void __paginginit free_area_init_node(int nid, unsigned long *zones_size,
+ 	calculate_node_totalpages(pgdat, start_pfn, end_pfn,
+ 				  zones_size, zholes_size);
+ 
++	wingray_alloc_trace(0x511);
+ 	alloc_node_mem_map(pgdat);
++	wingray_alloc_trace(0x512);
+ #ifdef CONFIG_FLAT_NODE_MEM_MAP
+ 	printk(KERN_DEBUG "free_area_init_node: node %d, pgdat %08lx, node_mem_map %08lx\n",
+ 		nid, (unsigned long)pgdat,
+ 		(unsigned long)pgdat->node_mem_map);
+ #endif
+ 
++	wingray_alloc_trace(0x513);
+ 	reset_deferred_meminit(pgdat);
++	wingray_alloc_trace(0x514);
+ 	free_area_init_core(pgdat);
++	wingray_alloc_trace(0x515);
+ }
+ 
+ #ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+-- 
+2.43.0
+

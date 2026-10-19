@@ -1,0 +1,45 @@
+From b3291dd586ce642cad07f7ebb6301f0021d155f9 Mon Sep 17 00:00:00 2001
+From: Xoom kernel port work
+Date: Mon, 19 Oct 2026 17:38:15 +1100
+Subject: [PATCH] ARM: tegra: trace page initialization progress and completion
+
+---
+ arch/arm/configs/wingray_trace_defconfig | 2 +-
+ mm/page_alloc.c                          | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index 3fea56d4..98033b25 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0007
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0008
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 5d4a7375..e5d5dec1 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -4627,6 +4627,9 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 			__init_single_pfn(pfn, zone, nid);
+ 			wingray_page_trace(4, pfn);
+ 		}
++		/* Progress every 32 PFNs; never stores inside the pageblock atomic. */
++		if ((pfn & 31UL) == 31)
++			wingray_alloc_trace(0x90000000U | (pfn & 0x0fffffffUL));
+ 	}
+ 	wingray_alloc_trace(0x703);
+ }
+@@ -5383,6 +5386,7 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat)
+ 		wingray_alloc_trace(0x600 + (j << 4) + 6);
+ 		memmap_init(size, nid, j, zone_start_pfn);
+ 		wingray_alloc_trace(0x600 + (j << 4) + 7);
++		wingray_alloc_trace(0x516);
+ 		zone_start_pfn += size;
+ 	}
+ }
+-- 
+2.43.0
+

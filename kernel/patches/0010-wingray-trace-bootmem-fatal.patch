@@ -1,0 +1,211 @@
+From e36ebe5b4d574aa2205303358c9b51bb9002a674 Mon Sep 17 00:00:00 2001
+From: Xoom kernel port work
+Date: Mon, 19 Oct 2026 17:07:24 +1100
+Subject: [PATCH] ARM: tegra: trace bootmem setup and preserve first fatal
+ event
+
+---
+ arch/arm/configs/wingray_trace_defconfig |  2 +-
+ arch/arm/kernel/traps.c                  |  9 ++++++++-
+ arch/arm/mach-tegra/io.c                 |  2 ++
+ arch/arm/mm/init.c                       |  7 +++++++
+ arch/arm/mm/mmu.c                        |  2 ++
+ include/soc/tegra/wingray-boottrace.h    | 14 ++++++++++++++
+ kernel/panic.c                           |  5 +++++
+ 7 files changed, 39 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index 866f3e75..fee696c2 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0004
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0005
+diff --git a/arch/arm/kernel/traps.c b/arch/arm/kernel/traps.c
+index 306a2a58..28c77bd8 100644
+--- a/arch/arm/kernel/traps.c
++++ b/arch/arm/kernel/traps.c
+@@ -13,6 +13,7 @@
+  *  kill the offending process.
+  */
+ #include <linux/signal.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/personality.h>
+ #include <linux/kallsyms.h>
+ #include <linux/spinlock.h>
+@@ -328,9 +329,15 @@ static void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
+ void die(const char *str, struct pt_regs *regs, int err)
+ {
+ 	enum bug_trap_type bug_type = BUG_TRAP_TYPE_NONE;
+-	unsigned long flags = oops_begin();
++	unsigned long flags;
+ 	int sig = SIGSEGV;
+ 
++	if (!user_mode(regs))
++		wingray_boottrace_record_fault(regs->ARM_pc);
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	asm volatile(".global wingray_trace_die_recorded\nwingray_trace_die_recorded:" ::: "memory");
++#endif
++	flags = oops_begin();
+ 	if (!user_mode(regs))
+ 		bug_type = report_bug(regs->ARM_pc, regs);
+ 	if (bug_type != BUG_TRAP_TYPE_NONE)
+diff --git a/arch/arm/mach-tegra/io.c b/arch/arm/mach-tegra/io.c
+index f0def9cf..1018211e 100644
+--- a/arch/arm/mach-tegra/io.c
++++ b/arch/arm/mach-tegra/io.c
+@@ -59,6 +59,7 @@ static struct map_desc tegra_io_desc[] __initdata = {
+ };
+ 
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++bool wingray_boottrace_static_ready;
+ static struct map_desc wingray_trace_io_desc __initdata = {
+ 	.virtual = WINGRAY_TRACE_STATIC_VIRT,
+ 	.pfn = __phys_to_pfn(WINGRAY_TRACE_BASE),
+@@ -75,6 +76,7 @@ void __init tegra_map_common_io(void)
+ 	if (of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray")) {
+ 		/* Early allocation only; no slab/vmalloc dependency. */
+ 		iotable_init(&wingray_trace_io_desc, 1);
++		wingray_boottrace_static_ready = true;
+ 		wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x103);
+ 	}
+ #endif
+diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
+index c29ad610..0aa3469c 100644
+--- a/arch/arm/mm/init.c
++++ b/arch/arm/mm/init.c
+@@ -8,6 +8,7 @@
+  * published by the Free Software Foundation.
+  */
+ #include <linux/kernel.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/errno.h>
+ #include <linux/swap.h>
+ #include <linux/init.h>
+@@ -283,24 +284,29 @@ void __init bootmem_init(void)
+ {
+ 	unsigned long min, max_low, max_high;
+ 
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x110);
+ 	memblock_allow_resize();
+ 	max_low = max_high = 0;
+ 
+ 	find_limits(&min, &max_low, &max_high);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x111);
+ 
+ 	early_memtest((phys_addr_t)min << PAGE_SHIFT,
+ 		      (phys_addr_t)max_low << PAGE_SHIFT);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x112);
+ 
+ 	/*
+ 	 * Sparsemem tries to allocate bootmem in memory_present(),
+ 	 * so must be done after the fixed reservations
+ 	 */
+ 	arm_memory_present();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x113);
+ 
+ 	/*
+ 	 * sparse_init() needs the bootmem allocator up and running.
+ 	 */
+ 	sparse_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x114);
+ 
+ 	/*
+ 	 * Now free the memory - free_area_init_node needs
+@@ -308,6 +314,7 @@ void __init bootmem_init(void)
+ 	 * for memmap_init_zone(), otherwise all PFNs are invalid.
+ 	 */
+ 	zone_sizes_init(min, max_low, max_high);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x115);
+ 
+ 	/*
+ 	 * This doesn't seem to be used by the Linux memory manager any
+diff --git a/arch/arm/mm/mmu.c b/arch/arm/mm/mmu.c
+index 12643e77..030ef778 100644
+--- a/arch/arm/mm/mmu.c
++++ b/arch/arm/mm/mmu.c
+@@ -1588,11 +1588,13 @@ void __init paging_init(const struct machine_desc *mdesc)
+ 	kmap_init();
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x105);
+ 	tcm_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x107);
+ 
+ 	top_pmd = pmd_off_k(0xffff0000);
+ 
+ 	/* allocate the zero page. */
+ 	zero_page = early_alloc(PAGE_SIZE);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x108);
+ 
+ 	bootmem_init();
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x106);
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index d962bd4c..87e03e5a 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -34,6 +34,8 @@
+ #define WINGRAY_TRACE_TTBR       0x70
+ #define WINGRAY_TRACE_JUMP       0x74
+ #define WINGRAY_TRACE_PHASE      0x78
++#define WINGRAY_TRACE_FAULT_PC   0x7c
++#define WINGRAY_TRACE_PANIC      0xbad00001
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
+ #define WINGRAY_TRACE_STATIC_VIRT 0xfe600000
+@@ -41,6 +43,7 @@
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
+ #include <linux/io.h>
+ #include <linux/of_fdt.h>
++extern bool wingray_boottrace_static_ready;
+ static inline void wingray_boottrace_mapped_mark(unsigned long address,
+ 				unsigned int offset, unsigned int value)
+ {
+@@ -67,9 +70,20 @@ static inline void wingray_boottrace_static_mark(unsigned int offset,
+ 	if (of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray"))
+ 		wingray_boottrace_mapped_mark(WINGRAY_TRACE_STATIC_VIRT, offset, value);
+ }
++static inline void wingray_boottrace_record_fault(unsigned long pc)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++
++	/* No DT walks, allocation or locks in the fatal path. First event wins. */
++	if (wingray_boottrace_static_ready &&
++	    !readl_relaxed(trace + WINGRAY_TRACE_FAULT_PC))
++		wingray_boottrace_mapped_mark(WINGRAY_TRACE_STATIC_VIRT,
++					WINGRAY_TRACE_FAULT_PC, pc);
++}
+ #else
+ #define wingray_boottrace_initial_mark(offset, value) do { } while (0)
+ #define wingray_boottrace_static_mark(offset, value) do { } while (0)
++#define wingray_boottrace_record_fault(pc) do { } while (0)
+ #endif
+ #endif
+ #endif
+diff --git a/kernel/panic.c b/kernel/panic.c
+index 8f4f5e94..d3b2c31f 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -9,6 +9,7 @@
+  * to indicate a major problem.
+  */
+ #include <linux/debug_locks.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/interrupt.h>
+ #include <linux/kmsg_dump.h>
+ #include <linux/kallsyms.h>
+@@ -81,6 +82,10 @@ void panic(const char *fmt, ...)
+ 	long i, i_next = 0;
+ 	int state = 0;
+ 
++	wingray_boottrace_record_fault(WINGRAY_TRACE_PANIC);
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	asm volatile(".global wingray_trace_panic_recorded\nwingray_trace_panic_recorded:" ::: "memory");
++#endif
+ #if defined(CONFIG_MACH_SAMSUNG_P4WIFI)
+ 	write_bootloader_recovery();
+ #endif
+-- 
+2.43.0
+

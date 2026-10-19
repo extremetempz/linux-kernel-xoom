@@ -1,0 +1,22 @@
+From 11be3f004d97d93c2ea76102384918457ecdfa90 Mon Sep 17 00:00:00 2001
+From: Xoom kernel port work
+Date: Mon, 19 Oct 2026 18:16:23 +1100
+Subject: [PATCH] ARM: tegra: prepare five-minute sparse trace candidate
+
+---
+ arch/arm/configs/wingray_trace_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index 579ef21e..d6291daa 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -54,4 +54,4 @@ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d000a
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d000b
+-- 
+2.43.0
+

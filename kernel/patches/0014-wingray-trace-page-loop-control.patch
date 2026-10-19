@@ -1,0 +1,87 @@
+From 3fb0594f785b2c532bf282efc660cf45c7ba2027 Mon Sep 17 00:00:00 2001
+From: Xoom kernel port work
+Date: Mon, 19 Oct 2026 17:46:45 +1100
+Subject: [PATCH] ARM: tegra: add quiet page-loop trace profile
+
+---
+ arch/arm/configs/wingray_trace_defconfig |  2 +-
+ arch/arm/mach-tegra/Kconfig              |  9 +++++++++
+ mm/page_alloc.c                          | 17 +++++++++++++----
+ 3 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index 98033b25..1c18732a 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0008
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0009
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index 74f55873..a5a333a8 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -81,6 +81,15 @@ config MOTOROLA_XOOM_BOOT_TRACE
+ 	  reserved legacy console region. Verify ownership and readback before
+ 	  any hardware test. Never enable for an ordinary ROM build.
+ 
++config MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS
++	bool "Trace sampled Wingray page metadata initialization"
++	depends on MOTOROLA_XOOM_BOOT_TRACE
++	default n
++	help
++	  Add periodic PFN stores inside memmap_init_zone(). Each store includes
++	  a barrier and readback and can change initialization timing. Leave off
++	  for the low-overhead outer-loop control build.
++
+ config MOTOROLA_XOOM_BOOT_TRACE_COOKIE
+ 	hex "Wingray trace build identifier"
+ 	depends on MOTOROLA_XOOM_BOOT_TRACE
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index e5d5dec1..eb4beba5 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -77,15 +77,25 @@ static noinline void wingray_alloc_trace(unsigned int phase)
+ 		wingray_boottrace_mapped_mark(WINGRAY_TRACE_STATIC_VIRT,
+ 					WINGRAY_TRACE_PHASE, phase);
+ }
+-/* Four PFNs per 1024-page interval: bounded overhead, plus block starts. */
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS
++/* Four PFNs per 1024-page interval: detailed data has measurable overhead. */
+ #define wingray_page_trace(step, pfn) do { \
+ 	if (((pfn) & 1023UL) < 4) \
+ 		wingray_alloc_trace(0x80000000U | ((step) << 24) | \
+ 				    ((pfn) & 0x00ffffffUL)); \
+ } while (0)
++#define wingray_page_progress(pfn) do { \
++	if (((pfn) & 31UL) == 31) \
++		wingray_alloc_trace(0x90000000U | ((pfn) & 0x0fffffffUL)); \
++} while (0)
++#else
++#define wingray_page_trace(step, pfn) do { } while (0)
++#define wingray_page_progress(pfn) do { } while (0)
++#endif
+ #else
+ #define wingray_alloc_trace(phase) do { } while (0)
+ #define wingray_page_trace(step, pfn) do { } while (0)
++#define wingray_page_progress(pfn) do { } while (0)
+ #endif
+ 
+ /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
+@@ -4627,9 +4637,8 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 			__init_single_pfn(pfn, zone, nid);
+ 			wingray_page_trace(4, pfn);
+ 		}
+-		/* Progress every 32 PFNs; never stores inside the pageblock atomic. */
+-		if ((pfn & 31UL) == 31)
+-			wingray_alloc_trace(0x90000000U | (pfn & 0x0fffffffUL));
++		/* Sampling stores are optional and outside the pageblock atomic. */
++		wingray_page_progress(pfn);
+ 	}
+ 	wingray_alloc_trace(0x703);
+ }
+-- 
+2.43.0
+
