@@ -13,6 +13,10 @@ checkpoint, not an exact fault address or proof of a permanent hang. The
 original boot and recovery images were read back byte-for-byte after
 restoration, and Android returned. See the [candidate 11 record](../docs/trace-boot-attempt-11.md).
 
+Candidate 12 is built with active-zone bounds and a narrow page-progress
+window around PFN `0x2ebff`. It has passed offline checks but has not been
+physically tested; see the [candidate 12 plan](../docs/trace-node-map-candidate.md).
+
 The bootloader 1050 also rejects RAM boot with error 0x8, so diagnostic tests
 use the boot partition only. The original Android ROM is running after the
 latest restoration.
@@ -75,6 +79,7 @@ Android boot image load address. The first milestone's limitations above
 describe its original build; current hardware evidence and remaining work
 are maintained in [hardware-validation.md](../docs/hardware-validation.md).
 
-These additions do not prove working display, touch or Wi-Fi. No new-kernel
-boot has been attempted. Suspend, DVFS, charging, fuel gauge, audio, Bluetooth,
-cameras and sensors remain pending. Keep the existing ROM and recovery.
+These additions do not prove working display, touch or Wi-Fi. Diagnostic
+Linux 4.4 boots have been attempted but have not reached Android. Suspend,
+DVFS, charging, fuel gauge, audio, Bluetooth, cameras and sensors remain
+pending. Keep the existing ROM and recovery.
