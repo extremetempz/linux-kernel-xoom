@@ -86,5 +86,47 @@ ADB confirmed Android 4.4.4, kernel `2.6.39.4-ElementalX-Xoom-2.1+` and
 `sys.boot_completed=1`. A fresh read of the entire 8 MiB boot partition matched
 the original backup byte for byte. Recovery and partition layout were not
 written during the test. The retained `/proc/last_kmsg` contains Linux 2.6.39
-output, not a diagnostic Linux 4.4 log. The test therefore does not locate the
-new kernel's failure. No further flashing is scheduled in this session.
+output, not a diagnostic Linux 4.4 log. That test therefore does not locate the
+new kernel's failure.
+
+### Candidate 10 trace and restoration
+
+Candidate 10 was subsequently written to the boot partition for a diagnostic
+attempt. Fastboot reappeared before the intended two-minute observation ended,
+and available evidence cannot tell whether this was a button-driven handoff or
+an automatic return. No USB ACM serial device or ADB device was visible while
+the candidate was active.
+
+After restoring the original boot image, full boot and recovery readbacks
+matched their preserved originals byte for byte. Android 4.4.4 reached
+`sys.boot_completed=1`. A single bounded read retrieved a valid trace with
+cookie `0x584d000a`; its last phase was `0x9002ebff`, a sampled page-metadata
+PFN inside `memmap_init_zone`. The zone-loop return marker, enclosing
+`memmap_init` return marker, and first-fatal PC were absent. This places the
+last observed progress late in memory-zone initialization but does not
+establish a fault or a permanent hang. See the [candidate 10 test record](trace-boot-attempt-10.md).
+
+Subsequent diagnostic iterations are limited to the boot partition and restore
+the verified original afterward. Recovery, partition layout and Android data
+remain untouched. The working Android ROM was verified after candidate 11;
+the new kernel has not reached Android.
+
+### Candidate 11 repeatability check
+
+Candidate 11 used the same sparse page-progress instrumentation as candidate
+10 with a fresh cookie (`0x584d000b`). It was built and statically checked,
+then written to the boot partition only. The tablet stayed at the Motorola
+logo; after about three minutes it enumerated as Google Fastboot. No diagnostic
+USB serial or ADB device appeared. The available observation cannot establish
+whether the bootloader return was automatic or button-driven.
+
+After restoring the original boot image, Android 4.4.4 reached
+`sys.boot_completed=1`; complete boot and recovery reads again matched their
+preserved originals byte for byte. One bounded trace read returned the expected
+cookie and the same last sampled phase as candidate 10, `0x9002ebff` (PFN
+`0x2ebff`). The trace still had no `memmap_init_zone` return, enclosing
+`memmap_init` return, or first-fatal PC. The reader reported no transport
+stderr, the Android boot ID stayed unchanged, and dmesg did not change during
+retrieval. This makes the last sparse checkpoint repeatable across two builds;
+it does not identify a fault or an exact failing PFN. See the [candidate 11
+record](trace-boot-attempt-11.md).
