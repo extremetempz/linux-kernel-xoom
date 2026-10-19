@@ -22,7 +22,27 @@ struct.pack_into('<I',b,0x78,0x201)
 rc,d=decode(b);assert d['last_phase']['name']=='paging_init_returned'
 struct.pack_into('<I',b,0x78,0xdead)
 rc,d=decode(b);assert d['last_phase']['name']=='unknown'
+struct.pack_into('<II',b,0x78,0x114,0xbad00001)
+rc,d=decode(b);assert d['last_phase']['name']=='sparse_init_returned' and d['first_fatal']['kind']=='panic'
+struct.pack_into('<I',b,0x7c,0xc0123450)
+rc,d=decode(b);assert d['first_fatal']['kind']=='kernel_die_pc'
 rc,d=decode(b,1);assert rc==2 and not d['valid'] and 'entry' not in d
 rc,d=decode(record(99));assert rc==2 and not d['valid']
 rc,d=decode(bytes(16));assert rc!=0 and d is None
-print('PASS: 8 offline decoder cases; old status is not misreported and phase names decode safely.')
+for phase,name,zone in [(0x521,'before_node_map_allocation',None),(0x512,'node_map_returned',None),(0x606,'zone_empty_zone_initialized',0),(0x617,'zone_memmap_init_returned',1),(0x651,'unknown',None)]:
+ struct.pack_into('<I',b,0x78,phase);rc,d=decode(b)
+ assert rc==0 and d['last_phase']['name']==name and d['last_phase'].get('zone_index')==zone
+for phase,name,pfn in [(0x701,'memmap_init_zone_entry',None),(0x85000400,'before_pageblock_update','0x400'),(0x89000001,'page_links_set','0x1'),(0x87000001,'unknown',None),(0xb5000400,'unknown',None)]:
+ struct.pack_into('<I',b,0x78,phase);rc,d=decode(b)
+ assert rc==0 and d['last_phase']['name']==name and d['last_phase'].get('pfn')==pfn
+ if pfn is not None:assert d['last_phase']['physical_page']==hex(int(pfn,16)<<12) and 'sampling' in d['last_phase']
+for phase,name,pfn in [(0x516,'memmap_init_returned',None),(0x9002ec1f,'memmap_progress_checkpoint','0x2ec1f'),(0xa002ec1f,'memmap_window_checkpoint','0x2ec1f')]:
+ struct.pack_into('<I',b,0x78,phase);rc,d=decode(b)
+ assert rc==0 and d['last_phase']['name']==name and d['last_phase'].get('pfn')==pfn
+ if pfn:assert d['last_phase']['checkpoint'] is True and 'interval_pfns' not in d['last_phase']
+ if name=='memmap_window_checkpoint':assert '16-PFN block' in d['last_phase']['sampling']
+struct.pack_into('<4I',b,0x68,0x2ebf0,0x2ec30,0x00000100,0x574d4150)
+struct.pack_into('<I',b,0x78,0xa002ec1f)
+rc,d=decode(b);assert rc==0 and 'mmu_handoff' not in d
+assert d['memmap_zone']=={'start_pfn':'0x2ebf0','end_pfn_exclusive':'0x2ec30','size_pfns':64,'nid':0,'zone_index':1,'context':'early','note':d['memmap_zone']['note']}
+print('PASS: 23 offline decoder cases; fine progress, loop-return phases and unknown encodings handled conservatively.')
