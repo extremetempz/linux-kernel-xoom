@@ -1,0 +1,271 @@
+From 1d7a3df9e9f3096e6c997c1e0ebb38aca1ab8ae7 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 19 Oct 2026 16:49:31 +1100
+Subject: [PATCH] ARM: tegra: avoid allocator-dependent trace mapping during
+ init_early
+
+---
+ arch/arm/configs/wingray_trace_defconfig |  2 +-
+ arch/arm/kernel/setup.c                  | 10 ++++++++++
+ arch/arm/mach-tegra/board-wingray.c      | 16 +++-------------
+ arch/arm/mach-tegra/io.c                 | 17 +++++++++++++++++
+ arch/arm/mach-tegra/tegra.c              |  4 ++++
+ arch/arm/mm/mmu.c                        |  6 ++++++
+ include/soc/tegra/wingray-boottrace.h    | 22 +++++++++++++++++++---
+ init/main.c                              |  1 +
+ 8 files changed, 61 insertions(+), 17 deletions(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index b242d180..866f3e75 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -53,4 +53,4 @@ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0003
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0004
+diff --git a/arch/arm/kernel/setup.c b/arch/arm/kernel/setup.c
+index c90a84c7..5f8c4eab 100644
+--- a/arch/arm/kernel/setup.c
++++ b/arch/arm/kernel/setup.c
+@@ -974,16 +974,22 @@ void __init setup_arch(char **cmdline_p)
+ 	wingray_boottrace_initial_mark(WINGRAY_TRACE_PAGING, 14);
+ 	/* No more accesses through the temporary trace mapping after this. */
+ 	paging_init(mdesc);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x201);
+ 	request_standard_resources(mdesc);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x202);
+ 
+ 	if (mdesc->restart)
+ 		arm_pm_restart = mdesc->restart;
+ 
+ 	unflatten_device_tree();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x203);
+ 
+ 	arm_dt_init_cpu_maps();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x204);
+ 	psci_dt_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x205);
+ 	xen_early_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x206);
+ #ifdef CONFIG_SMP
+ 	if (is_smp()) {
+ 		if (!mdesc->smp_init || !mdesc->smp_init()) {
+@@ -999,8 +1005,10 @@ void __init setup_arch(char **cmdline_p)
+ 
+ 	if (!is_smp())
+ 		hyp_mode_check();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x207);
+ 
+ 	reserve_crashkernel();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x208);
+ 
+ #ifdef CONFIG_MULTI_IRQ_HANDLER
+ 	handle_arch_irq = mdesc->handle_irq;
+@@ -1014,8 +1022,10 @@ void __init setup_arch(char **cmdline_p)
+ #endif
+ #endif
+ 
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x209);
+ 	if (mdesc->init_early)
+ 		mdesc->init_early();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x20a);
+ }
+ 
+ 
+diff --git a/arch/arm/mach-tegra/board-wingray.c b/arch/arm/mach-tegra/board-wingray.c
+index f6f917b2..143e6ef2 100644
+--- a/arch/arm/mach-tegra/board-wingray.c
++++ b/arch/arm/mach-tegra/board-wingray.c
+@@ -57,24 +57,14 @@ void __init wingray_reserve(void)
+ 
+ static void __init wingray_boottrace_mark(unsigned int offset, u32 value)
+ {
+-	void __iomem *trace;
+-
+-	if (!of_machine_is_compatible("motorola,wingray"))
+-		return;
+-	trace = ioremap_nocache(WINGRAY_TRACE_BASE, WINGRAY_TRACE_SIZE);
+-	if (!trace)
+-		return;
+-	if (readl(trace) == WINGRAY_TRACE_MAGIC &&
+-	    readl(trace + 4) == WINGRAY_TRACE_VERSION &&
+-	    readl(trace + WINGRAY_TRACE_COOKIE) == CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE)
+-		writel(value, trace + offset);
+-	readl(trace + offset); /* drain posted write */
+-	iounmap(trace);
++	/* init_early precedes slab/vmalloc: never allocate a mapping here. */
++	wingray_boottrace_static_mark(offset, value);
+ }
+ 
+ void __init wingray_boottrace_c_early(void)
+ {
+ 	wingray_boottrace_mark(WINGRAY_TRACE_C_EARLY, 7);
++	wingray_boottrace_mark(WINGRAY_TRACE_PHASE, 0x301);
+ }
+ 
+ static int __init wingray_boottrace_initcall(void)
+diff --git a/arch/arm/mach-tegra/io.c b/arch/arm/mach-tegra/io.c
+index 352de159..f0def9cf 100644
+--- a/arch/arm/mach-tegra/io.c
++++ b/arch/arm/mach-tegra/io.c
+@@ -23,6 +23,7 @@
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+ #include <linux/module.h>
++#include <soc/tegra/wingray-boottrace.h>
+ 
+ #include <asm/mach/map.h>
+ #include <asm/page.h>
+@@ -57,8 +58,24 @@ static struct map_desc tegra_io_desc[] __initdata = {
+ 	},
+ };
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++static struct map_desc wingray_trace_io_desc __initdata = {
++	.virtual = WINGRAY_TRACE_STATIC_VIRT,
++	.pfn = __phys_to_pfn(WINGRAY_TRACE_BASE),
++	.length = PAGE_SIZE,
++	.type = MT_DEVICE,
++};
++#endif
++
+ void __init tegra_map_common_io(void)
+ {
+ 	debug_ll_io_init();
+ 	iotable_init(tegra_io_desc, ARRAY_SIZE(tegra_io_desc));
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++	if (of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray")) {
++		/* Early allocation only; no slab/vmalloc dependency. */
++		iotable_init(&wingray_trace_io_desc, 1);
++		wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x103);
++	}
++#endif
+ }
+diff --git a/arch/arm/mach-tegra/tegra.c b/arch/arm/mach-tegra/tegra.c
+index 70ffcacf..312a75d5 100644
+--- a/arch/arm/mach-tegra/tegra.c
++++ b/arch/arm/mach-tegra/tegra.c
+@@ -37,6 +37,7 @@
+ 
+ #include <soc/tegra/fuse.h>
+ #include <soc/tegra/pmc.h>
++#include <soc/tegra/wingray-boottrace.h>
+ 
+ #include <asm/hardware/cache-l2x0.h>
+ #include <asm/mach/arch.h>
+@@ -81,8 +82,11 @@ static void __init tegra_init_early(void)
+ 	wingray_boottrace_c_early();
+ #endif
+ 	of_register_trusted_foundations();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x302);
+ 	tegra_cpu_reset_handler_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x303);
+ 	tegra_flowctrl_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x304);
+ }
+ 
+ static void __init tegra_dt_init_irq(void)
+diff --git a/arch/arm/mm/mmu.c b/arch/arm/mm/mmu.c
+index aead23f1..12643e77 100644
+--- a/arch/arm/mm/mmu.c
++++ b/arch/arm/mm/mmu.c
+@@ -8,6 +8,7 @@
+  * published by the Free Software Foundation.
+  */
+ #include <linux/module.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/kernel.h>
+ #include <linux/errno.h>
+ #include <linux/init.h>
+@@ -1574,14 +1575,18 @@ void __init paging_init(const struct machine_desc *mdesc)
+ {
+ 	void *zero_page;
+ 
++	wingray_boottrace_initial_mark(WINGRAY_TRACE_PHASE, 0x101);
+ 	build_mem_type_table();
++	wingray_boottrace_initial_mark(WINGRAY_TRACE_PHASE, 0x102);
+ 	prepare_page_table();
+ 	map_lowmem();
+ 	memblock_set_current_limit(arm_lowmem_limit);
+ 	dma_contiguous_remap();
+ 	early_fixmap_shutdown();
+ 	devicemaps_init(mdesc);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x104);
+ 	kmap_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x105);
+ 	tcm_init();
+ 
+ 	top_pmd = pmd_off_k(0xffff0000);
+@@ -1590,6 +1595,7 @@ void __init paging_init(const struct machine_desc *mdesc)
+ 	zero_page = early_alloc(PAGE_SIZE);
+ 
+ 	bootmem_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x106);
+ 
+ 	empty_zero_page = virt_to_page(zero_page);
+ 	__flush_dcache_page(NULL, empty_zero_page);
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index e31cb513..d962bd4c 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -33,15 +33,18 @@
+ #define WINGRAY_TRACE_BOOT_DATA  0x6c
+ #define WINGRAY_TRACE_TTBR       0x70
+ #define WINGRAY_TRACE_JUMP       0x74
++#define WINGRAY_TRACE_PHASE      0x78
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
++#define WINGRAY_TRACE_STATIC_VIRT 0xfe600000
+ #ifndef __ASSEMBLY__
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
+ #include <linux/io.h>
+-static inline void wingray_boottrace_initial_mark(unsigned int offset,
+-						unsigned int value)
++#include <linux/of_fdt.h>
++static inline void wingray_boottrace_mapped_mark(unsigned long address,
++				unsigned int offset, unsigned int value)
+ {
+-	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_VIRT;
++	void __iomem *trace = (void __iomem *)address;
+ 
+ 	if (readl_relaxed(trace) == WINGRAY_TRACE_MAGIC &&
+ 	    readl_relaxed(trace + 4) == WINGRAY_TRACE_VERSION &&
+@@ -52,8 +55,21 @@ static inline void wingray_boottrace_initial_mark(unsigned int offset,
+ 		readl_relaxed(trace + offset);
+ 	}
+ }
++static inline void wingray_boottrace_initial_mark(unsigned int offset,
++						unsigned int value)
++{
++	wingray_boottrace_mapped_mark(WINGRAY_TRACE_VIRT, offset, value);
++}
++static inline void wingray_boottrace_static_mark(unsigned int offset,
++						unsigned int value)
++{
++	/* Only Wingray's map_io callback installs this static page. */
++	if (of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray"))
++		wingray_boottrace_mapped_mark(WINGRAY_TRACE_STATIC_VIRT, offset, value);
++}
+ #else
+ #define wingray_boottrace_initial_mark(offset, value) do { } while (0)
++#define wingray_boottrace_static_mark(offset, value) do { } while (0)
+ #endif
+ #endif
+ #endif
+diff --git a/init/main.c b/init/main.c
+index 981d9fb7..ee30acd7 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -527,6 +527,7 @@ asmlinkage __visible void __init start_kernel(void)
+ 	page_address_init();
+ 	pr_notice("%s", linux_banner);
+ 	setup_arch(&command_line);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x401);
+ 	mm_init_cpumask(&init_mm);
+ 	setup_command_line(command_line);
+ 	setup_nr_cpu_ids();
+-- 
+2.43.0
+
