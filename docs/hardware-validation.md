@@ -130,3 +130,15 @@ stderr, the Android boot ID stayed unchanged, and dmesg did not change during
 retrieval. This makes the last sparse checkpoint repeatable across two builds;
 it does not identify a fault or an exact failing PFN. See the [candidate 11
 record](trace-boot-attempt-11.md).
+
+### Candidate 12 preparation
+
+Candidate 12 is built but has not been written to the device. It records the
+active `memmap_init_zone()` PFN bounds and adds four possible progress stores
+across 64 PFNs around `0x2ebff`, while retaining the 512-PFN global sampling
+interval and leaving page initialization unchanged. The compiled allocator
+harness and existing boot-entry, mapping, fatal-path, trace-reader, and
+BigPart checks passed. The trace-disabled early profile also builds. See the
+[candidate 12 design and build record](trace-node-map-candidate.md). A later
+boot-partition test must continue to restore and verify the original boot and
+recovery images before interpreting the trace.
