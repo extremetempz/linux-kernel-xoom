@@ -1,0 +1,55 @@
+From 34112d2b0e73cf52de27a2df8ed4da0634f4f550 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 18 Oct 2026 22:10:04 +1100
+Subject: [PATCH] ARM: tegra: record actual ATAG converter status in trace
+ format v2
+
+---
+ arch/arm/boot/compressed/head.S       | 10 ++++++++++
+ include/soc/tegra/wingray-boottrace.h |  2 +-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/compressed/head.S b/arch/arm/boot/compressed/head.S
+index 4b8481d1..10811cb3 100644
+--- a/arch/arm/boot/compressed/head.S
++++ b/arch/arm/boot/compressed/head.S
+@@ -360,6 +360,10 @@ restart:	adr	r0, LC0
+ 		/* temporarily relocate the stack past the DTB work space */
+ 		add	sp, sp, r5
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		.global wingray_trace_convert_begin
++wingray_trace_convert_begin:
++#endif
+ 		stmfd	sp!, {r0-r3, ip, lr}
+ 		mov	r0, r8
+ 		mov	r1, r6
+@@ -372,6 +376,12 @@ restart:	adr	r0, LC0
+ 		 * of RAM and hope for the best.
+ 		 */
+ 		cmp	r0, #1
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++		/* Keep the real first-call status when no retry is needed.
++		 * Otherwise the fallback argument setup below overwrites r0.
++		 */
++		bne	wingray_trace_atag_begin
++#endif
+ 		sub	r0, r4, #TEXT_OFFSET
+ 		bic	r0, r0, #1
+ 		add	r0, r0, #0x100
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index 9e731dce..b1147664 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -3,7 +3,7 @@
+ #define __WINGRAY_BOOTTRACE_H
+ #define WINGRAY_TRACE_BASE       0x1fe00000
+ #define WINGRAY_TRACE_MAGIC      0x584f4f4d
+-#define WINGRAY_TRACE_VERSION    1
++#define WINGRAY_TRACE_VERSION    2
+ #define WINGRAY_TRACE_SIZE       0x80
+ #define WINGRAY_TRACE_COOKIE     0x08
+ #define WINGRAY_TRACE_ENTRY_PC   0x0c
+-- 
+2.43.0
+
