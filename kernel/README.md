@@ -5,13 +5,17 @@ The existing 0x8000 decompression fix was verified in the failed binary.
 No root cause or new hardware fix is established. A separate UP/no-peripheral
 profile compiles; it has not been boot tested. Original images are preserved.
 
-**Latest physical test:** bootloader 1050 rejects RAM boot. With user approval,
-a diagnostic image was written to boot; it remained at the Motorola logo and
-produced no USB serial device. The new kernel is not boot validated. See
-[the test record](../docs/hardware-validation.md) for restoration status and
-evidence. The original boot partition has been restored and verified byte for
-byte, and the working Android ROM is running. The sections below preserve the
-earlier compiled milestones.
+**Latest physical test:** candidate 11 remained at the Motorola logo, then
+re-enumerated as fastboot after about three minutes. Its valid trace ended at
+the same sampled PFN (`0x2ebff`) as candidate 10 inside `memmap_init_zone`;
+return and fatal-PC markers were absent. This repeats the sparse-profile
+checkpoint, not an exact fault address or proof of a permanent hang. The
+original boot and recovery images were read back byte-for-byte after
+restoration, and Android returned. See the [candidate 11 record](../docs/trace-boot-attempt-11.md).
+
+The bootloader 1050 also rejects RAM boot with error 0x8, so diagnostic tests
+use the boot partition only. The original Android ROM is running after the
+latest restoration.
 
 ## Chosen fork
 
