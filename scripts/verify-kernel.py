@@ -53,7 +53,8 @@ if profile == 'diagnostic':
     for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM',
                    'MOTOROLA_XOOM_BOOT_TRACE', 'MOTOROLA_XOOM_BIGPART',
                    'MMC_BLOCK', 'MMC_SDHCI_TEGRA', 'USB_CHIPIDEA_UDC',
-                   'USB_G_SERIAL', 'DEVTMPFS', 'BINFMT_ELF', 'BINFMT_SCRIPT']:
+                   'USB_G_SERIAL', 'USB_TEGRA_PHY', 'USB_PHY', 'USB_ULPI_VIEWPORT',
+                   'SWP_EMULATE', 'DEVTMPFS', 'BINFMT_ELF', 'BINFMT_SCRIPT']:
         assert f'CONFIG_{option}=y' in config, option
     for node in ['/sdhci@c8000600', '/usb@c5000000', '/usb-phy@c5000000']:
         assert nodes[node]['status'] == b'okay\0', node
@@ -68,6 +69,10 @@ if profile == 'diagnostic':
                          ('/reserved-memory/legacy-console@1fe00000', (0x1fe00000, 0x200000))]:
         assert struct.unpack('>II', nodes[name]['reg']) == region and 'no-map' in nodes[name]
     assert not any('earlycon=' in line or 'earlyprintk' in line for line in config if line.startswith('CONFIG_CMDLINE='))
+    symbols = (artifacts / 'System.map').read_text().splitlines()
+    names = {line.split()[-1] for line in symbols if len(line.split()) == 3}
+    for name in ['tegra_usb_phy_probe', 'tegra_udc_probe', 'devm_usb_get_phy_by_phandle']:
+        assert name in names, 'Missing actual USB PHY implementation: ' + name
     print('Verified diagnostic profile: UP, fixed reservations, USB peripheral/serial and BigPart eMMC, no display/network/input probes.')
     sys.exit(0)
 if profile in ('early', 'trace'):
@@ -101,7 +106,7 @@ assert nodes['/sdhci@c8000200/wifi@1']['compatible'] == b'brcm,bcm4329-fmac\0'
 assert struct.unpack('>I', nodes['/sdhci@c8000200']['nvidia,tap-delay'])[0] == 6
 config = (artifacts / 'kernel.config').read_text().splitlines()
 for option in ['MACH_MOTOROLA_WINGRAY', 'MOTOROLA_XOOM_BIGPART', 'MMC_SDHCI_TEGRA',
-               'ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'USB_CHIPIDEA_UDC', 'USB_G_SERIAL', 'PSTORE_RAM', 'MFD_CPCAP', 'REGULATOR_CPCAP', 'REGULATOR_MAX8649',
+               'ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'USB_CHIPIDEA_UDC', 'USB_G_SERIAL', 'USB_TEGRA_PHY', 'USB_PHY', 'PSTORE_RAM', 'MFD_CPCAP', 'REGULATOR_CPCAP', 'REGULATOR_MAX8649',
                'DRM_TEGRA', 'DRM_PANEL_SIMPLE', 'TOUCHSCREEN_ATMEL_MXT', 'BACKLIGHT_LP855X', 'BRCMFMAC',
                'BRCMFMAC_SDIO', 'POWER_RESET_WINGRAY', 'DMA_CMA']:
     assert f'CONFIG_{option}=y' in config, option

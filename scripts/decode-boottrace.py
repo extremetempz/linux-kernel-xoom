@@ -17,16 +17,28 @@ if valid:
   result['entry']['sctlr_after_mode_setup']=None
   result['entry']['cpuid_after_mode_setup']=None
  if w[0x34//4]!=2:result['entry']['fdt_pointer']=None
+ if w[1]>=2 and w[0x0c//4]==0x55534631:
+  result['entry']={'register_words_reused':True,'fdt_pointer':result['entry']['fdt_pointer']}
+  result['init_user_fault']={
+   'pc':hex(w[0x10//4]),'address':hex(w[0x14//4]),
+   'fsr':hex(w[0x18//4]),'cpsr':hex(w[0x1c//4]),
+   'thumb':bool(w[0x1c//4]&0x20),'signal':w[0x20//4],
+   'signal_code':struct.unpack_from('<i',data,0x24)[0],
+   'note':'First observed PID 1 ARM userspace page fault before signal delivery; a handler could recover. Entry-register words are replaced, not a kernel fatal-PC record.'}
  result['raw_atag_status_word']=hex(w[0x2c//4])
  result['atag_return_code']=None if w[1]<2 or w[0x34//4]!=2 or w[0x2c//4]==0xdeadffff else struct.unpack_from('<i',data,0x2c)[0]
  if w[1]==1:result['atag_status_warning']='Format 1 records r0 after fallback argument setup; it is not a reliable converter status.'
+ init_exit_record=w[1]>=2 and w[0x74//4]==0x58495431 and w[0x7c//4]==0xbad00001
+ if init_exit_record:
+  code=w[0x68//4];sig=code & 0x7f
+  result['init_exit']={'wait_status':hex(code),'terminating_signal':sig,'core_dumped':bool(code & 0x80),'exit_status':(code>>8)&0xff if sig==0 else None,'note':'Recorded on the PID 1 death path before panic; replaces active-zone metadata.'}
  panic_message_record=w[1]>=2 and w[0x74//4]==0x504e4331 and w[0x7c//4]==0xbad00001
  if panic_message_record:
   result['panic_message']={'prefix':data[0x68:0x74].split(b'\0',1)[0].decode('ascii',errors='replace'),'maximum_bytes':12,'possibly_truncated':b'\0' not in data[0x68:0x74],'note':'The panic prefix replaces post-paging zone metadata; it is not the full panic log.'}
  memmap_magic=0x574d4150
- memmap_extended=w[1]>=2 and (w[0x74//4]&0xff000000)==0x58000000
+ memmap_extended=w[1]>=2 and (w[0x74//4]&0xff000000)==0x58000000 and w[0x74//4]!=0x58495431
  memmap_record=w[1]>=2 and (w[0x74//4]==memmap_magic or memmap_extended)
- if w[1]>=2 and w[0x44//4]==6 and not memmap_record and not panic_message_record:
+ if w[1]>=2 and w[0x44//4]==6 and not memmap_record and not panic_message_record and not init_exit_record:
   result['mmu_handoff']={name:hex(w[off//4]) for name,off in [('requested_sctlr',0x68),('boot_data',0x6c),('ttbr',0x70),('virtual_jump',0x74)]}
  if memmap_record:
   info=w[0x74//4] if memmap_extended else w[0x70//4]
