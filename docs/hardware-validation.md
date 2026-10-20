@@ -142,3 +142,13 @@ BigPart checks passed. The trace-disabled early profile also builds. See the
 [candidate 12 design and build record](trace-boot-attempt-12-prepared.md). A later
 boot-partition test must continue to restore and verify the original boot and
 recovery images before interpreting the trace.
+
+## Candidate 13 physical test — 20 October 2026
+
+The boot-only diagnostic reached sampled PFN `0x2ec2f` in early page metadata
+initialization, with valid fresh cookie and active-zone/descriptor metadata.
+It still has no memmap return, initcall or Android boot. Original boot and
+recovery readbacks match after restoration; Android is running. See
+[candidate 13](trace-boot-attempt-13.md) for the verified record, offline test
+limits and an unconfirmed descriptor-address correlation with the video
+reservation boundary. No peripheral runtime validation is claimed.
