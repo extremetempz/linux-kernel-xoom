@@ -57,3 +57,15 @@ for phase in [0xb702ec00,0xb502ec01]:
 struct.pack_into('<I',b,0x78,0x9002edff);rc,d=decode(b)
 assert 'calculated_descriptor_address' not in d['last_phase']
 print('PASS decoder: old records, extended zone/descriptor records, boundary steps and conservative unknown handling.')
+
+b=record();struct.pack_into('<I',b,0x44,6);b[0x68:0x74]=b'No working i';struct.pack_into('<II',b,0x74,0x504e4331,0x420);struct.pack_into('<I',b,0x7c,0xbad00001)
+rc,d=decode(b);assert d['panic_message']['prefix']=='No working i' and d['panic_message']['possibly_truncated'] and 'memmap_zone' not in d and 'mmu_handoff' not in d
+b[0x68:0x74]=b'test'+bytes(8)
+rc,d=decode(b);assert d['panic_message']['prefix']=='test' and not d['panic_message']['possibly_truncated']
+struct.pack_into('<I',b,0x78,0xc1000008)
+rc,d=decode(b);assert d['last_phase']['name']=='init_exec_failed' and d['last_phase']['errno']==8
+struct.pack_into('<I',b,0x78,0x421)
+rc,d=decode(b);assert d['last_phase']['name']=='init_exec_succeeded'
+struct.pack_into('<I',b,0x7c,0)
+rc,d=decode(b);assert 'panic_message' not in d
+print('PASS decoder: bounded panic prefixes, metadata replacement and init execution phases.')
