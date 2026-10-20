@@ -1,0 +1,64 @@
+From c9c1439644e5cc465ae946ebd9af930c1163ce0d Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:26:28 +1100
+Subject: [PATCH] usb: tegra: build the PHY independently of EHCI host support
+
+---
+ drivers/usb/host/Kconfig |  4 +---
+ drivers/usb/phy/Kconfig  | 11 +++++++++++
+ drivers/usb/phy/Makefile |  2 +-
+ 3 files changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
+index 95e72d75..c396d666 100644
+--- a/drivers/usb/host/Kconfig
++++ b/drivers/usb/host/Kconfig
+@@ -219,9 +219,7 @@ config USB_EHCI_TEGRA
+        tristate "NVIDIA Tegra HCD support"
+        depends on ARCH_TEGRA
+        select USB_EHCI_ROOT_HUB_TT
+-       select USB_PHY
+-	select USB_ULPI
+-	select USB_ULPI_VIEWPORT
++       select USB_TEGRA_PHY
+        help
+          This driver enables support for the internal USB Host Controllers
+          found in NVIDIA Tegra SoCs. The controllers are EHCI compliant.
+diff --git a/drivers/usb/phy/Kconfig b/drivers/usb/phy/Kconfig
+index bdb9578c..0e06af6c 100644
+--- a/drivers/usb/phy/Kconfig
++++ b/drivers/usb/phy/Kconfig
+@@ -17,6 +17,17 @@ config USB_OTG_WAKELOCK
+ #
+ # USB Transceiver Drivers
+ #
++
++config USB_TEGRA_PHY
++	tristate "NVIDIA Tegra USB PHY driver"
++	depends on ARCH_TEGRA
++	select USB_PHY
++	select USB_ULPI
++	select USB_ULPI_VIEWPORT
++	help
++	  Enable the Tegra UTMI/ULPI PHY for host or peripheral controllers.
++	  The ChipIdea UDC also needs this driver without an EHCI host.
++
+ config AB8500_USB
+ 	tristate "AB8500 USB Transceiver Driver"
+ 	depends on AB8500_CORE
+diff --git a/drivers/usb/phy/Makefile b/drivers/usb/phy/Makefile
+index f7543f3b..efbfde7c 100644
+--- a/drivers/usb/phy/Makefile
++++ b/drivers/usb/phy/Makefile
+@@ -18,7 +18,7 @@ obj-$(CONFIG_AM335X_PHY_USB)		+= phy-am335x.o
+ obj-$(CONFIG_OMAP_OTG)			+= phy-omap-otg.o
+ obj-$(CONFIG_SAMSUNG_USBPHY)		+= phy-samsung-usb.o
+ obj-$(CONFIG_TWL6030_USB)		+= phy-twl6030-usb.o
+-obj-$(CONFIG_USB_EHCI_TEGRA)		+= phy-tegra-usb.o
++obj-$(CONFIG_USB_TEGRA_PHY)		+= phy-tegra-usb.o
+ obj-$(CONFIG_USB_GPIO_VBUS)		+= phy-gpio-vbus-usb.o
+ obj-$(CONFIG_USB_ISP1301)		+= phy-isp1301.o
+ obj-$(CONFIG_USB_MSM_OTG)		+= phy-msm-usb.o
+-- 
+2.43.0
+
