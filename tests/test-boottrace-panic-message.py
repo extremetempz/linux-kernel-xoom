@@ -14,7 +14,7 @@ for line in subprocess.check_output([str(root/'toolchains/android-gcc49/bin/arm-
 image=(args.build/'out/arch/arm/boot/Image').read_bytes()
 config=(args.build/'out/.config').read_text()
 cookie=int(next(x.split('=',1)[1] for x in config.splitlines() if x.startswith('CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=')),0)
-for case in ['long','short','empty','not-ready','wrong-magic','wrong-version','wrong-cookie','no-fatal','other-fatal','preserve-message']:
+for case in ['long','short','empty','not-ready','wrong-magic','wrong-version','wrong-cookie','no-fatal','other-fatal','preserve-message','preserve-init-exit']:
  u=Uc(UC_ARCH_ARM,UC_MODE_ARM);u.ctl_set_cpu_model(UC_CPU_ARM_CORTEX_A9)
  u.mem_map(0xc0008000,(max(len(image),symbols['_end']-0xc0008000)+4095)//4096*4096);u.mem_write(0xc0008000,image)
  u.mem_map(0x70000000,0x10000);u.mem_map(0x71000000,4096)
@@ -25,6 +25,7 @@ for case in ['long','short','empty','not-ready','wrong-magic','wrong-version','w
  struct.pack_into('<3I',packet,0,0 if case=='wrong-magic' else 0x584f4f4d,1 if case=='wrong-version' else 2,cookie^1 if case=='wrong-cookie' else cookie)
  fault=0 if case=='no-fatal' else 0xc0123450 if case=='other-fatal' else 0xbad00001
  struct.pack_into('<I',packet,0x7c,fault)
+ if case=='preserve-init-exit':struct.pack_into('<4I',packet,0x68,0x7f00,0,0,0x58495431)
  if case=='preserve-message':
   packet[0x68:0x74]=b'first reason';struct.pack_into('<I',packet,0x74,0x504e4331)
  if case!='not-ready':u.mem_map(0xfe600000,4096);u.mem_write(0xfe600000,bytes(packet))

@@ -69,3 +69,21 @@ rc,d=decode(b);assert d['last_phase']['name']=='init_exec_succeeded'
 struct.pack_into('<I',b,0x7c,0)
 rc,d=decode(b);assert 'panic_message' not in d
 print('PASS decoder: bounded panic prefixes, metadata replacement and init execution phases.')
+
+b=record();struct.pack_into('<I',b,0x44,6);struct.pack_into('<4I',b,0x68,0x7f00,0,0,0x58495431);struct.pack_into('<I',b,0x7c,0xbad00001)
+rc,d=decode(b);assert d['init_exit']['exit_status']==127 and d['init_exit']['terminating_signal']==0 and 'memmap_zone' not in d and 'mmu_handoff' not in d
+struct.pack_into('<I',b,0x68,0x8b)
+rc,d=decode(b);assert d['init_exit']['terminating_signal']==11 and d['init_exit']['core_dumped'] and d['init_exit']['exit_status'] is None
+struct.pack_into('<I',b,0x7c,0)
+rc,d=decode(b);assert 'init_exit' not in d and 'memmap_zone' not in d
+print('PASS decoder: PID 1 wait status, signal/core flag and metadata replacement.')
+
+struct.pack_into('<7I',b,0x0c,0x55534631,0xb6f01235,0xffff0ffc,5,0x60000030,11,1)
+rc,d=decode(b)
+assert d['init_user_fault']['pc']=='0xb6f01235' and d['init_user_fault']['address']=='0xffff0ffc'
+assert d['init_user_fault']['thumb'] and d['init_user_fault']['signal']==11
+assert d['entry']['register_words_reused'] and 'sctlr_after_mode_setup' not in d['entry']
+struct.pack_into('<I',b,0x7c,0xbad00001)
+rc,d=decode(b);assert d['init_exit']['terminating_signal']==11 and 'init_user_fault' in d
+rc,d=decode(b,1);assert rc==2 and 'init_user_fault' not in d
+print('PASS decoder: first PID 1 userspace fault, reused entry registers and coexisting exit status.')
