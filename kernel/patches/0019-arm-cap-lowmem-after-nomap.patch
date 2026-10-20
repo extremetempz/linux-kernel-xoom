@@ -1,0 +1,29 @@
+From 3e4bf4491659051d97f8c95fbe7536b78d44a389 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 16:51:33 +1100
+Subject: [PATCH] ARM: cap lowmem PFNs at remaining DRAM after no-map removal
+
+---
+ arch/arm/mm/init.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
+index 519e45ed..917c49fd 100644
+--- a/arch/arm/mm/init.c
++++ b/arch/arm/mm/init.c
+@@ -94,6 +94,12 @@ static void __init find_limits(unsigned long *min, unsigned long *max_low,
+ 	*max_low = PFN_DOWN(memblock_get_current_limit());
+ 	*min = PFN_UP(memblock_start_of_DRAM());
+ 	*max_high = PFN_DOWN(memblock_end_of_DRAM());
++	/* A DT no-map reservation can remove the top of RAM after
++	 * sanity_check_meminfo() calculated the lowmem mapping ceiling.
++	 * Keep the zone boundary within the remaining DRAM; otherwise the
++	 * HIGHMEM size underflows and the normal zone overruns mem_map.
++	 */
++	*max_low = min(*max_low, *max_high);
+ }
+ 
+ #ifdef CONFIG_ZONE_DMA
+-- 
+2.43.0
+
