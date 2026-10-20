@@ -1,0 +1,145 @@
+From 668ccec8e9ea5a745c440022e7c30551a9f22f05 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:03:36 +1100
+Subject: [PATCH] ARM: tegra: capture bounded Wingray panic reason and init
+ progress
+
+---
+ init/main.c    | 15 ++++++++++++++-
+ kernel/panic.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+diff --git a/init/main.c b/init/main.c
+index ee30acd7..80fbd7d3 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -584,6 +584,7 @@ asmlinkage __visible void __init start_kernel(void)
+ 	radix_tree_init();
+ 	/* init some links before init_ISA_irqs() */
+ 	early_irq_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x402);
+ 	init_IRQ();
+ 	tick_init();
+ 	rcu_init_nohz();
+@@ -592,6 +593,7 @@ asmlinkage __visible void __init start_kernel(void)
+ 	softirq_init();
+ 	timekeeping_init();
+ 	time_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x403);
+ 	sched_clock_postinit();
+ 	perf_event_init();
+ 	profile_init();
+@@ -608,6 +610,7 @@ asmlinkage __visible void __init start_kernel(void)
+ 	 * this. But we do want output early, in case something goes wrong.
+ 	 */
+ 	console_init();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x404);
+ 	if (panic_later)
+ 		panic("Too many boot %s vars at `%s'", panic_later,
+ 		      panic_param);
+@@ -682,6 +685,7 @@ asmlinkage __visible void __init start_kernel(void)
+ 	ftrace_init();
+ 
+ 	/* Do the rest non-__init'ed, we're now alive */
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x405);
+ 	rest_init();
+ }
+ 
+@@ -909,10 +913,16 @@ void __init load_default_modules(void)
+ 
+ static int run_init_process(const char *init_filename)
+ {
++	int ret;
++
+ 	argv_init[0] = init_filename;
+-	return do_execve(getname_kernel(init_filename),
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x420);
++	ret = do_execve(getname_kernel(init_filename),
+ 		(const char __user *const __user *)argv_init,
+ 		(const char __user *const __user *)envp_init);
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE,
++		ret ? 0xc1000000U | ((unsigned int)-ret & 0xffff) : 0x421);
++	return ret;
+ }
+ 
+ static int try_to_run_init_process(const char *init_filename)
+@@ -957,6 +967,7 @@ static int __ref kernel_init(void *unused)
+ {
+ 	int ret;
+ 
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x406);
+ 	kernel_init_freeable();
+ 	/* need to finish all async __init code before freeing the memory */
+ 	async_synchronize_full();
+@@ -1029,7 +1040,9 @@ static noinline void __init kernel_init_freeable(void)
+ 
+ 	page_alloc_init_late();
+ 
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x410);
+ 	do_basic_setup();
++	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x411);
+ 
+ 	/* Open the /dev/console on the rootfs, this should never fail */
+ 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
+diff --git a/kernel/panic.c b/kernel/panic.c
+index d3b2c31f..c5b41b5a 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -66,6 +66,46 @@ void __weak panic_smp_self_stop(void)
+ 		cpu_relax();
+ }
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++/* Reuse post-paging zone metadata only after a panic; keep the read size
++ * at 128 bytes. No allocation, DT walk, lock, or unbounded string read.
++ */
++static noinline __noclone void wingray_trace_panic_message(const char *message)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++	unsigned int i, word = 0;
++	bool ended = false;
++
++	if (!wingray_boottrace_static_ready ||
++	    readl_relaxed(trace) != WINGRAY_TRACE_MAGIC ||
++	    readl_relaxed(trace + 4) != WINGRAY_TRACE_VERSION ||
++	    readl_relaxed(trace + WINGRAY_TRACE_COOKIE) !=
++				CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE ||
++	    readl_relaxed(trace + WINGRAY_TRACE_FAULT_PC) != WINGRAY_TRACE_PANIC ||
++	    readl_relaxed(trace + 0x74) == 0x504e4331)
++		return;
++
++	for (i = 0; i < 12; i++) {
++		unsigned char ch = ended ? 0 : message[i];
++
++		if (!ch)
++			ended = true;
++		word |= (unsigned int)ch << ((i & 3) * 8);
++		if ((i & 3) == 3) {
++			writel_relaxed(word, trace + 0x68 + (i & ~3));
++			word = 0;
++		}
++	}
++	/* Publish the signature after all prefix words are stored. */
++	dsb(sy);
++	writel_relaxed(0x504e4331, trace + 0x74);
++	dsb(sy);
++	readl_relaxed(trace + 0x74);
++}
++#else
++#define wingray_trace_panic_message(message) do { } while (0)
++#endif
++
+ /**
+  *	panic - halt the system
+  *	@fmt: The text string to print
+@@ -116,6 +156,7 @@ void panic(const char *fmt, ...)
+ 	va_start(args, fmt);
+ 	vsnprintf(buf, sizeof(buf), fmt, args);
+ 	va_end(args);
++	wingray_trace_panic_message(buf);
+ 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
+ #ifdef CONFIG_DEBUG_BUGVERBOSE
+ 	/*
+-- 
+2.43.0
+
