@@ -6,9 +6,10 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-assert profile in ('early', 'trace', 'peripherals')
+assert profile in ('early', 'trace', 'peripherals', 'diagnostic')
 image = (artifacts / 'zImage').read_bytes()
-dtname = 'tegra20-motorola-wingray-early' if profile in ('early', 'trace') else 'tegra20-motorola-wingray'
+dtname = ('tegra20-motorola-wingray-diagnostic' if profile == 'diagnostic' else
+          'tegra20-motorola-wingray-early' if profile in ('early', 'trace') else 'tegra20-motorola-wingray')
 dtb = (artifacts / (dtname + '.dtb')).read_bytes()
 assert struct.unpack_from('<I', image, 36)[0] == 0x016F2818, 'Invalid ARM zImage magic'
 assert (artifacts / 'zImage-dtb').read_bytes() == image + dtb, 'Appended DTB mismatch'
@@ -43,6 +44,32 @@ assert nodes['/']['compatible'].split(b'\0')[:2] == [b'motorola,wingray', b'nvid
 memories = [n for n, p in nodes.items() if p.get('device_type') == b'memory\0']
 assert memories == ['/memory'], 'Duplicate memory nodes could corrupt ATAG fixups'
 assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
+if profile == 'diagnostic':
+    config = (artifacts / 'kernel.config').read_text().splitlines()
+    for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'NET',
+                   'INPUT', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC',
+                   'CPU_FREQ', 'CPU_IDLE', 'SUSPEND']:
+        assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
+    for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM',
+                   'MOTOROLA_XOOM_BOOT_TRACE', 'MOTOROLA_XOOM_BIGPART',
+                   'MMC_BLOCK', 'MMC_SDHCI_TEGRA', 'USB_CHIPIDEA_UDC',
+                   'USB_G_SERIAL', 'DEVTMPFS', 'BINFMT_ELF', 'BINFMT_SCRIPT']:
+        assert f'CONFIG_{option}=y' in config, option
+    for node in ['/sdhci@c8000600', '/usb@c5000000', '/usb-phy@c5000000']:
+        assert nodes[node]['status'] == b'okay\0', node
+    assert nodes['/host1x@50000000']['status'] == b'disabled\0'
+    assert nodes['/usb@c5000000']['compatible'] == b'nvidia,tegra20-udc\0'
+    assert nodes['/usb-phy@c5000000']['dr_mode'] == b'peripheral\0'
+    assert 'motorola,xoom-bigpart' in nodes['/sdhci@c8000600']
+    assert '/panel' not in nodes and '/i2c@7000c000/touchscreen@5b' not in nodes
+    for node in ['/gpio@6000d000/usb-data-enable', '/gpio@6000d000/usb-forceon-n']:
+        assert 'gpio-hog' in nodes[node] and 'output-high' in nodes[node]
+    for name, region in [('/reserved-memory/legacy-video@2e800000', (0x2e800000, 0x11800000)),
+                         ('/reserved-memory/legacy-console@1fe00000', (0x1fe00000, 0x200000))]:
+        assert struct.unpack('>II', nodes[name]['reg']) == region and 'no-map' in nodes[name]
+    assert not any('earlycon=' in line or 'earlyprintk' in line for line in config if line.startswith('CONFIG_CMDLINE='))
+    print('Verified diagnostic profile: UP, fixed reservations, USB peripheral/serial and BigPart eMMC, no display/network/input probes.')
+    sys.exit(0)
 if profile in ('early', 'trace'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'BLOCK',

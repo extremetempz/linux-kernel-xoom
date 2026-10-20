@@ -7,7 +7,8 @@ case "$profile" in
   peripherals) defconfig=wingray_bringup_defconfig; dtname=tegra20-motorola-wingray; default_dest="$root/artifacts/wingray44";;
   early) defconfig=wingray_early_defconfig; dtname=tegra20-motorola-wingray-early; default_dest="$root/artifacts/wingray-early";;
   trace) defconfig=wingray_trace_defconfig; dtname=tegra20-motorola-wingray-early; default_dest="$root/artifacts/wingray-trace";;
-  *) echo 'XOOM_PROFILE must be peripherals, early or trace.' >&2; exit 1;;
+  diagnostic) defconfig=wingray_diagnostic_defconfig; dtname=tegra20-motorola-wingray-diagnostic; default_dest="$root/artifacts/wingray-diagnostic";;
+  *) echo 'XOOM_PROFILE must be peripherals, early, trace or diagnostic.' >&2; exit 1;;
 esac
 dest="${XOOM_ARTIFACT_DIR:-$default_dest}"
 toolchain="${XOOM_TOOLCHAIN_DIR:-$root/toolchains/android-gcc49}"

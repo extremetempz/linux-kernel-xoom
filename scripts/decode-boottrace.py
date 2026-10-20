@@ -20,10 +20,13 @@ if valid:
  result['raw_atag_status_word']=hex(w[0x2c//4])
  result['atag_return_code']=None if w[1]<2 or w[0x34//4]!=2 or w[0x2c//4]==0xdeadffff else struct.unpack_from('<i',data,0x2c)[0]
  if w[1]==1:result['atag_status_warning']='Format 1 records r0 after fallback argument setup; it is not a reliable converter status.'
+ panic_message_record=w[1]>=2 and w[0x74//4]==0x504e4331 and w[0x7c//4]==0xbad00001
+ if panic_message_record:
+  result['panic_message']={'prefix':data[0x68:0x74].split(b'\0',1)[0].decode('ascii',errors='replace'),'maximum_bytes':12,'possibly_truncated':b'\0' not in data[0x68:0x74],'note':'The panic prefix replaces post-paging zone metadata; it is not the full panic log.'}
  memmap_magic=0x574d4150
  memmap_extended=w[1]>=2 and (w[0x74//4]&0xff000000)==0x58000000
  memmap_record=w[1]>=2 and (w[0x74//4]==memmap_magic or memmap_extended)
- if w[1]>=2 and w[0x44//4]==6 and not memmap_record:
+ if w[1]>=2 and w[0x44//4]==6 and not memmap_record and not panic_message_record:
   result['mmu_handoff']={name:hex(w[off//4]) for name,off in [('requested_sctlr',0x68),('boot_data',0x6c),('ttbr',0x70),('virtual_jump',0x74)]}
  if memmap_record:
   info=w[0x74//4] if memmap_extended else w[0x70//4]
@@ -32,13 +35,15 @@ if valid:
   if memmap_extended:
    result['memmap_zone'].update(nid=(info>>20)&0xf,zone_index=(info>>16)&0xf,first_page_descriptor=hex(w[0x70//4]),page_descriptor_stride=(info>>8)&0xff)
  if w[1]>=2:
-  phases={0x101:'paging_init_entry',0x102:'memory_types_ready',0x103:'static_io_mapping_installed',0x104:'device_mappings_ready',0x105:'kmap_ready',0x106:'bootmem_ready',0x201:'paging_init_returned',0x202:'resources_requested',0x203:'device_tree_unflattened',0x204:'cpu_maps_ready',0x205:'psci_ready',0x206:'xen_early_returned',0x207:'hyp_mode_check_returned',0x208:'crashkernel_reserved',0x209:'before_machine_init_early',0x20a:'machine_init_early_returned',0x301:'tegra_init_early_entry',0x302:'trusted_foundations_returned',0x303:'cpu_reset_handler_ready',0x304:'flowctrl_ready',0x401:'setup_arch_returned'}
+  phases={0x101:'paging_init_entry',0x102:'memory_types_ready',0x103:'static_io_mapping_installed',0x104:'device_mappings_ready',0x105:'kmap_ready',0x106:'bootmem_ready',0x201:'paging_init_returned',0x202:'resources_requested',0x203:'device_tree_unflattened',0x204:'cpu_maps_ready',0x205:'psci_ready',0x206:'xen_early_returned',0x207:'hyp_mode_check_returned',0x208:'crashkernel_reserved',0x209:'before_machine_init_early',0x20a:'machine_init_early_returned',0x301:'tegra_init_early_entry',0x302:'trusted_foundations_returned',0x303:'cpu_reset_handler_ready',0x304:'flowctrl_ready',0x401:'setup_arch_returned',0x402:'before_init_irq',0x403:'time_init_returned',0x404:'console_init_returned',0x405:'before_rest_init',0x406:'kernel_init_entry',0x410:'before_basic_setup',0x411:'basic_setup_returned',0x420:'before_init_exec',0x421:'init_exec_succeeded'}
   result['last_phase']={'raw':hex(w[0x78//4]),'name':phases.get(w[0x78//4],'not_recorded' if w[0x78//4]==0 else 'unknown')}
   more_phases={0x107:'tcm_init_returned',0x108:'zero_page_allocated',0x110:'bootmem_init_entry',0x111:'memory_limits_ready',0x112:'early_memtest_returned',0x113:'memory_present_returned',0x114:'sparse_init_returned',0x115:'zone_sizes_initialized'}
   more_phases.update({0x500:'zone_sizes_entry',0x501:'zone_sizes_ready',0x502:'zone_holes_ready',0x503:'before_free_area_init_node',0x504:'free_area_init_node_returned',0x510:'free_area_init_node_entry',0x511:'node_totals_ready',0x512:'node_map_returned',0x513:'node_map_printk_returned',0x514:'before_free_area_init_core',0x515:'free_area_init_core_returned',0x520:'alloc_node_mem_map_entry',0x521:'before_node_map_allocation',0x522:'node_map_allocation_returned',0x523:'node_map_pointer_stored',0x530:'free_area_init_core_entry'})
   more_phases.update({0x701:'memmap_init_zone_entry',0x702:'memmap_range_ready',0x703:'memmap_loop_returned',0x516:'memmap_init_returned'})
   if w[0x78//4] in more_phases:result['last_phase']['name']=more_phases[w[0x78//4]]
   phase=w[0x78//4]
+  if (phase & 0xffff0000)==0xc1000000:
+   result['last_phase'].update(name='init_exec_failed',errno=phase & 0xffff)
   zone_steps={1:'entry',2:'before_pcp_init',3:'pcp_init_returned',4:'before_setup_usemap',5:'setup_usemap_returned',6:'empty_zone_initialized',7:'memmap_init_returned'}
   if 0x600<=phase<0x650 and (phase & 15) in zone_steps:
    result['last_phase'].update(name='zone_'+zone_steps[phase & 15],zone_index=(phase-0x600)//16)
