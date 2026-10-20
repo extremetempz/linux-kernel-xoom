@@ -21,13 +21,16 @@ if valid:
  result['atag_return_code']=None if w[1]<2 or w[0x34//4]!=2 or w[0x2c//4]==0xdeadffff else struct.unpack_from('<i',data,0x2c)[0]
  if w[1]==1:result['atag_status_warning']='Format 1 records r0 after fallback argument setup; it is not a reliable converter status.'
  memmap_magic=0x574d4150
- memmap_record=w[0x74//4]==memmap_magic
+ memmap_extended=w[1]>=2 and (w[0x74//4]&0xff000000)==0x58000000
+ memmap_record=w[1]>=2 and (w[0x74//4]==memmap_magic or memmap_extended)
  if w[1]>=2 and w[0x44//4]==6 and not memmap_record:
   result['mmu_handoff']={name:hex(w[off//4]) for name,off in [('requested_sctlr',0x68),('boot_data',0x6c),('ttbr',0x70),('virtual_jump',0x74)]}
  if memmap_record:
-  info=w[0x70//4]
+  info=w[0x74//4] if memmap_extended else w[0x70//4]
   context=info & 0xff
   result['memmap_zone']={'start_pfn':hex(w[0x68//4]),'end_pfn_exclusive':hex(w[0x6c//4]),'size_pfns':w[0x6c//4]-w[0x68//4],'nid':(info>>16)&0xff,'zone_index':(info>>8)&0xff,'context':{0:'early',1:'hotplug'}.get(context,'unknown_'+str(context)),'note':'This record replaces the MMU handoff words after paging is active; the earlier trace phases show that the handoff was passed.'}
+  if memmap_extended:
+   result['memmap_zone'].update(nid=(info>>20)&0xf,zone_index=(info>>16)&0xf,first_page_descriptor=hex(w[0x70//4]),page_descriptor_stride=(info>>8)&0xff)
  if w[1]>=2:
   phases={0x101:'paging_init_entry',0x102:'memory_types_ready',0x103:'static_io_mapping_installed',0x104:'device_mappings_ready',0x105:'kmap_ready',0x106:'bootmem_ready',0x201:'paging_init_returned',0x202:'resources_requested',0x203:'device_tree_unflattened',0x204:'cpu_maps_ready',0x205:'psci_ready',0x206:'xen_early_returned',0x207:'hyp_mode_check_returned',0x208:'crashkernel_reserved',0x209:'before_machine_init_early',0x20a:'machine_init_early_returned',0x301:'tegra_init_early_entry',0x302:'trusted_foundations_returned',0x303:'cpu_reset_handler_ready',0x304:'flowctrl_ready',0x401:'setup_arch_returned'}
   result['last_phase']={'raw':hex(w[0x78//4]),'name':phases.get(w[0x78//4],'not_recorded' if w[0x78//4]==0 else 'unknown')}
@@ -51,6 +54,15 @@ if valid:
   if (phase & 0xf0000000)==0x80000000 and ((phase >> 24) & 15) in page_steps:
    pfn=phase & 0x00ffffff
    result['last_phase'].update(name=page_steps[(phase >> 24) & 15],pfn=hex(pfn),physical_page=hex(pfn << 12),sampling='Only PFNs with (pfn & 1023) < 4 are detailed; a later unsampled PFN may have executed.')
+  if (phase & 0xf0000000)==0xb0000000 and (phase & 0x00ffffff)==0x2ec00 and ((phase>>24)&15) in range(1,7):
+   pfn=phase & 0x00ffffff
+   result['last_phase'].update(name='boundary_'+page_steps[(phase>>24)&15],pfn=hex(pfn),physical_page=hex(pfn<<12),sampling='Only PFN 0x2ec00 is bracketed; later work can execute before the next checkpoint.')
+  if memmap_extended and 'pfn' in result['last_phase']:
+   pfn=int(result['last_phase']['pfn'],16)
+   stride=(info>>8)&0xff
+   if w[0x68//4]<=pfn<w[0x6c//4] and stride:
+    address=w[0x70//4]+(pfn-w[0x68//4])*stride
+    if address<=0xffffffff:result['last_phase']['calculated_descriptor_address']=hex(address)
  result['stages']={name:w[off//4]==expected for name,off,expected in stages}
 print(json.dumps(result,indent=2))
 raise SystemExit(0 if valid else 2)
