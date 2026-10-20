@@ -152,3 +152,12 @@ recovery readbacks match after restoration; Android is running. See
 [candidate 13](trace-boot-attempt-13.md) for the verified record, offline test
 limits and an unconfirmed descriptor-address correlation with the video
 reservation boundary. No peripheral runtime validation is claimed.
+
+## Candidate 14 — memory failure passed
+
+The lowmem-limit correction changed the active zone end from PFN `0x30000`
+to `0x2e800`. A fresh valid trace records architecture setup returning and
+reaching the early initcall, followed by a later panic with no captured text.
+Original boot/recovery readbacks match after restoration; Android is running.
+See [candidate 14](trace-boot-attempt-14.md). This advances kernel startup;
+it does not validate Android or peripheral operation.
