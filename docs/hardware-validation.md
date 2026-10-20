@@ -161,3 +161,27 @@ reaching the early initcall, followed by a later panic with no captured text.
 Original boot/recovery readbacks match after restoration; Android is running.
 See [candidate 14](trace-boot-attempt-14.md). This advances kernel startup;
 it does not validate Android or peripheral operation.
+
+## Candidates 15 and 16 — init execution reached
+
+Candidate 15 completed basic setup but a new diagnostic hook called freed
+flat-DT init code; the captured PC was reproduced offline. Candidate 16's
+readiness-guard correction reached `init_exec_succeeded`, followed by a panic
+with truncated prefix `Attempted to`. It has not booted Android. Original
+boot/recovery were restored and verified after both tests. See
+[candidate 15](trace-boot-attempt-15.md) and
+[candidate 16](trace-boot-attempt-16.md). USB PHY inclusion was separately
+found defective in the donor build wiring; candidate 17 corrects it and
+adds explicit PID 1 exit-status capture.
+
+## Candidate 17 — init death identified
+
+The fresh bounded trace records init exec succeeding, then PID 1 dying with
+SIGSEGV (wait status `0xb`, no core flag) before panic. No expected USB serial
+gadget/report was observed in this VMware guest. The real USB PHY is now
+linked in diagnostic and full peripheral builds; its runtime probing remains
+unverified. Both original images match full readbacks after restoration.
+The exact prepared BusyBox/linker/library closure passes a separate isolated
+root check under the working kernel, without mounting any filesystem.
+See [candidate 17](trace-boot-attempt-17.md). Android under 4.4 and peripheral
+runtime operation remain unverified.
