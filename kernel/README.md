@@ -5,13 +5,13 @@ The existing 0x8000 decompression fix was verified in the failed binary.
 No root cause or new hardware fix is established. A separate UP/no-peripheral
 profile compiles; it has not been boot tested. Original images are preserved.
 
-**Latest physical test:** candidate 13 reached the window checkpoint after
-PFN `0x2ec2f` inside `memmap_init_zone()`. The trace also records the active
-zone and page descriptor base/stride. There is still no memmap return or
-Android boot on Linux 4.4. The original boot and recovery readbacks matched
-their preserved originals after restoration, and Android returned. See the
-[candidate 13 record](../docs/trace-boot-attempt-13.md) for observations and the
-unconfirmed descriptor/video-boundary hypothesis.
+**Latest physical test:** candidate 14 passed the earlier memory-initialization
+failure after correcting a lowmem-zone size underflow. Its valid trace shows
+architecture setup returning and the early initcall reached, followed by a
+later panic whose message is not yet captured. Original boot/recovery readbacks
+match after restoration, and Android returned. See the
+[candidate 14 record](../docs/trace-boot-attempt-14.md). Linux 4.4 has not yet
+booted Android; the next step is panic-reason capture and USB logging.
 
 Candidate 12 is built with active-zone bounds and a narrow page-progress
 window around PFN `0x2ebff`. It has passed offline checks but has not been
