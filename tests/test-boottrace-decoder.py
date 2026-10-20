@@ -45,4 +45,15 @@ struct.pack_into('<4I',b,0x68,0x2ebf0,0x2ec30,0x00000100,0x574d4150)
 struct.pack_into('<I',b,0x78,0xa002ec1f)
 rc,d=decode(b);assert rc==0 and 'mmu_handoff' not in d
 assert d['memmap_zone']=={'start_pfn':'0x2ebf0','end_pfn_exclusive':'0x2ec30','size_pfns':64,'nid':0,'zone_index':1,'context':'early','note':d['memmap_zone']['note']}
-print('PASS: 23 offline decoder cases; fine progress, loop-return phases and unknown encodings handled conservatively.')
+struct.pack_into('<4I',b,0x68,0x2ebf0,0x2ec30,0xc1000000,0x58012000)
+for step,name in [(1,'before_pfn_validation'),(2,'pfn_validation_passed'),(3,'before_single_page_init'),(4,'single_page_init_returned'),(5,'before_pageblock_update'),(6,'pageblock_update_returned')]:
+ struct.pack_into('<I',b,0x78,0xb002ec00|(step<<24));rc,d=decode(b)
+ assert rc==0 and 'mmu_handoff' not in d and d['last_phase']['name']=='boundary_'+name
+ assert d['memmap_zone']['first_page_descriptor']=='0xc1000000' and d['memmap_zone']['page_descriptor_stride']==32
+ assert d['memmap_zone']['zone_index']==1 and d['memmap_zone']['nid']==0
+ assert d['last_phase']['calculated_descriptor_address']=='0xc1000200'
+for phase in [0xb702ec00,0xb502ec01]:
+ struct.pack_into('<I',b,0x78,phase);rc,d=decode(b);assert d['last_phase']['name']=='unknown'
+struct.pack_into('<I',b,0x78,0x9002edff);rc,d=decode(b)
+assert 'calculated_descriptor_address' not in d['last_phase']
+print('PASS decoder: old records, extended zone/descriptor records, boundary steps and conservative unknown handling.')
