@@ -1,0 +1,22 @@
+From f165d562fb186a1263517e6798e5ce938610e18e Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:13:28 +1100
+Subject: [PATCH] ARM: tegra: assign fresh cookie for runtime-trace correction
+
+---
+ arch/arm/configs/wingray_diagnostic_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_diagnostic_defconfig b/arch/arm/configs/wingray_diagnostic_defconfig
+index 5342fb65..1d511fe6 100644
+--- a/arch/arm/configs/wingray_diagnostic_defconfig
++++ b/arch/arm/configs/wingray_diagnostic_defconfig
+@@ -71,4 +71,4 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d000f
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0010
+-- 
+2.43.0
+

@@ -1,0 +1,29 @@
+From 6a0ba3a4e0883ec47c487f7b2a8ba2a812931707 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:13:28 +1100
+Subject: [PATCH] ARM: tegra: keep Wingray runtime trace out of freed init code
+
+---
+ include/soc/tegra/wingray-boottrace.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index 031f612c..d542ce64 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -71,8 +71,10 @@ static inline void wingray_boottrace_initial_mark(unsigned int offset,
+ static inline void wingray_boottrace_static_mark(unsigned int offset,
+ 						unsigned int value)
+ {
+-	/* Only Wingray's map_io callback installs this static page. */
+-	if (of_flat_dt_is_compatible(of_get_flat_dt_root(), "motorola,wingray"))
++	/* Only Wingray's map_io callback installs this static page. Its flag
++	 * survives free_initmem(); flat-DT helpers live in freed init text.
++	 */
++	if (wingray_boottrace_static_ready)
+ 		wingray_boottrace_mapped_mark(WINGRAY_TRACE_STATIC_VIRT, offset, value);
+ }
+ static inline void wingray_boottrace_record_fault(unsigned long pc)
+-- 
+2.43.0
+
