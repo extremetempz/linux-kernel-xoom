@@ -28,9 +28,9 @@ real ELF loader or establish userspace startup on hardware.
 
 The diagnostic image build, boot-image audit, static-map guards, bounded
 panic helper, fatal-entry guards, MMU snippets and converter/start-kernel
-checks passed. Original images remain preserved. Hardware preflight and a
-boot-only test/restoration/trace cycle are pending. No Android boot, USB or
-eMMC success is claimed from these offline checks.
+checks passed. Original images remain preserved. Hardware preflight and the
+boot-only test/restoration/trace cycle subsequently completed as recorded
+below. No Android boot, USB or eMMC success is claimed from offline checks.
 
 Kernel-plus-DTB SHA-256:
 `4f649b0795b66e8aead7c40649214caafef7b92973256ccf744345109050cc8d`.

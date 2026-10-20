@@ -185,3 +185,13 @@ The exact prepared BusyBox/linker/library closure passes a separate isolated
 root check under the working kernel, without mounting any filesystem.
 See [candidate 17](trace-boot-attempt-17.md). Android under 4.4 and peripheral
 runtime operation remain unverified.
+
+## Candidate 18 — userspace fault location captured
+
+A valid fresh trace records PID 1's first ARM userspace page fault: Thumb PC
+`0xb6f12996`, unmapped address `0x90`, FSR `0x5`, followed by SIGSEGV/init-death
+panic. The executable/library mapping is not yet known. Both complete
+original images match after restoration; Android remains running after the
+single bounded trace read. No USB serial report reached this guest. See
+[candidate 18](trace-boot-attempt-18.md). This narrows early userspace failure;
+it is not an Android boot or peripheral validation result.
