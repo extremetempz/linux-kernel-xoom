@@ -69,3 +69,40 @@ readbacks match their preserved images. Initial retrieval stopped at device
 readiness before any trace mapping because the normal ADB USB device was
 not yet reconnected. After reconnection, exactly one bounded snapshot was
 retrieved; Android retained its boot ID and no new kernel fault appeared.
+
+## Subsequent runtime-environment control
+
+The earlier isolated-root success inherited the ADB shell's environment.
+Clearing that environment caused even the `true` applet to terminate with
+status 139 under the working kernel. To exclude a BusyBox `env`-applet bug,
+three tiny static ARM launchers used raw `execve`, without libc or a dynamic
+interpreter, to start the exact copied BusyBox shell. Inherited environment
+succeeded and printed the control marker. Empty environment, and an
+environment containing only the kernel's `HOME=/` and `TERM=linux`, both
+terminated with status 139 before printing. The working Android boot ID
+remained unchanged, and the temporary roots were removed after each control.
+
+This establishes a startup-environment sensitivity in the diagnostic runtime
+under the working kernel too. It does not yet establish the same faulting
+PC as candidate 18 or identify the required variable. Environment isolation
+is now a better next step than another hardware flash or speculative driver
+change. One minimization run lost USB during file copy, before its matrix;
+the partial root was subsequently inventoried, hash-checked and removed.
+No original partition was written by these controls.
+
+After reconnection, a raw-exec minimization reduced the successful
+environment from 21 variables to just `ANDROID_PROPERTY_WORKSPACE`; empty
+environment still exited 139. This identifies the inherited property
+workspace context as a requirement of this copied runtime in the control.
+It does not prove that the same instruction faulted in the control, and it
+does not establish that setting a variable alone supplies a valid property
+area/file descriptor in a standalone initramfs.
+
+The official static ARMv5T BusyBox replacement then passed raw-exec controls
+with inherited, empty and kernel-like environments on the working kernel,
+without copying an Android linker or library. Its ELF has no interpreter or
+shared-library dependency, ARMv5T/VFPv2 attributes and no NEON attribute.
+Candidate 19 changes the diagnostic runtime and fresh cookie, retaining the
+hardware settings. Static runtime provenance and its pinned hash are in
+`scripts/fetch-diagnostic-runtime.py`; `tests/runtime-exec-probe.S` contains
+the independent raw-exec control source.
