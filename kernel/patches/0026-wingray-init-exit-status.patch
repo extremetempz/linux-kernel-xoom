@@ -1,0 +1,114 @@
+From 09e3fbcac7dda1e2c84a4d5c8ba7f8a1f651a09a Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:27:21 +1100
+Subject: [PATCH] ARM: tegra: preserve Wingray init exit status before panic
+
+---
+ include/soc/tegra/wingray-boottrace.h |  3 +++
+ kernel/exit.c                         |  8 ++++++--
+ kernel/panic.c                        | 28 ++++++++++++++++++++++++++-
+ 3 files changed, 36 insertions(+), 3 deletions(-)
+
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index d542ce64..0b8f1dd7 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -41,6 +41,7 @@
+ #define WINGRAY_TRACE_MEMMAP_MAGIC_OFFSET 0x74
+ #define WINGRAY_TRACE_MEMMAP_TAG  0x58000000
+ #define WINGRAY_TRACE_PANIC      0xbad00001
++#define WINGRAY_TRACE_INIT_EXIT  0x58495431
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
+ #define WINGRAY_TRACE_STATIC_VIRT 0xfe600000
+@@ -49,6 +50,7 @@
+ #include <linux/io.h>
+ #include <linux/of_fdt.h>
+ extern bool wingray_boottrace_static_ready;
++void wingray_boottrace_record_init_exit(unsigned int code);
+ static inline void wingray_boottrace_mapped_mark(unsigned long address,
+ 				unsigned int offset, unsigned int value)
+ {
+@@ -120,6 +122,7 @@ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+ #define wingray_boottrace_initial_mark(offset, value) do { } while (0)
+ #define wingray_boottrace_static_mark(offset, value) do { } while (0)
+ #define wingray_boottrace_record_fault(pc) do { } while (0)
++#define wingray_boottrace_record_init_exit(code) do { } while (0)
+ #define wingray_boottrace_memmap(start, end, page, stride, nid, zone, context) do { } while (0)
+ #endif
+ #endif
+diff --git a/kernel/exit.c b/kernel/exit.c
+index e57bff76..1bf9d0ad 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include <linux/mm.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/slab.h>
+ #include <linux/interrupt.h>
+ #include <linux/module.h>
+@@ -471,8 +472,11 @@ static struct task_struct *find_child_reaper(struct task_struct *father)
+ 
+ 	write_unlock_irq(&tasklist_lock);
+ 	if (unlikely(pid_ns == &init_pid_ns)) {
+-		panic("Attempted to kill init! exitcode=0x%08x\n",
+-			father->signal->group_exit_code ?: father->exit_code);
++		unsigned int code = father->signal->group_exit_code ?:
++							father->exit_code;
++
++		wingray_boottrace_record_init_exit(code);
++		panic("Attempted to kill init! exitcode=0x%08x\n", code);
+ 	}
+ 	zap_pid_ns_processes(pid_ns);
+ 	write_lock_irq(&tasklist_lock);
+diff --git a/kernel/panic.c b/kernel/panic.c
+index c5b41b5a..37f8f62e 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -82,7 +82,8 @@ static noinline __noclone void wingray_trace_panic_message(const char *message)
+ 	    readl_relaxed(trace + WINGRAY_TRACE_COOKIE) !=
+ 				CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE ||
+ 	    readl_relaxed(trace + WINGRAY_TRACE_FAULT_PC) != WINGRAY_TRACE_PANIC ||
+-	    readl_relaxed(trace + 0x74) == 0x504e4331)
++	    (readl_relaxed(trace + 0x74) == 0x504e4331 ||
++	     readl_relaxed(trace + 0x74) == WINGRAY_TRACE_INIT_EXIT))
+ 		return;
+ 
+ 	for (i = 0; i < 12; i++) {
+@@ -102,6 +103,31 @@ static noinline __noclone void wingray_trace_panic_message(const char *message)
+ 	dsb(sy);
+ 	readl_relaxed(trace + 0x74);
+ }
++/* Preserve PID 1's actual wait status before panic formatting replaces it. */
++void wingray_boottrace_record_init_exit(unsigned int code)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++	unsigned int first;
++
++	if (!wingray_boottrace_static_ready ||
++	    readl_relaxed(trace) != WINGRAY_TRACE_MAGIC ||
++	    readl_relaxed(trace + 4) != WINGRAY_TRACE_VERSION ||
++	    readl_relaxed(trace + WINGRAY_TRACE_COOKIE) !=
++				CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE ||
++	    readl_relaxed(trace + 0x74) == WINGRAY_TRACE_INIT_EXIT)
++		return;
++	first = readl_relaxed(trace + WINGRAY_TRACE_FAULT_PC);
++	if (first && first != WINGRAY_TRACE_PANIC)
++		return;
++	wingray_boottrace_record_fault(WINGRAY_TRACE_PANIC);
++	writel_relaxed(code, trace + 0x68);
++	writel_relaxed(0, trace + 0x6c);
++	writel_relaxed(0, trace + 0x70);
++	dsb(sy);
++	writel_relaxed(WINGRAY_TRACE_INIT_EXIT, trace + 0x74);
++	dsb(sy);
++	readl_relaxed(trace + 0x74);
++}
+ #else
+ #define wingray_trace_panic_message(message) do { } while (0)
+ #endif
+-- 
+2.43.0
+
