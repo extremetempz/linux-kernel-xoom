@@ -1,0 +1,106 @@
+From 8fef6641281f12abe41effd9172450ad4a4f0073 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:43:16 +1100
+Subject: [PATCH] ARM: tegra: capture the first Wingray init userspace fault
+
+---
+ arch/arm/mm/fault.c                   |  5 +++++
+ include/soc/tegra/wingray-boottrace.h |  4 ++++
+ kernel/panic.c                        | 29 +++++++++++++++++++++++++++
+ 3 files changed, 38 insertions(+)
+
+diff --git a/arch/arm/mm/fault.c b/arch/arm/mm/fault.c
+index bdc11489..472e562d 100644
+--- a/arch/arm/mm/fault.c
++++ b/arch/arm/mm/fault.c
+@@ -19,6 +19,7 @@
+ #include <linux/sched.h>
+ #include <linux/highmem.h>
+ #include <linux/perf_event.h>
++#include <soc/tegra/wingray-boottrace.h>
+ 
+ #include <asm/cp15.h>
+ #include <asm/exception.h>
+@@ -164,6 +165,10 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
+ {
+ 	struct siginfo si;
+ 
++	if (is_global_init(tsk))
++		wingray_boottrace_record_user_fault(regs->ARM_pc, addr, fsr,
++						regs->ARM_cpsr, sig, code);
++
+ #ifdef CONFIG_DEBUG_USER
+ 	if (((user_debug & UDBG_SEGV) && (sig == SIGSEGV)) ||
+ 	    ((user_debug & UDBG_BUS)  && (sig == SIGBUS))) {
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index 0b8f1dd7..983c3850 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -42,6 +42,7 @@
+ #define WINGRAY_TRACE_MEMMAP_TAG  0x58000000
+ #define WINGRAY_TRACE_PANIC      0xbad00001
+ #define WINGRAY_TRACE_INIT_EXIT  0x58495431
++#define WINGRAY_TRACE_USER_FAULT 0x55534631
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
+ #define WINGRAY_TRACE_STATIC_VIRT 0xfe600000
+@@ -51,6 +52,8 @@
+ #include <linux/of_fdt.h>
+ extern bool wingray_boottrace_static_ready;
+ void wingray_boottrace_record_init_exit(unsigned int code);
++void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
++		unsigned int fsr, unsigned long cpsr, unsigned int sig, int code);
+ static inline void wingray_boottrace_mapped_mark(unsigned long address,
+ 				unsigned int offset, unsigned int value)
+ {
+@@ -123,6 +126,7 @@ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+ #define wingray_boottrace_static_mark(offset, value) do { } while (0)
+ #define wingray_boottrace_record_fault(pc) do { } while (0)
+ #define wingray_boottrace_record_init_exit(code) do { } while (0)
++#define wingray_boottrace_record_user_fault(pc, addr, fsr, cpsr, sig, code) do { } while (0)
+ #define wingray_boottrace_memmap(start, end, page, stride, nid, zone, context) do { } while (0)
+ #endif
+ #endif
+diff --git a/kernel/panic.c b/kernel/panic.c
+index 37f8f62e..fbd2824b 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -67,6 +67,35 @@ void __weak panic_smp_self_stop(void)
+ }
+ 
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++/* Preserve the first observed PID 1 page fault before signal delivery.
++ * Reuse entry-register words after boot; leave init-exit metadata intact.
++ * A userspace handler may recover, so this alone is not a fatal marker.
++ */
++void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
++		unsigned int fsr, unsigned long cpsr, unsigned int sig, int code)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++
++	if (!wingray_boottrace_static_ready ||
++	    readl_relaxed(trace) != WINGRAY_TRACE_MAGIC ||
++	    readl_relaxed(trace + 4) != WINGRAY_TRACE_VERSION ||
++	    readl_relaxed(trace + WINGRAY_TRACE_COOKIE) !=
++				CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE ||
++	    readl_relaxed(trace + WINGRAY_TRACE_FAULT_PC) ||
++	    readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC) == WINGRAY_TRACE_USER_FAULT)
++		return;
++	writel_relaxed(pc, trace + 0x10);
++	writel_relaxed(addr, trace + 0x14);
++	writel_relaxed(fsr, trace + 0x18);
++	writel_relaxed(cpsr, trace + 0x1c);
++	writel_relaxed(sig, trace + 0x20);
++	writel_relaxed(code, trace + 0x24);
++	dsb(sy);
++	writel_relaxed(WINGRAY_TRACE_USER_FAULT, trace + WINGRAY_TRACE_ENTRY_PC);
++	dsb(sy);
++	readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC);
++}
++
+ /* Reuse post-paging zone metadata only after a panic; keep the read size
+  * at 128 bytes. No allocation, DT walk, lock, or unbounded string read.
+  */
+-- 
+2.43.0
+
