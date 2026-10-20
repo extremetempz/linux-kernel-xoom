@@ -1,8 +1,8 @@
 # Candidate 15: panic prefix, init progress, USB and storage diagnostic
 
 Prepared 20 October 2026 after candidate 14 passed early memory setup and
-recorded a later panic. The boot-only two-minute observation has completed; restoration and trace
-retrieval are pending the operator USB handoff.
+recorded a later panic. The boot-only two-minute observation, original restoration and bounded trace
+retrieval are complete.
 
 ## Changes
 
@@ -61,5 +61,40 @@ Diagnostic-image SHA-256:
 
 During the two-minute observation this VM did not see a USB serial gadget.
 That observation does not establish whether the kernel bound a UDC on the
-tablet: VMware may require a new-device handoff. No panic or new-kernel
-storage result is known until the restored-ROM trace is retrieved.
+tablet: VMware may require a new-device handoff. The absence of host USB does not establish successful or failed storage
+probing. No new-kernel filesystem mount was attempted.
+
+## Verified hardware result and diagnostic defect
+
+Android returned on the original Linux 2.6.39.4 kernel after restoration.
+Full boot and recovery readbacks match the preserved originals. One bounded
+snapshot returned a valid format-2 record with cookie `0x584d000f`; Android's
+boot ID was unchanged, its kernel log did not change and the temporary reader
+was removed. Raw evidence remains private under
+`artifacts/trace-boot-attempt-15-prepared/`.
+
+The Normal zone still ends at PFN `0x2e800`. The last phase is `0x411`,
+`basic_setup_returned`. The first fatal PC is `0xc02cd2ec`, which resolves in
+the exact build to `of_get_flat_dt_root()` in `.init.text`. There is no panic
+prefix because the first event is a kernel die PC rather than the panic
+sentinel; preserving that first event is intentional.
+
+Source review found a defect in the new late init-exec diagnostic hook:
+`run_init_process()` is called after `free_initmem()`, but its static trace
+helper called flat-DT functions marked `__init`. Those functions' code has
+already been released/poisoned at that point. The offline compiled init-exec
+fixture makes the init section inaccessible and reproduces the old fetch at
+exactly `0xc02cd2ec`, before the actual exec operation. This links the captured
+PC to a reproducible diagnostic defect. Do not treat this as an Android
+userspace incompatibility or a USB-driver diagnosis.
+
+Candidate 16 replaces the runtime flat-DT check with the persistent readiness
+flag set only by Wingray's mapping callback. It must pass the same compiled
+fixture with init memory inaccessible before another hardware test. This
+correction does not explain candidate 14's earlier panic; a subsequent
+independent startup failure may still need diagnosis.
+
+Restoration hashes: boot
+`64b45fa5b2127685310dcbd58acc5a154e5b7d54c7535354211eb87a5066e588`,
+recovery
+`5545aea043eaa9f8ac37b27103ddf202e5cf3bb56ee040cbc94712a8ca39e606`.
