@@ -5,13 +5,13 @@ The existing 0x8000 decompression fix was verified in the failed binary.
 No root cause or new hardware fix is established. A separate UP/no-peripheral
 profile compiles; it has not been boot tested. Original images are preserved.
 
-**Latest physical test:** candidate 11 remained at the Motorola logo, then
-re-enumerated as fastboot after about three minutes. Its valid trace ended at
-the same sampled PFN (`0x2ebff`) as candidate 10 inside `memmap_init_zone`;
-return and fatal-PC markers were absent. This repeats the sparse-profile
-checkpoint, not an exact fault address or proof of a permanent hang. The
-original boot and recovery images were read back byte-for-byte after
-restoration, and Android returned. See the [candidate 11 record](../docs/trace-boot-attempt-11.md).
+**Latest physical test:** candidate 13 reached the window checkpoint after
+PFN `0x2ec2f` inside `memmap_init_zone()`. The trace also records the active
+zone and page descriptor base/stride. There is still no memmap return or
+Android boot on Linux 4.4. The original boot and recovery readbacks matched
+their preserved originals after restoration, and Android returned. See the
+[candidate 13 record](../docs/trace-boot-attempt-13.md) for observations and the
+unconfirmed descriptor/video-boundary hypothesis.
 
 Candidate 12 is built with active-zone bounds and a narrow page-progress
 window around PFN `0x2ebff`. It has passed offline checks but has not been
