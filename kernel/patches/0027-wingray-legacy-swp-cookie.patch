@@ -1,0 +1,31 @@
+From f9c1cba6de5dfba7bb5094b6b7649f2c3493acbd Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 17:27:22 +1100
+Subject: [PATCH] ARM: tegra: match legacy SWP ABI and identify Wingray build
+ 17
+
+---
+ arch/arm/configs/wingray_diagnostic_defconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_diagnostic_defconfig b/arch/arm/configs/wingray_diagnostic_defconfig
+index 1d511fe6..1d8d9978 100644
+--- a/arch/arm/configs/wingray_diagnostic_defconfig
++++ b/arch/arm/configs/wingray_diagnostic_defconfig
+@@ -20,6 +20,7 @@ CONFIG_MACH_MOTOROLA_WINGRAY=y
+ # CONFIG_CACHE_L2X0 is not set
+ CONFIG_HIGHMEM=y
+ CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
+ CONFIG_VFP=y
+ # CONFIG_NEON is not set
+ # CONFIG_CPU_FREQ is not set
+@@ -71,4 +72,4 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0010
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0011
+-- 
+2.43.0
+
