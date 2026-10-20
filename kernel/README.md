@@ -2,16 +2,20 @@
 
 **Early-boot review:** [findings and staged plan](../docs/early-boot-review.md).
 The existing 0x8000 decompression fix was verified in the failed binary.
-No root cause or new hardware fix is established. A separate UP/no-peripheral
-profile compiles; it has not been boot tested. Original images are preserved.
+Later tests identified and corrected a lowmem-zone sizing defect and a
+diagnostic hook calling freed init code. Original images are preserved.
 
-**Latest physical test:** candidate 14 passed the earlier memory-initialization
-failure after correcting a lowmem-zone size underflow. Its valid trace shows
-architecture setup returning and the early initcall reached, followed by a
-later panic whose message is not yet captured. Original boot/recovery readbacks
-match after restoration, and Android returned. See the
-[candidate 14 record](../docs/trace-boot-attempt-14.md). Linux 4.4 has not yet
-booted Android; the next step is panic-reason capture and USB logging.
+**Latest physical test:** candidate 18 reaches diagnostic init exec, then
+captures PID 1's Thumb fault at `0xb6f12996` accessing unmapped address `0x90`.
+PID 1 dies with SIGSEGV (wait status `0xb`) and the kernel panics. No USB
+serial report reached the VMware guest. Original boot/recovery readbacks
+match after restoration, and Android returned. The exact diagnostic
+executable/linker/library closure runs in an isolated root under the working
+kernel. See the [candidate 18 record](../docs/trace-boot-attempt-18.md).
+Linux 4.4 has not yet booted Android. A subsequent raw-exec control reproduces
+status 139 with the copied runtime under a minimal environment on the working
+kernel, while inherited environment succeeds. The immediate next step is
+isolating that runtime requirement before another physical test.
 
 Candidate 12 is built with active-zone bounds and a narrow page-progress
 window around PFN `0x2ebff`. It has passed offline checks but has not been
