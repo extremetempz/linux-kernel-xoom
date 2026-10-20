@@ -1,0 +1,181 @@
+From a940c82e0ccc4a1d959bc4f389ae2f8db88d89d6 Mon Sep 17 00:00:00 2001
+From: Xoom kernel port work <noreply@users.noreply.github.com>
+Date: Tue, 20 Oct 2026 16:33:56 +1100
+Subject: [PATCH] ARM: tegra: trace Wingray page descriptors and boundary
+ operations
+
+---
+ arch/arm/configs/wingray_trace_defconfig |  2 +-
+ arch/arm/mach-tegra/Kconfig              |  4 +++-
+ include/soc/tegra/wingray-boottrace.h    | 18 ++++++++++--------
+ mm/page_alloc.c                          | 18 +++++++++++++++++-
+ 4 files changed, 31 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm/configs/wingray_trace_defconfig b/arch/arm/configs/wingray_trace_defconfig
+index b8df8837..01b4e747 100644
+--- a/arch/arm/configs/wingray_trace_defconfig
++++ b/arch/arm/configs/wingray_trace_defconfig
+@@ -55,4 +55,4 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d000c
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d000d
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index b9a190f3..d9bbf38b 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -73,7 +73,7 @@ config MACH_MOTOROLA_WINGRAY
+ config MOTOROLA_XOOM_BOOT_TRACE
+ 	bool "Experimental Wingray early RAM breadcrumbs"
+ 	depends on MACH_MOTOROLA_WINGRAY && !SMP && !THUMB2_KERNEL
+-	depends on !ARM_LPAE && VMSPLIT_3G && !CPU_BIG_ENDIAN
++	depends on !ARM_LPAE && VMSPLIT_3G && !CPU_BIG_ENDIAN && FLATMEM
+ 	default n
+ 	help
+ 	  Instrument the decompressor and pre-MMU kernel entry without UART.
+@@ -108,6 +108,8 @@ config MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW
+ 	  0x2ebf0 through 0x2ec2f. This window surrounds the last sparse
+ 	  checkpoint from the physical diagnostic boot. It adds four trace
+ 	  stores when the full window is visited.
++	  Also bracket metadata initialization and pageblock update at PFN
++	  0x2ec00, without placing any trace inside an exclusive sequence.
+ 
+ config MOTOROLA_XOOM_BOOT_TRACE_COOKIE
+ 	hex "Wingray trace build identifier"
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index df8041de..031f612c 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -37,9 +37,9 @@
+ #define WINGRAY_TRACE_FAULT_PC   0x7c
+ #define WINGRAY_TRACE_MEMMAP_START 0x68
+ #define WINGRAY_TRACE_MEMMAP_END   0x6c
+-#define WINGRAY_TRACE_MEMMAP_INFO  0x70
++#define WINGRAY_TRACE_MEMMAP_PAGE  0x70
+ #define WINGRAY_TRACE_MEMMAP_MAGIC_OFFSET 0x74
+-#define WINGRAY_TRACE_MEMMAP_MAGIC 0x574d4150 /* "WMAP" */
++#define WINGRAY_TRACE_MEMMAP_TAG  0x58000000
+ #define WINGRAY_TRACE_PANIC      0xbad00001
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
+@@ -86,12 +86,14 @@ static inline void wingray_boottrace_record_fault(unsigned long pc)
+ 					WINGRAY_TRACE_FAULT_PC, pc);
+ }
+ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+-			unsigned long end_pfn, unsigned int nid,
++			unsigned long end_pfn, unsigned long first_page,
++			unsigned int page_stride, unsigned int nid,
+ 			unsigned int zone, unsigned int context)
+ {
+ 	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
+-	unsigned int info = ((nid & 0xff) << 16) |
+-			    ((zone & 0xff) << 8) | (context & 0xff);
++	unsigned int info = WINGRAY_TRACE_MEMMAP_TAG | ((nid & 0xf) << 20) |
++			    ((zone & 0xf) << 16) | ((page_stride & 0xff) << 8) |
++			    (context & 0xff);
+ 
+ 	/*
+ 	 * At this point the MMU handoff has completed, so preserve the active
+@@ -105,8 +107,8 @@ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+ 						CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE) {
+ 		writel_relaxed(start_pfn, trace + WINGRAY_TRACE_MEMMAP_START);
+ 		writel_relaxed(end_pfn, trace + WINGRAY_TRACE_MEMMAP_END);
+-		writel_relaxed(info, trace + WINGRAY_TRACE_MEMMAP_INFO);
+-		writel_relaxed(WINGRAY_TRACE_MEMMAP_MAGIC,
++		writel_relaxed(first_page, trace + WINGRAY_TRACE_MEMMAP_PAGE);
++		writel_relaxed(info,
+ 				trace + WINGRAY_TRACE_MEMMAP_MAGIC_OFFSET);
+ 		dsb(sy);
+ 		readl_relaxed(trace + WINGRAY_TRACE_MEMMAP_MAGIC_OFFSET);
+@@ -116,7 +118,7 @@ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+ #define wingray_boottrace_initial_mark(offset, value) do { } while (0)
+ #define wingray_boottrace_static_mark(offset, value) do { } while (0)
+ #define wingray_boottrace_record_fault(pc) do { } while (0)
+-#define wingray_boottrace_memmap(start, end, nid, zone, context) do { } while (0)
++#define wingray_boottrace_memmap(start, end, page, stride, nid, zone, context) do { } while (0)
+ #endif
+ #endif
+ #endif
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 58f28baa..5a717d72 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -96,6 +96,10 @@ static noinline void wingray_alloc_trace(unsigned int phase)
+ #define wingray_page_progress(pfn) do { } while (0)
+ #endif
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW
++#define wingray_page_boundary_trace(step, pfn) do { \
++	if ((pfn) == 0x2ec00UL) \
++		wingray_alloc_trace(0xb0000000U | ((step) << 24) | (pfn)); \
++} while (0)
+ #define wingray_page_window_progress(pfn) do { \
+ 	if ((pfn) >= 0x2ebf0UL && (pfn) <= 0x2ec2fUL && \
+ 	    (((pfn) & 15UL) == 15UL)) \
+@@ -103,12 +107,14 @@ static noinline void wingray_alloc_trace(unsigned int phase)
+ } while (0)
+ #else
+ #define wingray_page_window_progress(pfn) do { } while (0)
++#define wingray_page_boundary_trace(step, pfn) do { } while (0)
+ #endif
+ #else
+ #define wingray_alloc_trace(phase) do { } while (0)
+ #define wingray_page_trace(step, pfn) do { } while (0)
+ #define wingray_page_progress(pfn) do { } while (0)
+ #define wingray_page_window_progress(pfn) do { } while (0)
++#define wingray_page_boundary_trace(step, pfn) do { } while (0)
+ #endif
+ 
+ /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
+@@ -4600,7 +4606,9 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 	unsigned long nr_initialised = 0;
+ 
+ #ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
+-	wingray_boottrace_memmap(start_pfn, end_pfn, nid, zone, context);
++	wingray_boottrace_memmap(start_pfn, end_pfn,
++		(unsigned long)pfn_to_page(start_pfn), sizeof(struct page),
++		nid, zone, context);
+ #endif
+ 	wingray_alloc_trace(0x701);
+ 	if (highest_memmap_pfn < end_pfn - 1)
+@@ -4609,6 +4617,7 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 	z = &pgdat->node_zones[zone];
+ 	wingray_alloc_trace(0x702);
+ 	for (pfn = start_pfn; pfn < end_pfn; pfn++) {
++		wingray_page_boundary_trace(1, pfn);
+ 		wingray_page_trace(1, pfn);
+ 		/*
+ 		 * There can be holes in boot-time mem_map[]s
+@@ -4626,6 +4635,7 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 		}
+ 
+ 		wingray_page_trace(2, pfn);
++		wingray_page_boundary_trace(2, pfn);
+ 
+ 		/*
+ 		 * Mark the block movable so that blocks are reserved for
+@@ -4643,15 +4653,21 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 			struct page *page = pfn_to_page(pfn);
+ 
+ 			wingray_page_trace(3, pfn);
++			wingray_page_boundary_trace(3, pfn);
+ 			__init_single_page(page, pfn, zone, nid);
+ 			wingray_page_trace(4, pfn);
++			wingray_page_boundary_trace(4, pfn);
+ 			wingray_page_trace(5, pfn);
++			wingray_page_boundary_trace(5, pfn);
+ 			set_pageblock_migratetype(page, MIGRATE_MOVABLE);
+ 			wingray_page_trace(6, pfn);
++			wingray_page_boundary_trace(6, pfn);
+ 		} else {
+ 			wingray_page_trace(3, pfn);
++			wingray_page_boundary_trace(3, pfn);
+ 			__init_single_pfn(pfn, zone, nid);
+ 			wingray_page_trace(4, pfn);
++			wingray_page_boundary_trace(4, pfn);
+ 		}
+ 		/* Sampling stores are optional and outside the pageblock atomic. */
+ 		wingray_page_progress(pfn);
+-- 
+2.43.0
+
