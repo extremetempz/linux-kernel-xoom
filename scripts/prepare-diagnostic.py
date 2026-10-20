@@ -8,6 +8,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output-dir', type=Path, required=True,
                     help='New directory under artifacts/; existing directories are refused')
 parser.add_argument('--kernel-dir', type=Path, default=root/'artifacts/wingray44')
+parser.add_argument('--static-busybox', type=Path,
+                    help='Use a static ARM BusyBox instead of the copied Android linker/library runtime')
 parser.add_argument('--panic-seconds', type=int, default=0,
                     help='Default 0 preserves a panic for inspection instead of rebooting')
 args = parser.parse_args()
@@ -24,9 +26,23 @@ ks, ka, rs, ra, ss, sa, tags, page = struct.unpack_from('<8I', backup, 8)
 assert (ka, ra, tags, page) == (0x10008000, 0x11000000, 0x10000100, 2048)
 assert ss == 0
 kernel = (args.kernel_dir / 'zImage-dtb').read_bytes()
-# Dependency closure from the tablet's own BusyBox, never the host's libraries.
-files = {'bin/busybox': private/'busybox', 'system/bin/linker': private/'linker'}
-pending = [private/'busybox', private/'linker']
+if args.static_busybox:
+    busybox = args.static_busybox.resolve()
+    elf = busybox.read_bytes()
+    assert elf[:7] == b'\x7fELF\x01\x01\x01' and struct.unpack_from('<H',elf,18)[0] == 40, 'Require little-endian ELF32 ARM'
+    headers = subprocess.check_output(['readelf','-lW',str(busybox)],text=True)
+    dynamic = subprocess.check_output(['readelf','-dW',str(busybox)],text=True)
+    attributes = subprocess.check_output(['readelf','-A',str(busybox)],text=True)
+    assert 'INTERP' not in headers and '(NEEDED)' not in dynamic, 'Require a static runtime without an interpreter or shared libraries'
+    assert 'Tag_CPU_arch: v5T' in attributes and 'Tag_Advanced_SIMD_arch:' not in attributes, 'Require the reviewed non-NEON ARMv5T runtime'
+    files = {'bin/busybox': busybox}
+    pending = []
+else:
+    # Historical Android runtime, retained for reproducing earlier images.
+    # It requires an Android property workspace; use static mode for the
+    # standalone diagnostic which does not start Android's init service.
+    files = {'bin/busybox': private/'busybox', 'system/bin/linker': private/'linker'}
+    pending = [private/'busybox', private/'linker']
 while pending:
     elf = pending.pop()
     for lib in re.findall(r'Shared library: \[([^\]]+)\]', subprocess.check_output(['readelf','-d',str(elf)],text=True)):
@@ -106,6 +122,6 @@ image = bytes(header)+padded(kernel)+padded(ramdisk)
 out.mkdir(parents=True, exist_ok=False)
 (out/'wingray-diagnostic.img').write_bytes(image)
 (out/'ramdisk.cpio.gz').write_bytes(ramdisk)
-(out/'manifest.json').write_text(json.dumps({'purpose':'experimental diagnostic image; builder performs no device operations','kernel_address':hex(ka),'ramdisk_address':hex(ra),'tags_address':hex(tags),'page_size':page,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'runtime_files':sorted(files),'storage_mounts':[], 'bootloader_note':'Xoom consumer bootloader 1050 rejects fastboot boot; any boot-partition test requires separate explicit approval'},indent=2)+'\n')
+(out/'manifest.json').write_text(json.dumps({'purpose':'experimental diagnostic image; builder performs no device operations','kernel_address':hex(ka),'ramdisk_address':hex(ra),'tags_address':hex(tags),'page_size':page,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'runtime_kind':'static-armv5t' if args.static_busybox else 'copied-android','runtime_files':sorted(files),'runtime_sha256':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in files.items()},'storage_mounts':[], 'bootloader_note':'Xoom consumer bootloader 1050 rejects fastboot boot; boot-partition tests require user authorization'},indent=2)+'\n')
 print('Prepared local-only image:',out/'wingray-diagnostic.img')
 print('SHA256:',hashlib.sha256(image).hexdigest())
