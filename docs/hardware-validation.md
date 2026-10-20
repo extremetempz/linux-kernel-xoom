@@ -195,3 +195,14 @@ original images match after restoration; Android remains running after the
 single bounded trace read. No USB serial report reached this guest. See
 [candidate 18](trace-boot-attempt-18.md). This narrows early userspace failure;
 it is not an Android boot or peripheral validation result.
+
+## Candidate 19 — previous diagnostic fault absent
+
+The static-runtime candidate records init exec with no first-fatal, user-fault
+or init-exit record. Its runtime passes independent raw-exec controls under
+empty and kernel-like environments on the working kernel. USB is still not
+observed, and the trace has no post-exec activity checkpoint, so continuous
+userspace operation and peripherals remain unverified. Both full original
+images match after restoration; Android remains running after one bounded
+trace read. See [candidate 19](trace-boot-attempt-19.md) for limitations and
+the staged post-exec/USB/eMMC/Android validation plan.
