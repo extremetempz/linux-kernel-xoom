@@ -87,3 +87,43 @@ struct.pack_into('<I',b,0x7c,0xbad00001)
 rc,d=decode(b);assert d['init_exit']['terminating_signal']==11 and 'init_user_fault' in d
 rc,d=decode(b,1);assert rc==2 and 'init_user_fault' not in d
 print('PASS decoder: first PID 1 userspace fault, reused entry registers and coexisting exit status.')
+
+b=record();struct.pack_into('<I',b,0x44,6);struct.pack_into('<4I',b,0x68,2,0x80030205,1,0x44494131)
+rc,d=decode(b)
+assert d['diagnostic']['usb_phy']['state']=='returned_success'
+assert d['diagnostic']['usb_udc']['errno']==517 and d['diagnostic']['usb_udc']['stage_name']=='phy_lookup'
+assert d['diagnostic']['userspace_mount']['state']=='entered'
+assert 'memmap_zone' not in d and 'mmu_handoff' not in d
+struct.pack_into('<3I',b,0x68,0,7,2);rc,d=decode(b)
+assert d['diagnostic']['usb_phy']['state']=='not_observed'
+assert d['diagnostic']['usb_udc']['stage_name']=='chipidea_creation'
+assert d['diagnostic']['userspace_mount']['state']=='returned_success'
+rc,d=decode(b,1);assert rc==2 and 'diagnostic' not in d
+print('PASS decoder: bounded USB probe and post-exec mount statuses.')
+
+struct.pack_into('<7I',b,0x0c,0x554c4e31,0x8007000c,1,0,0,0,0)
+rc,d=decode(b)
+assert d['usb_link']['core_probe']['errno']==12 and d['usb_link']['core_probe']['stage_name']=='gadget_init'
+assert d['usb_link']['gadget_bind']['state']=='entered_or_pending' and not d['usb_link']['connection_snapshot']['observed']
+assert d['entry']['register_words_reused'] and 'cpsr' not in d['entry']
+struct.pack_into('<6I',b,0x10,2,2,14,0,1,2);rc,d=decode(b)
+assert d['usb_link']['core_probe']['state']=='returned_success' and d['usb_link']['gadget_bind']['state']=='returned_success'
+s=d['usb_link']['connection_snapshot']
+assert s['observed'] and not s['vbus_active'] and not s['b_session_valid'] and s['run_stop'] and s['controller_mode']=='device' and s['gadget_driver_attached']
+rc,d=decode(b,1);assert rc==2 and 'usb_link' not in d
+print('PASS decoder: actual child probe, gadget binding and sampled connection state.')
+
+for state in [0,0xff,0x59,0x100ff]:
+ b=record();struct.pack_into('<II',b,0x48,0x47504931,state)
+ struct.pack_into('<7I',b,0x0c,0x554c4e31,2,2,15,0x8200d00,0x10001,0xa)
+ rc,d=decode(b);assert rc==0
+ g=d['usb_switch_gpio'];assert g['raw']==hex(state) and g['reserved_bits_zero']==(state<256)
+ for name,shift in [('data_enable_pv4',0),('forceon_n_pc5',4)]:
+  for field,bit in [('gpio_mode',1),('output_enabled',2),('output_high',4),('requested_by_expected_owner',8)]:
+   assert g[name][field]==bool(state&(bit<<shift))
+ assert d['stages']['tegra_init_early'] is None and d['stages']['early_initcall'] is None
+ assert d['usb_link']['core_probe']['state']=='returned_success'
+ rc,d=decode(b,1);assert rc==2 and 'usb_switch_gpio' not in d
+b=record();struct.pack_into('<II',b,0x48,7,8);rc,d=decode(b)
+assert 'usb_switch_gpio' not in d and d['stages']['tegra_init_early'] and d['stages']['early_initcall']
+print('PASS decoder: GPIO ownership/register snapshot, reused marker words and independent USB state.')
