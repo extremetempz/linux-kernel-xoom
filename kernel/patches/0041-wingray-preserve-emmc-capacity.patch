@@ -1,0 +1,72 @@
+From 9f022b09fe3e83b731e96688d2785c2cb16fc8e9 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 21 Oct 2026 18:57:18 +1100
+Subject: [PATCH] mmc: preserve raw user-area capacity on opted-in Wingray eMMC
+
+---
+ drivers/mmc/core/mmc.c | 35 +++++++++++++++++++++++++++--------
+ 1 file changed, 27 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/mmc/core/mmc.c b/drivers/mmc/core/mmc.c
+index 52ecef56..7f7d2796 100644
+--- a/drivers/mmc/core/mmc.c
++++ b/drivers/mmc/core/mmc.c
+@@ -15,6 +15,7 @@
+ #include <linux/slab.h>
+ #include <linux/stat.h>
+ #include <linux/pm_runtime.h>
++#include <linux/of.h>
+ 
+ #include <linux/mmc/host.h>
+ #include <linux/mmc/card.h>
+@@ -339,6 +340,30 @@ static void mmc_manage_gp_partitions(struct mmc_card *card, u8 *ext_csd)
+ /*
+  * Decode extended CSD.
+  */
++static unsigned int mmc_legacy_user_sectors(struct mmc_card *card,
++				unsigned int sectors, u8 boot_mult)
++{
++	struct device *parent = card->host->parent;
++
++	if (sectors <= (2u * 1024 * 1024 * 1024) / 512 ||
++	    !(card->host->caps & MMC_CAP_NONREMOVABLE))
++		return sectors;
++
++	/* Wingray's working kernel exposes the unmodified SEC_COUNT. Its
++	 * relocated GPT is handled by the board/controller-gated GPT parser;
++	 * reducing disk capacity to move the apparent end is unnecessary.
++	 */
++	if (of_machine_is_compatible("motorola,wingray") && parent &&
++	    of_property_read_bool(parent->of_node, "motorola,xoom-bigpart")) {
++		pr_info("%s: Wingray preserves eMMC sector count %u\n",
++			mmc_hostname(card->host), sectors);
++		return sectors;
++	}
++
++	/* Preserve this donor's NVIDIA legacy adjustment for other hosts. */
++	return sectors - boot_mult * 512U;
++}
++
+ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
+ {
+ 	int err = 0, idx;
+@@ -383,14 +408,8 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
+ 
+ 		/* Cards with density > 2GiB are sector addressed */
+ 		if (card->ext_csd.sectors > (2u * 1024 * 1024 * 1024) / 512) {
+-			if (card->host->caps & MMC_CAP_NONREMOVABLE) {
+- 				/*
+-				 * Size is in 256K chunks, i.e. 512 sectors each.
+- 				 * This algorithm is defined and used by NVIDIA,
+-				 * according to eMMC 4.41, size is in 128K chunks.
+-				 */
+- 				card->ext_csd.sectors -= ext_csd[EXT_CSD_BOOT_MULT] * 512;
+- 			}
++			card->ext_csd.sectors = mmc_legacy_user_sectors(card,
++				card->ext_csd.sectors, ext_csd[EXT_CSD_BOOT_MULT]);
+ 			mmc_card_set_blockaddr(card);
+ 		}
+ 	}
+-- 
+2.43.0
+
