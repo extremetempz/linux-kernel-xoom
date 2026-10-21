@@ -1,0 +1,30 @@
+From d68ea94a11a1a6d2280d400fe979571f1a3b2ed2 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 22:17:44 +1100
+Subject: [PATCH] usb: tegra: propagate peripheral PHY resume failures
+
+---
+ drivers/usb/chipidea/ci_hdrc_tegra.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/chipidea/ci_hdrc_tegra.c b/drivers/usb/chipidea/ci_hdrc_tegra.c
+index aec05dde..c47dcf79 100644
+--- a/drivers/usb/chipidea/ci_hdrc_tegra.c
++++ b/drivers/usb/chipidea/ci_hdrc_tegra.c
+@@ -108,7 +108,12 @@ static int tegra_udc_probe_impl(struct platform_device *pdev)
+ 	 * driver initialization kicks in.
+ 	 */
+ 	wingray_boottrace_diagnostic_mark(WINGRAY_TRACE_USB_UDC, 6);
+-	usb_phy_set_suspend(udc->phy, 0);
++	err = usb_phy_set_suspend(udc->phy, 0);
++	if (err < 0) {
++		dev_err(&pdev->dev, "failed to resume PHY: %d\n", err);
++		clk_disable_unprepare(udc->clk);
++		return err;
++	}
+ 
+ 	/* setup and register ChipIdea HDRC device */
+ 	udc->data.name = "tegra-udc";
+-- 
+2.43.0
+

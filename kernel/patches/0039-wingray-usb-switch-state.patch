@@ -1,0 +1,132 @@
+From 6882eb278581f3b7fcecc96dd4219fee01773281 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 21 Oct 2026 18:06:51 +1100
+Subject: [PATCH] ARM: tegra: record Wingray USB switch GPIO state after
+ registration
+
+---
+ drivers/gpio/gpio-tegra.c             | 32 +++++++++++++++++++++++++++
+ include/soc/tegra/wingray-boottrace.h |  3 +++
+ kernel/panic.c                        | 21 ++++++++++++++++++
+ 3 files changed, 56 insertions(+)
+
+diff --git a/drivers/gpio/gpio-tegra.c b/drivers/gpio/gpio-tegra.c
+index 0ddfcc90..7f694489 100644
+--- a/drivers/gpio/gpio-tegra.c
++++ b/drivers/gpio/gpio-tegra.c
+@@ -30,6 +30,9 @@
+ #include <linux/irqchip/chained_irq.h>
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/pm.h>
++#include <linux/string.h>
++#include <dt-bindings/gpio/tegra-gpio.h>
++#include <soc/tegra/wingray-boottrace.h>
+ 
+ #ifdef CONFIG_MACH_SAMSUNG_P4WIFI
+ #include "../../arch/arm/mach-tegra/gpio-sec.h"
+@@ -182,6 +185,34 @@ static struct gpio_chip tegra_gpio_chip = {
+ 	.base			= 0,
+ };
+ 
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++static void tegra_gpio_trace_wingray_usb(void)
++{
++	const unsigned int lines[] = { TEGRA_GPIO(V, 4), TEGRA_GPIO(C, 5) };
++	const char * const names[] = {
++		"wingray-usb-data-enable", "wingray-usb-forceon-n"
++	};
++	unsigned int state = 0, i, gpio, shift;
++	const char *owner;
++
++	if (!of_machine_is_compatible("motorola,wingray"))
++		return;
++	for (i = 0; i < ARRAY_SIZE(lines); i++) {
++		gpio = lines[i];
++		shift = i * 4;
++		state |= ((tegra_gpio_readl(GPIO_CNF(gpio)) >> GPIO_BIT(gpio)) & 1) << shift;
++		state |= ((tegra_gpio_readl(GPIO_OE(gpio)) >> GPIO_BIT(gpio)) & 1) << (shift + 1);
++		state |= ((tegra_gpio_readl(GPIO_OUT(gpio)) >> GPIO_BIT(gpio)) & 1) << (shift + 2);
++		owner = gpiochip_is_requested(&tegra_gpio_chip, gpio);
++		if (owner && !strcmp(owner, names[i]))
++			state |= 1U << (shift + 3);
++	}
++	wingray_boottrace_gpio_state(state);
++}
++#else
++static inline void tegra_gpio_trace_wingray_usb(void) { }
++#endif
++
+ static void tegra_gpio_irq_ack(struct irq_data *d)
+ {
+ 	int gpio = d->hwirq;
+@@ -653,6 +684,7 @@ static int tegra_gpio_probe(struct platform_device *pdev)
+ 			spin_lock_init(&bank->lvl_lock[j]);
+ 	}
+ 
++	tegra_gpio_trace_wingray_usb();
+ 	tegra_gpio_debuginit();
+ 
+ #if defined(CONFIG_MACH_SAMSUNG_P4WIFI) && defined(CONFIG_PM_SLEEP)
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index 716fe536..e78709b2 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -54,6 +54,7 @@
+ #define WINGRAY_TRACE_USB_OTGSC  0x1c
+ #define WINGRAY_TRACE_USB_CMD    0x20
+ #define WINGRAY_TRACE_USB_MODE   0x24
++#define WINGRAY_TRACE_GPIO_TAG   0x47504931
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
+ #define WINGRAY_TRACE_STATIC_VIRT 0xfe600000
+@@ -68,6 +69,7 @@ void wingray_boottrace_diagnostic_mark(unsigned int slot, unsigned int value);
+ void wingray_boottrace_diagnostic_result(unsigned int slot, int result);
+ void wingray_boottrace_usb_mark(unsigned int slot, unsigned int value);
+ void wingray_boottrace_usb_result(unsigned int slot, int result);
++void wingray_boottrace_gpio_state(unsigned int state);
+ void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
+ 		unsigned int fsr, unsigned long cpsr, unsigned int sig, int code);
+ static inline void wingray_boottrace_mapped_mark(unsigned long address,
+@@ -147,6 +149,7 @@ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+ #define wingray_boottrace_diagnostic_result(slot, result) do { } while (0)
+ #define wingray_boottrace_usb_mark(slot, value) do { } while (0)
+ #define wingray_boottrace_usb_result(slot, result) do { } while (0)
++#define wingray_boottrace_gpio_state(state) do { } while (0)
+ #define wingray_boottrace_record_user_fault(pc, addr, fsr, cpsr, sig, code) do { } while (0)
+ #define wingray_boottrace_memmap(start, end, page, stride, nid, zone, context) do { } while (0)
+ #endif
+diff --git a/kernel/panic.c b/kernel/panic.c
+index cdb02d94..96971b13 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -185,6 +185,27 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(wingray_boottrace_usb_result);
+ 
++/* After GPIO registration, reuse the two completed early-init markers.
++ * Keep USB/fault evidence and the physical snapshot size unchanged.
++ */
++void wingray_boottrace_gpio_state(unsigned int state)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++	unsigned long flags;
++
++	local_irq_save(flags);
++	if (!wingray_diagnostic_ready(trace))
++		goto out;
++	writel_relaxed(state & 0xff, trace + WINGRAY_TRACE_INITCALL);
++	dsb(sy);
++	writel_relaxed(WINGRAY_TRACE_GPIO_TAG, trace + WINGRAY_TRACE_C_EARLY);
++	dsb(sy);
++	readl_relaxed(trace + WINGRAY_TRACE_C_EARLY);
++out:
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL_GPL(wingray_boottrace_gpio_state);
++
+ /* Preserve the first observed PID 1 page fault before signal delivery.
+  * Reuse entry-register words after boot; leave init-exit metadata intact.
+  * A userspace handler may recover, so this alone is not a fatal marker.
+-- 
+2.43.0
+

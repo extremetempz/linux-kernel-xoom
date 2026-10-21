@@ -1,0 +1,22 @@
+From 6ddda75d81092728a8ee93d1719601284795d08f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 21 Oct 2026 17:24:54 +1100
+Subject: [PATCH] ARM: tegra: identify Wingray PHY clock diagnostic build 22
+
+---
+ arch/arm/configs/wingray_diagnostic_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_diagnostic_defconfig b/arch/arm/configs/wingray_diagnostic_defconfig
+index a66a7496..fa647730 100644
+--- a/arch/arm/configs/wingray_diagnostic_defconfig
++++ b/arch/arm/configs/wingray_diagnostic_defconfig
+@@ -72,4 +72,4 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0015
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0016
+-- 
+2.43.0
+

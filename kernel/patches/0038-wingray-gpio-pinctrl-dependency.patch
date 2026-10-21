@@ -1,0 +1,42 @@
+From 5e6035ff4a33836fb852af65fa2e2fba53a708b0 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 21 Oct 2026 18:03:58 +1100
+Subject: [PATCH] ARM: tegra: defer Wingray GPIO hogs until pinctrl is ready
+
+---
+ arch/arm/boot/dts/tegra20-motorola-wingray.dts | 5 +++++
+ drivers/pinctrl/pinctrl-tegra.c                | 2 ++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray.dts b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+index 58ec956f..28be6434 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray.dts
+@@ -85,6 +85,11 @@
+ 	};
+ 
+ 	gpio@6000d000 {
++		/* GPIO probes before pinctrl. Defer it until the pin provider is
++		 * ready, before the one-shot GPIO hog scan drives the USB switch.
++		 */
++		gpio-ranges = <&pinmux 0 0 224>;
++
+ 		/* Shared column for the two volume switches. */
+ 		keypad-column {
+ 			gpio-hog;
+diff --git a/drivers/pinctrl/pinctrl-tegra.c b/drivers/pinctrl/pinctrl-tegra.c
+index 0fd7fd2b..f95cafe2 100644
+--- a/drivers/pinctrl/pinctrl-tegra.c
++++ b/drivers/pinctrl/pinctrl-tegra.c
+@@ -630,6 +630,8 @@ static bool gpio_node_has_range(void)
+ 	bool has_prop = false;
+ 
+ 	np = of_find_compatible_node(NULL, NULL, "nvidia,tegra30-gpio");
++	if (!np)
++		np = of_find_compatible_node(NULL, NULL, "nvidia,tegra20-gpio");
+ 	if (!np)
+ 		return has_prop;
+ 
+-- 
+2.43.0
+

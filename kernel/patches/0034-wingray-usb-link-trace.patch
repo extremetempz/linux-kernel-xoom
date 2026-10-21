@@ -1,0 +1,398 @@
+From 8e8e238615adcb474bab63fbd4edd1c740902a61 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 22:19:19 +1100
+Subject: [PATCH] ARM: tegra: trace actual USB child probe and gadget
+ connection
+
+---
+ drivers/usb/chipidea/core.c           | 23 +++++++++-
+ drivers/usb/chipidea/udc.c            | 26 +++++++++++
+ drivers/usb/chipidea/udc.h            |  6 +++
+ drivers/usb/gadget/legacy/serial.c    | 13 +++++-
+ include/soc/tegra/wingray-boottrace.h | 11 +++++
+ kernel/panic.c                        | 62 ++++++++++++++++++++++++++-
+ 6 files changed, 138 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/chipidea/core.c b/drivers/usb/chipidea/core.c
+index 57ee4351..313a0766 100644
+--- a/drivers/usb/chipidea/core.c
++++ b/drivers/usb/chipidea/core.c
+@@ -53,6 +53,7 @@
+ #include <linux/module.h>
+ #include <linux/idr.h>
+ #include <linux/interrupt.h>
++#include <soc/tegra/wingray-boottrace.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
+@@ -871,7 +872,7 @@ static void ci_get_otg_capable(struct ci_hdrc *ci)
+ 	}
+ }
+ 
+-static int ci_hdrc_probe(struct platform_device *pdev)
++static int ci_hdrc_probe_impl(struct platform_device *pdev)
+ {
+ 	struct device	*dev = &pdev->dev;
+ 	struct ci_hdrc	*ci;
+@@ -885,6 +886,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 		return -ENODEV;
+ 	}
+ 
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 3);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	base = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(base))
+@@ -902,6 +904,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 	ci->supports_runtime_pm = !!(ci->platdata->flags &
+ 		CI_HDRC_SUPPORTS_RUNTIME_PM);
+ 
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 4);
+ 	ret = hw_device_init(ci, base);
+ 	if (ret < 0) {
+ 		dev_err(dev, "can't initialize hardware\n");
+@@ -930,6 +933,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 			ci->usb_phy = NULL;
+ 	}
+ 
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 5);
+ 	ret = ci_usb_phy_init(ci);
+ 	if (ret) {
+ 		dev_err(dev, "unable to init phy: %d\n", ret);
+@@ -938,6 +942,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 
+ 	ci->hw_bank.phys = res->start;
+ 
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 6);
+ 	ci->irq = platform_get_irq(pdev, 0);
+ 	if (ci->irq < 0) {
+ 		dev_err(dev, "missing IRQ\n");
+@@ -960,6 +965,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	if (dr_mode == USB_DR_MODE_OTG || dr_mode == USB_DR_MODE_PERIPHERAL) {
++		wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 7);
+ 		ret = ci_hdrc_gadget_init(ci);
+ 		if (ret) {
+ 			if (ret == -ENXIO)
+@@ -976,6 +982,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	if (ci->is_otg && ci->roles[CI_ROLE_GADGET]) {
++		wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 8);
+ 		ret = ci_hdrc_otg_init(ci);
+ 		if (ret) {
+ 			dev_err(dev, "init otg fails, ret = %d\n", ret);
+@@ -1007,6 +1014,7 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 		if (ci->role == CI_ROLE_GADGET)
+ 			ci_handle_vbus_change(ci);
+ 
++		wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 9);
+ 		ret = ci_role_start(ci, ci->role);
+ 		if (ret) {
+ 			dev_err(dev, "can't start %s role\n",
+@@ -1015,7 +1023,10 @@ static int ci_hdrc_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	if (ci->roles[CI_ROLE_GADGET])
++		ci_hdrc_gadget_trace(ci);
+ 	platform_set_drvdata(pdev, ci);
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 10);
+ 	ret = devm_request_irq(dev, ci->irq, ci_irq, IRQF_SHARED,
+ 			ci->platdata->name, ci);
+ 	if (ret)
+@@ -1056,6 +1067,16 @@ deinit_phy:
+ 	return ret;
+ }
+ 
++static int ci_hdrc_probe(struct platform_device *pdev)
++{
++	int ret;
++
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CORE, 1);
++	ret = ci_hdrc_probe_impl(pdev);
++	wingray_boottrace_usb_result(WINGRAY_TRACE_USB_CORE, ret);
++	return ret;
++}
++
+ static int ci_hdrc_remove(struct platform_device *pdev)
+ {
+ 	struct ci_hdrc *ci = platform_get_drvdata(pdev);
+diff --git a/drivers/usb/chipidea/udc.c b/drivers/usb/chipidea/udc.c
+index 7660ab94..e9c87be2 100644
+--- a/drivers/usb/chipidea/udc.c
++++ b/drivers/usb/chipidea/udc.c
+@@ -22,6 +22,7 @@
+ #include <linux/usb/gadget.h>
+ #include <linux/usb/otg-fsm.h>
+ #include <linux/usb/chipidea.h>
++#include <soc/tegra/wingray-boottrace.h>
+ 
+ #include "ci.h"
+ #include "udc.h"
+@@ -31,6 +32,28 @@
+ #include "otg_fsm.h"
+ 
+ /* control endpoint description */
++#ifdef CONFIG_MOTOROLA_XOOM_BOOT_TRACE
++void ci_hdrc_gadget_trace(struct ci_hdrc *ci)
++{
++	unsigned long flags;
++	unsigned int state;
++
++	if (!wingray_boottrace_static_ready)
++		return;
++	/* Called only with controller clocks active. Snapshot reads do not
++	 * acknowledge interrupts or force VBUS/pull-up state.
++	 */
++	local_irq_save(flags);
++	state = !!ci->vbus_active | (!!ci->is_otg << 1) |
++		(!!ci->driver << 2) | ((ci->role == CI_ROLE_GADGET) << 3);
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_STATE, state);
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_OTGSC, hw_read_otgsc(ci, ~0));
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_CMD, hw_read(ci, OP_USBCMD, ~0));
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_MODE, hw_read(ci, OP_USBMODE, ~0));
++	local_irq_restore(flags);
++}
++#endif
++
+ static const struct usb_endpoint_descriptor
+ ctrl_endpt_out_desc = {
+ 	.bLength         = USB_DT_ENDPOINT_SIZE,
+@@ -1606,6 +1629,7 @@ static int ci_udc_pullup(struct usb_gadget *_gadget, int is_on)
+ 		hw_write(ci, OP_USBCMD, USBCMD_RS, USBCMD_RS);
+ 	else
+ 		hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
++	ci_hdrc_gadget_trace(ci);
+ 	pm_runtime_put_sync(&ci->gadget.dev);
+ 
+ 	return 0;
+@@ -1746,6 +1770,7 @@ static int ci_udc_start(struct usb_gadget *gadget,
+ 	}
+ 
+ 	pm_runtime_get_sync(&ci->gadget.dev);
++	ci_hdrc_gadget_trace(ci);
+ 	if (ci->vbus_active) {
+ 		spin_lock_irqsave(&ci->lock, flags);
+ 		hw_device_reset(ci);
+@@ -1757,6 +1782,7 @@ static int ci_udc_start(struct usb_gadget *gadget,
+ 
+ 	retval = hw_device_state(ci, ci->ep0out->qh.dma);
+ 	spin_unlock_irqrestore(&ci->lock, flags);
++	ci_hdrc_gadget_trace(ci);
+ 	if (retval)
+ 		pm_runtime_put_sync(&ci->gadget.dev);
+ 
+diff --git a/drivers/usb/chipidea/udc.h b/drivers/usb/chipidea/udc.h
+index e66df002..a8b1a0c3 100644
+--- a/drivers/usb/chipidea/udc.h
++++ b/drivers/usb/chipidea/udc.h
+@@ -100,4 +100,10 @@ static inline void ci_hdrc_gadget_destroy(struct ci_hdrc *ci)
+ 
+ #endif
+ 
++#if defined(CONFIG_USB_CHIPIDEA_UDC) && defined(CONFIG_MOTOROLA_XOOM_BOOT_TRACE)
++void ci_hdrc_gadget_trace(struct ci_hdrc *ci);
++#else
++static inline void ci_hdrc_gadget_trace(struct ci_hdrc *ci) { }
++#endif
++
+ #endif /* __DRIVERS_USB_CHIPIDEA_UDC_H */
+diff --git a/drivers/usb/gadget/legacy/serial.c b/drivers/usb/gadget/legacy/serial.c
+index c5d42e03..e420862c 100644
+--- a/drivers/usb/gadget/legacy/serial.c
++++ b/drivers/usb/gadget/legacy/serial.c
+@@ -15,6 +15,7 @@
+ #include <linux/module.h>
+ #include <linux/tty.h>
+ #include <linux/tty_flip.h>
++#include <soc/tegra/wingray-boottrace.h>
+ 
+ #include "u_serial.h"
+ 
+@@ -164,6 +165,7 @@ static int gs_bind(struct usb_composite_dev *cdev)
+ {
+ 	int			status;
+ 
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_BIND, 3);
+ 	/* Allocate string descriptor numbers ... note that string
+ 	 * contents can be overridden by the composite_dev glue.
+ 	 */
+@@ -194,6 +196,7 @@ static int gs_bind(struct usb_composite_dev *cdev)
+ 	}
+ 
+ 	/* register our configuration */
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_BIND, 4);
+ 	if (use_acm) {
+ 		status  = serial_register_ports(cdev, &serial_config_driver,
+ 				"acm");
+@@ -211,11 +214,13 @@ static int gs_bind(struct usb_composite_dev *cdev)
+ 	usb_composite_overwrite_options(cdev, &coverwrite);
+ 	INFO(cdev, "%s\n", GS_VERSION_NAME);
+ 
++	wingray_boottrace_usb_result(WINGRAY_TRACE_USB_BIND, 0);
+ 	return 0;
+ fail1:
+ 	kfree(otg_desc[0]);
+ 	otg_desc[0] = NULL;
+ fail:
++	wingray_boottrace_usb_result(WINGRAY_TRACE_USB_BIND, status);
+ 	return status;
+ }
+ 
+@@ -245,6 +250,8 @@ static struct usb_composite_driver gserial_driver = {
+ 
+ static int __init init(void)
+ {
++	int ret;
++
+ 	/* We *could* export two configs; that'd be much cleaner...
+ 	 * but neither of these product IDs was defined that way.
+ 	 */
+@@ -269,7 +276,11 @@ static int __init init(void)
+ 	}
+ 	strings_dev[STRING_DESCRIPTION_IDX].s = serial_config_driver.label;
+ 
+-	return usb_composite_probe(&gserial_driver);
++	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_BIND, 1);
++	ret = usb_composite_probe(&gserial_driver);
++	if (ret < 0)
++		wingray_boottrace_usb_result(WINGRAY_TRACE_USB_BIND, ret);
++	return ret;
+ }
+ module_init(init);
+ 
+diff --git a/include/soc/tegra/wingray-boottrace.h b/include/soc/tegra/wingray-boottrace.h
+index fc43dc57..716fe536 100644
+--- a/include/soc/tegra/wingray-boottrace.h
++++ b/include/soc/tegra/wingray-boottrace.h
+@@ -47,6 +47,13 @@
+ #define WINGRAY_TRACE_USB_PHY    0x68
+ #define WINGRAY_TRACE_USB_UDC    0x6c
+ #define WINGRAY_TRACE_USER_MOUNT 0x70
++#define WINGRAY_TRACE_USB_LINK   0x554c4e31
++#define WINGRAY_TRACE_USB_CORE   0x10
++#define WINGRAY_TRACE_USB_BIND   0x14
++#define WINGRAY_TRACE_USB_STATE  0x18
++#define WINGRAY_TRACE_USB_OTGSC  0x1c
++#define WINGRAY_TRACE_USB_CMD    0x20
++#define WINGRAY_TRACE_USB_MODE   0x24
+ /* Temporary explicit section mapping; valid ONLY before paging_init(). */
+ #define WINGRAY_TRACE_VIRT       0xdfe00000
+ #define WINGRAY_TRACE_STATIC_VIRT 0xfe600000
+@@ -59,6 +66,8 @@ void wingray_boottrace_record_init_exit(unsigned int code);
+ void wingray_boottrace_diagnostic_begin(void);
+ void wingray_boottrace_diagnostic_mark(unsigned int slot, unsigned int value);
+ void wingray_boottrace_diagnostic_result(unsigned int slot, int result);
++void wingray_boottrace_usb_mark(unsigned int slot, unsigned int value);
++void wingray_boottrace_usb_result(unsigned int slot, int result);
+ void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
+ 		unsigned int fsr, unsigned long cpsr, unsigned int sig, int code);
+ static inline void wingray_boottrace_mapped_mark(unsigned long address,
+@@ -136,6 +145,8 @@ static inline void wingray_boottrace_memmap(unsigned long start_pfn,
+ #define wingray_boottrace_diagnostic_begin() do { } while (0)
+ #define wingray_boottrace_diagnostic_mark(slot, value) do { } while (0)
+ #define wingray_boottrace_diagnostic_result(slot, result) do { } while (0)
++#define wingray_boottrace_usb_mark(slot, value) do { } while (0)
++#define wingray_boottrace_usb_result(slot, result) do { } while (0)
+ #define wingray_boottrace_record_user_fault(pc, addr, fsr, cpsr, sig, code) do { } while (0)
+ #define wingray_boottrace_memmap(start, end, page, stride, nid, zone, context) do { } while (0)
+ #endif
+diff --git a/kernel/panic.c b/kernel/panic.c
+index f222de0c..cdb02d94 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -129,6 +129,62 @@ void wingray_boottrace_diagnostic_result(unsigned int slot, int result)
+ }
+ EXPORT_SYMBOL_GPL(wingray_boottrace_diagnostic_result);
+ 
++/* Reuse entry registers only after early boot. User faults supersede these
++ * link words, and fatal/exit evidence must never be replaced. Brief local
++ * IRQ masking serializes the UP diagnostic's initcall/IRQ writers.
++ */
++void wingray_boottrace_usb_mark(unsigned int slot, unsigned int value)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++	unsigned long flags;
++	unsigned int off;
++
++	if (slot < WINGRAY_TRACE_USB_CORE || slot > WINGRAY_TRACE_USB_MODE ||
++	    (slot & 3))
++		return;
++	local_irq_save(flags);
++	if (!wingray_diagnostic_ready(trace) ||
++	    readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC) == WINGRAY_TRACE_USER_FAULT)
++		goto out;
++	if (readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC) != WINGRAY_TRACE_USB_LINK) {
++		for (off = WINGRAY_TRACE_USB_CORE; off <= WINGRAY_TRACE_USB_MODE; off += 4)
++			writel_relaxed(0, trace + off);
++		dsb(sy);
++		writel_relaxed(WINGRAY_TRACE_USB_LINK, trace + WINGRAY_TRACE_ENTRY_PC);
++	}
++	writel_relaxed(value, trace + slot);
++	dsb(sy);
++	readl_relaxed(trace + slot);
++out:
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL_GPL(wingray_boottrace_usb_mark);
++
++void wingray_boottrace_usb_result(unsigned int slot, int result)
++{
++	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++	unsigned long flags;
++	unsigned int previous, value = 2;
++
++	if (slot != WINGRAY_TRACE_USB_CORE && slot != WINGRAY_TRACE_USB_BIND)
++		return;
++	local_irq_save(flags);
++	if (!wingray_diagnostic_ready(trace) ||
++	    readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC) != WINGRAY_TRACE_USB_LINK)
++		goto out;
++	previous = readl_relaxed(trace + slot);
++	/* Keep the specific bind failure when its caller propagates it. */
++	if (previous & 0x80000000)
++		goto out;
++	if (result < 0)
++		value = 0x80000000 | ((previous & 0x7fff) << 16) |
++			((0U - (unsigned int)result) & 0xffff);
++	wingray_boottrace_usb_mark(slot, value);
++out:
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL_GPL(wingray_boottrace_usb_result);
++
+ /* Preserve the first observed PID 1 page fault before signal delivery.
+  * Reuse entry-register words after boot; leave init-exit metadata intact.
+  * A userspace handler may recover, so this alone is not a fatal marker.
+@@ -137,7 +193,9 @@ void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
+ 		unsigned int fsr, unsigned long cpsr, unsigned int sig, int code)
+ {
+ 	void __iomem *trace = (void __iomem *)WINGRAY_TRACE_STATIC_VIRT;
++	unsigned long flags;
+ 
++	local_irq_save(flags);
+ 	if (!wingray_boottrace_static_ready ||
+ 	    readl_relaxed(trace) != WINGRAY_TRACE_MAGIC ||
+ 	    readl_relaxed(trace + 4) != WINGRAY_TRACE_VERSION ||
+@@ -145,7 +203,7 @@ void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
+ 				CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE ||
+ 	    readl_relaxed(trace + WINGRAY_TRACE_FAULT_PC) ||
+ 	    readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC) == WINGRAY_TRACE_USER_FAULT)
+-		return;
++		goto out;
+ 	writel_relaxed(pc, trace + 0x10);
+ 	writel_relaxed(addr, trace + 0x14);
+ 	writel_relaxed(fsr, trace + 0x18);
+@@ -156,6 +214,8 @@ void wingray_boottrace_record_user_fault(unsigned long pc, unsigned long addr,
+ 	writel_relaxed(WINGRAY_TRACE_USER_FAULT, trace + WINGRAY_TRACE_ENTRY_PC);
+ 	dsb(sy);
+ 	readl_relaxed(trace + WINGRAY_TRACE_ENTRY_PC);
++out:
++	local_irq_restore(flags);
+ }
+ 
+ /* Reuse post-paging zone metadata only after a panic; keep the read size
+-- 
+2.43.0
+

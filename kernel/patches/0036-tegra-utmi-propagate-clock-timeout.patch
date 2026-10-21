@@ -1,0 +1,69 @@
+From 42413cbe9b8bf5225c9f883ee4a1389216f817df Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 22:32:48 +1100
+Subject: [PATCH] usb: tegra: propagate UTMI clock startup failures
+
+---
+ drivers/usb/phy/phy-tegra-usb.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/phy/phy-tegra-usb.c b/drivers/usb/phy/phy-tegra-usb.c
+index cc4bebbf..d595d19d 100644
+--- a/drivers/usb/phy/phy-tegra-usb.c
++++ b/drivers/usb/phy/phy-tegra-usb.c
+@@ -343,10 +343,11 @@ static void utmi_phy_clk_disable(struct tegra_usb_phy *phy)
+ 		pr_err("%s: timeout waiting for phy to stabilize\n", __func__);
+ }
+ 
+-static void utmi_phy_clk_enable(struct tegra_usb_phy *phy)
++static int utmi_phy_clk_enable(struct tegra_usb_phy *phy)
+ {
+ 	unsigned long val;
+ 	void __iomem *base = phy->regs;
++	int err;
+ 
+ 	if (phy->is_legacy_phy) {
+ 		val = readl(base + USB_SUSP_CTRL);
+@@ -361,16 +362,21 @@ static void utmi_phy_clk_enable(struct tegra_usb_phy *phy)
+ 	} else
+ 		set_phcd(phy, false);
+ 
+-	if (utmi_wait_register(base + USB_SUSP_CTRL, USB_PHY_CLK_VALID,
+-						     USB_PHY_CLK_VALID))
++	err = utmi_wait_register(base + USB_SUSP_CTRL, USB_PHY_CLK_VALID,
++				 USB_PHY_CLK_VALID);
++	if (err)
+ 		pr_err("%s: timeout waiting for phy to stabilize\n", __func__);
++	return err;
+ }
+ 
++static int utmi_phy_power_off(struct tegra_usb_phy *phy);
++
+ static int utmi_phy_power_on(struct tegra_usb_phy *phy)
+ {
+ 	unsigned long val;
+ 	void __iomem *base = phy->regs;
+ 	struct tegra_utmip_config *config = phy->config;
++	int err;
+ 
+ 	val = readl(base + USB_SUSP_CTRL);
+ 	val |= UTMIP_RESET;
+@@ -497,7 +503,14 @@ static int utmi_phy_power_on(struct tegra_usb_phy *phy)
+ 		writel(val, base + USB_SUSP_CTRL);
+ 	}
+ 
+-	utmi_phy_clk_enable(phy);
++	err = utmi_phy_clk_enable(phy);
++	if (err) {
++		/* Balance the pad reference and leave the failed PHY powered down.
++		 * Preserve the clock timeout even if power-off also times out.
++		 */
++		utmi_phy_power_off(phy);
++		return err;
++	}
+ 
+ 	if (phy->soc_config->requires_usbmode_setup) {
+ 		val = readl(base + USB_USBMODE);
+-- 
+2.43.0
+

@@ -1,0 +1,22 @@
+From 1508e4a47eef00f9905ce819e3de75436b133760 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 20 Oct 2026 22:19:19 +1100
+Subject: [PATCH] ARM: tegra: identify Wingray USB link diagnostic build 21
+
+---
+ arch/arm/configs/wingray_diagnostic_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_diagnostic_defconfig b/arch/arm/configs/wingray_diagnostic_defconfig
+index 86ecfec4..a66a7496 100644
+--- a/arch/arm/configs/wingray_diagnostic_defconfig
++++ b/arch/arm/configs/wingray_diagnostic_defconfig
+@@ -72,4 +72,4 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0014
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0015
+-- 
+2.43.0
+
