@@ -8,11 +8,22 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output-dir', type=Path, required=True,
                     help='New directory under artifacts/; existing directories are refused')
 parser.add_argument('--kernel-dir', type=Path, default=root/'artifacts/wingray44')
-parser.add_argument('--static-busybox', type=Path,
-                    help='Use a static ARM BusyBox instead of the copied Android linker/library runtime')
+runtime = parser.add_mutually_exclusive_group()
+runtime.add_argument('--static-busybox', type=Path,
+                    default=root/'artifacts/busybox-static-armv5l',
+                    help='Static ARM BusyBox (default: pinned standalone diagnostic runtime)')
+runtime.add_argument('--android-runtime', action='store_true',
+                    help='Reproduce the historical property-workspace-dependent Android runtime')
 parser.add_argument('--panic-seconds', type=int, default=0,
                     help='Default 0 preserves a panic for inspection instead of rebooting')
+parser.add_argument('--legacy-shell', action='store_true',
+                    help='Reproduce the historical unsolicited report/interactive shell (not the default framed reporter)')
 args = parser.parse_args()
+if args.android_runtime:
+    args.static_busybox = None
+    args.legacy_shell = True
+elif not args.static_busybox.is_file():
+    parser.error('Static runtime missing. Run python3 scripts/fetch-diagnostic-runtime.py first.')
 if not 0 <= args.panic_seconds <= 3600:
     parser.error('panic-seconds must be between 0 and 3600')
 out = args.output_dir.resolve()
@@ -86,6 +97,14 @@ done
 /bin/busybox dmesg
 echo XOOM_DIAGNOSTIC_END
 '''
+if args.legacy_shell:
+    diagnostic_files = {'init': init, 'bin/report': report}
+else:
+    diagnostic_files = {
+        'init': (root/'diagnostic/init.sh').read_bytes(),
+        'bin/diagnostic-server': (root/'diagnostic/server.sh').read_bytes(),
+        'bin/diagnostic-report': (root/'diagnostic/report.sh').read_bytes(),
+    }
 archive = bytearray(); ino = 0
 def add(name, mode, data=b'', major=0, minor=0):
  global ino
@@ -100,8 +119,7 @@ for d in ['bin','system','system/bin','system/lib','dev','dev/pts','proc','sys',
 add('dev/console',stat.S_IFCHR|0o600,major=5,minor=1)
 add('dev/null',stat.S_IFCHR|0o666,major=1,minor=3)
 for name, path in sorted(files.items()):add(name,stat.S_IFREG|0o755,path.read_bytes())
-add('init',stat.S_IFREG|0o755,init)
-add('bin/report',stat.S_IFREG|0o755,report)
+for name, data in diagnostic_files.items():add(name,stat.S_IFREG|0o755,data)
 add('bin/sh',stat.S_IFLNK|0o777,b'busybox')
 add('TRAILER!!!',0)
 ramdisk = gzip.compress(bytes(archive),mtime=0)
@@ -122,6 +140,6 @@ image = bytes(header)+padded(kernel)+padded(ramdisk)
 out.mkdir(parents=True, exist_ok=False)
 (out/'wingray-diagnostic.img').write_bytes(image)
 (out/'ramdisk.cpio.gz').write_bytes(ramdisk)
-(out/'manifest.json').write_text(json.dumps({'purpose':'experimental diagnostic image; builder performs no device operations','kernel_address':hex(ka),'ramdisk_address':hex(ra),'tags_address':hex(tags),'page_size':page,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'runtime_kind':'static-armv5t' if args.static_busybox else 'copied-android','runtime_files':sorted(files),'runtime_sha256':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in files.items()},'storage_mounts':[], 'bootloader_note':'Xoom consumer bootloader 1050 rejects fastboot boot; boot-partition tests require user authorization'},indent=2)+'\n')
+(out/'manifest.json').write_text(json.dumps({'purpose':'experimental diagnostic image; builder performs no device operations','kernel_address':hex(ka),'ramdisk_address':hex(ra),'tags_address':hex(tags),'page_size':page,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'runtime_kind':'static-armv5t' if args.static_busybox else 'copied-android','diagnostic_transport':'legacy-shell' if args.legacy_shell else 'framed-v2','diagnostic_sources_sha256':{name:hashlib.sha256(data).hexdigest() for name,data in diagnostic_files.items()},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'runtime_files':sorted(files),'runtime_sha256':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in files.items()},'storage_mounts':[], 'bootloader_note':'Xoom consumer bootloader 1050 rejects fastboot boot; boot-partition tests require user authorization'},indent=2)+'\n')
 print('Prepared local-only image:',out/'wingray-diagnostic.img')
 print('SHA256:',hashlib.sha256(image).hexdigest())

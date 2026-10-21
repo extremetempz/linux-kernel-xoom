@@ -44,6 +44,11 @@ assert nodes['/']['compatible'].split(b'\0')[:2] == [b'motorola,wingray', b'nvid
 memories = [n for n, p in nodes.items() if p.get('device_type') == b'memory\0']
 assert memories == ['/memory'], 'Duplicate memory nodes could corrupt ATAG fixups'
 assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
+# GPIO hogs run before the legacy pinctrl driver's initcall. This dependency
+# must survive DT compilation so the scan waits for the provider.
+pinmux_phandle = nodes['/pinmux@70000014'].get('phandle') or nodes['/pinmux@70000014']['linux,phandle']
+assert struct.unpack('>4I', nodes['/gpio@6000d000']['gpio-ranges']) == (struct.unpack('>I', pinmux_phandle)[0], 0, 0, 224)
+
 if profile == 'diagnostic':
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'NET',

@@ -25,6 +25,21 @@ if valid:
    'thumb':bool(w[0x1c//4]&0x20),'signal':w[0x20//4],
    'signal_code':struct.unpack_from('<i',data,0x24)[0],
    'note':'First observed PID 1 ARM userspace page fault before signal delivery; a handler could recover. Entry-register words are replaced, not a kernel fatal-PC record.'}
+ if w[1]>=2 and w[0x0c//4]==0x554c4e31:
+  result['entry']={'register_words_reused':True,'fdt_pointer':result['entry']['fdt_pointer']}
+  link={}
+  labels={'core_probe':{3:'map_registers',4:'hardware_init',5:'phy_init',6:'irq_lookup',7:'gadget_init',8:'otg_init',9:'role_start',10:'request_irq_or_finish'},'gadget_bind':{3:'allocate_strings',4:'register_serial_function'}}
+  for name,off in [('core_probe',0x10),('gadget_bind',0x14)]:
+   value=w[off//4]
+   status={'raw':hex(value),'state':{0:'not_observed',1:'entered_or_pending',2:'returned_success'}.get(value,'at_stage')}
+   if value&0x80000000:status.update(state='returned_error',errno=value&0xffff,stage=(value>>16)&0x7fff)
+   elif value>2:status['stage']=value
+   if 'stage' in status:status['stage_name']=labels[name].get(status['stage'],'entry' if status['stage']==1 else 'unknown')
+   link[name]=status
+  state=w[0x18//4]
+  link['connection_snapshot']={'raw_state':hex(state),'observed':bool(state or w[0x1c//4] or w[0x20//4] or w[0x24//4]),'vbus_active':bool(state&1),'otg_capable':bool(state&2),'gadget_driver_attached':bool(state&4),'gadget_role':bool(state&8),'otgsc':hex(w[0x1c//4]),'b_session_valid':bool(w[0x1c//4]&0x800),'usbcmd':hex(w[0x20//4]),'run_stop':bool(w[0x20//4]&1),'usbmode':hex(w[0x24//4]),'controller_mode':{0:'idle',2:'device',3:'host'}.get(w[0x24//4]&3,'reserved')}
+  link['limits']='Entry registers replaced. Probe and binding results are distinct; connection registers are sampled at active-clock driver checkpoints, not continuous telemetry. A userspace fault supersedes this record.'
+  result['usb_link']=link
  result['raw_atag_status_word']=hex(w[0x2c//4])
  result['atag_return_code']=None if w[1]<2 or w[0x34//4]!=2 or w[0x2c//4]==0xdeadffff else struct.unpack_from('<i',data,0x2c)[0]
  if w[1]==1:result['atag_status_warning']='Format 1 records r0 after fallback argument setup; it is not a reliable converter status.'
@@ -35,10 +50,23 @@ if valid:
  panic_message_record=w[1]>=2 and w[0x74//4]==0x504e4331 and w[0x7c//4]==0xbad00001
  if panic_message_record:
   result['panic_message']={'prefix':data[0x68:0x74].split(b'\0',1)[0].decode('ascii',errors='replace'),'maximum_bytes':12,'possibly_truncated':b'\0' not in data[0x68:0x74],'note':'The panic prefix replaces post-paging zone metadata; it is not the full panic log.'}
+ diagnostic_record=w[1]>=2 and w[0x74//4]==0x44494131
+ if diagnostic_record:
+  diagnostic={}
+  labels={'usb_phy':{3:'utmi_setup',4:'dr_mode',5:'vbus_regulator',6:'phy_initialization',7:'phy_registration'},'usb_udc':{3:'phy_lookup',4:'clock_lookup',5:'clock_enable',6:'phy_resume_attempt',7:'chipidea_creation'},'userspace_mount':{}}
+  for name,off in [('usb_phy',0x68),('usb_udc',0x6c),('userspace_mount',0x70)]:
+   value=w[off//4];state={0:'not_observed',1:'entered',2:'returned_success'}.get(value,'at_stage')
+   status={'raw':hex(value),'state':state}
+   if value & 0x80000000:status.update(state='returned_error',errno=value&0xffff,stage=(value>>16)&0x7fff)
+   elif value>2:status['stage']=value
+   if 'stage' in status:status['stage_name']=labels[name].get(status['stage'],'entry' if status['stage']==1 else 'unknown')
+   diagnostic[name]=status
+  diagnostic['limits']='Last attempt statuses; mount scope is PID 1 or a direct child. Probe return success is not USB enumeration. Replaces early zone metadata within the same 128-byte record.'
+  result['diagnostic']=diagnostic
  memmap_magic=0x574d4150
  memmap_extended=w[1]>=2 and (w[0x74//4]&0xff000000)==0x58000000 and w[0x74//4]!=0x58495431
  memmap_record=w[1]>=2 and (w[0x74//4]==memmap_magic or memmap_extended)
- if w[1]>=2 and w[0x44//4]==6 and not memmap_record and not panic_message_record and not init_exit_record:
+ if w[1]>=2 and w[0x44//4]==6 and not memmap_record and not panic_message_record and not init_exit_record and not diagnostic_record:
   result['mmu_handoff']={name:hex(w[off//4]) for name,off in [('requested_sctlr',0x68),('boot_data',0x6c),('ttbr',0x70),('virtual_jump',0x74)]}
  if memmap_record:
   info=w[0x74//4] if memmap_extended else w[0x70//4]
@@ -81,5 +109,13 @@ if valid:
     address=w[0x70//4]+(pfn-w[0x68//4])*stride
     if address<=0xffffffff:result['last_phase']['calculated_descriptor_address']=hex(address)
  result['stages']={name:w[off//4]==expected for name,off,expected in stages}
+ if w[1]>=2 and w[0x48//4]==0x47504931:
+  state=w[0x4c//4]
+  result['usb_switch_gpio']={'raw':hex(state),'reserved_bits_zero':not bool(state&~0xff),'limits':'Snapshot after successful GPIO-controller registration. CNF/OE/OUT are register values; matching owner means requested under the expected board label. No input-level, pinmux tristate or electrical measurement. The two completed early-init marker words are replaced.'}
+  for name,shift in [('data_enable_pv4',0),('forceon_n_pc5',4)]:
+   result['usb_switch_gpio'][name]={'gpio_mode':bool(state&(1<<shift)),'output_enabled':bool(state&(2<<shift)),'output_high':bool(state&(4<<shift)),'requested_by_expected_owner':bool(state&(8<<shift))}
+  result['stages']['tegra_init_early']=None
+  result['stages']['early_initcall']=None
+
 print(json.dumps(result,indent=2))
 raise SystemExit(0 if valid else 2)
