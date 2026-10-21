@@ -1,19 +1,26 @@
 # Android startup gates after early-memory repair
 
-Reviewed 20 October 2026 against the checked-out Wingray device tree and the
-working ROM's captured kernel configuration. These are source/configuration
-findings, not new-kernel hardware validation.
+Updated 21 October 2026 against the checked-out Wingray device tree and the
+working ROM's captured kernel configuration. Physical results are identified below; other
+items remain source/configuration findings, not hardware validation.
 
-1. Complete memory setup without descriptor-array overrun. Candidate 14 is
-   testing the lowmem-ceiling correction. Keep the retained firmware/video
+1. Complete memory setup without descriptor-array overrun. Candidate 14 passed
+   the lowmem-ceiling correction. Keep the retained firmware/video
    reservations and BigPart geometry unchanged.
 2. Reach kernel initcalls and execute an isolated RAM diagnostic. Enable only
    the required USB controller/PHY, board data-switch GPIOs and serial gadget
-   first. Obtain complete logs before adding more probes. Restore the original
+   first. Candidate 23 enumerates USB and delivers a diagnostic report; image 24
+   passed two fresh checksummed reports across close/reopen. Keep that
+   observation path for additional probes. Restore the original
    boot image and verify boot/recovery after every failed diagnostic.
 3. Enable eMMC and the Xoom-only BigPart view. Read controller/partition
    geometry without mounting Android partitions. Compare every named partition
-   against the existing layout before attempting Android init.
+   against the existing layout before attempting Android init. Image 24 matched
+   all ten extents but reported 4 MiB less whole-disk capacity. Image 25 verified
+   the scoped capacity fix and exposed a masked GPT-option parser defect.
+   Image 26 corrected parsing and physically passed full-capacity/all-ten-extents
+   comparison twice. This passes discovery/geometry, not filesystem integrity
+   or storage stress validation.
 4. Match the installed Android userspace. Its kernel enables Binder, ashmem,
    cgroups, Android logging and legacy NVIDIA interfaces. The current minimal
    trace profile deliberately omits most of these. Binder's old 32-bit API is

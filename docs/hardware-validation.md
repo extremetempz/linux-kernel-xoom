@@ -1,3 +1,5 @@
+> **21 October 2026:** Linux 4.4 boots RAM diagnostic userspace and USB is hardware-tested. Image 26 passed two fresh checksummed reports with the original kernel's full eMMC capacity and all ten BigPart extents. Original boot was restored and both complete original images verified. See [image 26](trace-boot-attempt-26.md). Display/input and power management remain unverified; this is not an Android boot.
+
 # Wingray hardware validation
 
 ## Evidence collected on 2026-10-18
@@ -32,7 +34,7 @@ explicitly decompresses to physical 0x8000, matching Motorola's original kernel.
 | Display | AUO timing, panel supply, Tegra DRM, LP8550 backlight | Not boot tested |
 | Touch | P3 PV2 interrupt, active-low reset/wake, existing controller configuration retained | Not boot tested |
 | Wi-Fi | BCM4329 SDIO, PU4 power/PU2 reset, PU5 host wake, board delays/tap | Not boot tested; firmware/NVRAM integration pending |
-| Storage | eMMC, external SD, scoped relocated-GPT and BigPart support | Live old-kernel geometry verified; new driver untested |
+| Storage | eMMC, external SD, scoped relocated-GPT and BigPart support | Image 26: eMMC full capacity and all ten BigPart extents match twice; external SD, filesystem and stress checks pending |
 | Pinmux | Live working P3 mux/pull/tristate mapped into DT | Not boot tested |
 | Suspend/DVFS | Deliberately disabled during bring-up | Not implemented/validated |
 | Battery/charging | CPCAP core is a prerequisite | Charger, fuel gauge and thermal integration pending |
@@ -206,3 +208,40 @@ userspace operation and peripherals remain unverified. Both full original
 images match after restoration; Android remains running after one bounded
 trace read. See [candidate 19](trace-boot-attempt-19.md) for limitations and
 the staged post-exec/USB/eMMC/Android validation plan.
+
+## Candidate 20 — post-exec activity and successful probe returns
+
+The valid fresh trace records a successful mount syscall from PID 1 or a
+direct child, and zero return status from both USB PHY and UDC probes. No
+fatal event is recorded. This confirms post-exec activity, but not completion
+of the diagnostic script or USB enumeration. Neither guest nor operator
+observed the expected gadget. Original boot/recovery readbacks match after
+restoration, and Android remains running after the one bounded trace read.
+See [candidate 20](trace-boot-attempt-20.md). Next observation points are
+gadget binding, the unchecked PHY-resume result, VBUS and pull-up sequencing.
+
+## Candidate 22 USB result, 21 October 2026
+
+The fresh candidate-22 trace confirms actual USB child probe and serial-gadget
+binding returned zero; VBUS, B-session-valid, device mode and run/stop were set
+at sampled checkpoints. The corrected PHY startup returned zero, providing
+evidence its clock-valid poll passed. No expected gadget/report was observed
+by a guest watcher started before flashing. The physical enumeration cause is
+still unresolved: board data-path GPIO state, reset/setup activity and IRQ
+delivery require further observation. No fatal event was recorded, and a scoped
+userspace mount succeeded. Linux 4.4 Android startup remains unverified. Original
+boot and recovery full readbacks match after restoration; Android is running.
+See [candidate 22](trace-boot-attempt-22.md) for evidence and limits.
+
+## Candidate 23 USB milestone, 21 October 2026
+
+The corrected GPIO-to-pinctrl dependency permits the one-shot USB-switch GPIO
+hogs to run after pinctrl registration. The real kernel log records both hogs
+output-high and the bounded trace records `0xff` for expected ownership plus
+CNF/OE/OUT states. The guest observed high-speed USB configuration and ttyACM0;
+a framed 34,370-byte report identifies Linux 4.4.147 diagnostic userspace.
+A fresh interactive read failed with malformed input and is not evidence of
+storage status. eMMC/BigPart, reliable bidirectional console, Android startup
+and remaining peripherals are still unverified. Both original images match
+complete readbacks after restoration, and Android is running. See
+[candidate 23](trace-boot-attempt-23.md) for verified facts and causal limits.
