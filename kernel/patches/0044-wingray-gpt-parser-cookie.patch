@@ -1,0 +1,22 @@
+From 47d284e7b2231bfeca153a2bd93eaa279fce8a76 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 21 Oct 2026 19:09:21 +1100
+Subject: [PATCH] ARM: tegra: identify Wingray GPT parser diagnostic build 26
+
+---
+ arch/arm/configs/wingray_diagnostic_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_diagnostic_defconfig b/arch/arm/configs/wingray_diagnostic_defconfig
+index 18a94d53..fd456e33 100644
+--- a/arch/arm/configs/wingray_diagnostic_defconfig
++++ b/arch/arm/configs/wingray_diagnostic_defconfig
+@@ -72,4 +72,4 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d0019
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001a
+-- 
+2.43.0
+
