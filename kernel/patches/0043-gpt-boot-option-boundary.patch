@@ -1,0 +1,40 @@
+From 43016120396a113e12c25d20d80b1e0695c6564f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 21 Oct 2026 19:08:52 +1100
+Subject: [PATCH] efi: keep GPT force option from consuming relocated sector
+ option
+
+---
+ block/partitions/efi.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/block/partitions/efi.c b/block/partitions/efi.c
+index e98ea628..01bd19a8 100644
+--- a/block/partitions/efi.c
++++ b/block/partitions/efi.c
+@@ -123,6 +123,9 @@ __setup("gpt_sector=", xoom_gpt_sector_setup);
+ static int __init
+ force_gpt_fn(char *str)
+ {
++	/* __setup uses prefix matching: leave gpt_sector= to its handler. */
++	if (*str)
++		return 0;
+ 	force_gpt = 1;
+ 	return 1;
+ }
+@@ -648,8 +651,11 @@ static int find_valid_gpt(struct parsed_partitions *state, gpt_header **gpt,
+ 
+ #ifdef CONFIG_MOTOROLA_XOOM_BIGPART
+ 	if (!good_agpt && force_gpt && xoom_gpt_sector > 1 &&
+-	    xoom_gpt_sector < lastlba && xoom_bigpart_enabled(state))
++	    xoom_gpt_sector < lastlba && xoom_bigpart_enabled(state)) {
++		pr_info("Xoom: trying relocated GPT at sector %llu\n",
++			(unsigned long long)xoom_gpt_sector);
+ 		good_agpt = is_gpt_valid(state, xoom_gpt_sector, &agpt, &aptes);
++	}
+ #endif
+ 
+         /* The obviously unsuccessful case */
+-- 
+2.43.0
+
