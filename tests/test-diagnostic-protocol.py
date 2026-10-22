@@ -15,6 +15,130 @@ def frame(data,nonce=N,size=None,digest=None):
 def storage_body(parts=GEOMETRY,mount='rootfs / rootfs rw 0 0\n',capacity=70000000):
  return ('XOOM_MOUNTS_BEGIN\n'+mount+'XOOM_MOUNTS_END\n'+f'XOOM_DISK mmcblk0 {capacity} 0\n'+''.join(f'XOOM_PART {n} {s} {z}\n' for n,(s,z) in parts.items())).encode()
 
+def android_body(system=True,overlays=True,execute=True,fuse=False):
+ # (source, target, filesystem, mount options, major:minor, fs root, super options)
+ mounts=[('rootfs','/','rootfs','ro','0:1','/','ro'),
+         ('tmpfs','/run','tmpfs','rw,nosuid,nodev','0:5','/','rw'),
+         ('proc','/proc','proc','rw','0:3','/','rw'),
+         ('tmpfs','/data','tmpfs','rw,nosuid,nodev','0:6','/','rw'),
+         ('tmpfs','/cache','tmpfs','rw,nosuid,nodev','0:7','/','rw')]
+ if system:
+  mounts.append(('/dev/mmcblk0p8','/system','ext4','ro,nosuid,nodev,norecovery','179:8','/','ro,norecovery'))
+ if overlays:
+  mounts.extend([('tmpfs','/system/lib/hw','tmpfs','ro,nosuid,nodev','0:5','/xoom-hw','rw'),
+                 ('tmpfs','/system/lib/egl','tmpfs','ro,nosuid,nodev','0:5','/xoom-egl','rw')])
+ if fuse:
+  mounts.extend([('/dev/fuse','/mnt/shell/emulated','fuse','rw,nosuid,nodev','0:8','/','rw'),
+                 ('/dev/fuse','/storage/emulated/0','fuse','rw,nosuid,nodev','0:8','/0','rw')])
+ lines=''.join(f'{s} {t} {f} {o} 0 0\n' for s,t,f,o,dev,rt,superopts in mounts)
+ body=storage_body(mount=lines,capacity=62521344).replace(b'62521344 0\n',b'62521344 1\n')
+ policy=('XOOM_ANDROID44_POLICY_BEGIN_V1\nXOOM_ANDROID44_RELEASE 4.4.147-wingray-android44\n'
+         'XOOM_ANDROID44_BOARD motorola,wingray\n')
+ policy+=''.join(f'XOOM_ANDROID44_BLOCK_RO {n} 1\n' for n in ['mmcblk0',*[f'mmcblk0p{i}' for i in range(1,11)]])
+ policy+='XOOM_ANDROID44_MOUNTINFO_BEGIN\n'
+ policy+=''.join(f'{i} 1 {dev} {rt} {t} {o} - {f} {s} {sup}\n' for i,(s,t,f,o,dev,rt,sup) in enumerate(mounts,10))
+ policy+=('XOOM_ANDROID44_MOUNTINFO_END\nXOOM_ANDROID44_SDCARD_RAM_SOURCE '+('verified' if fuse else 'unverified')+
+          '\nXOOM_ANDROID44_POLICY_END_V1\nXOOM_ANDROID44_STAGES_BEGIN\n')
+ if execute:policy+='XOOM_ANDROID44_STAGE exec_original_android_init\n'
+ policy+='XOOM_ANDROID44_STAGES_END\nXOOM_ANDROID44_REPORT_DONE_V1\n'
+ return body+policy.encode()
+
+class AndroidReadOnly(unittest.TestCase):
+ def result(self,data):return storage_result(data,GEOMETRY,62521344,storage_mode='android44-readonly')
+ def test_explicit_opt_in_and_complete_ram_system_evidence(self):
+  data=android_body()
+  with self.assertRaisesRegex(ProtocolError,'nonvirtual'):storage_result(data,GEOMETRY)
+  result=self.result(data)
+  self.assertEqual(result['state'],'geometry_matches_reference')
+  self.assertEqual(result['storage_mode'],'android44-readonly')
+  self.assertTrue(result['android_filesystems_mounted'])
+  self.assertTrue(result['all_emmc_readonly_flags'])
+  self.assertTrue(result['android_init_exec_attempted'])
+  self.assertEqual(result['readonly_graphics_overlays'],['/system/lib/egl','/system/lib/hw'])
+  self.assertNotIn('android_boot_completed',result) # Storage evidence cannot establish Android boot.
+ def test_before_system_mount_is_a_diagnostic_snapshot(self):
+  result=self.result(android_body(system=False,overlays=False,execute=False))
+  self.assertFalse(result['android_filesystems_mounted'])
+  self.assertFalse(result['android_init_exec_attempted'])
+ def test_exact_release_board_and_all_readonly_flags_required(self):
+  data=android_body()
+  bad=[data.replace(b'4.4.147-wingray-android44',b'4.4.147-wingray-display'),
+       data.replace(b'XOOM_ANDROID44_BOARD motorola,wingray',b'XOOM_ANDROID44_BOARD other'),
+       data.replace(b'XOOM_ANDROID44_BLOCK_RO mmcblk0p9 1\n',b''),
+       data.replace(b'XOOM_ANDROID44_BLOCK_RO mmcblk0p9 1',b'XOOM_ANDROID44_BLOCK_RO mmcblk0p9 0'),
+       data.replace(b'XOOM_ANDROID44_BLOCK_RO mmcblk0p9 1',b'XOOM_ANDROID44_BLOCK_RO mmcblk0p8 1'),
+       data.replace(b'XOOM_DISK mmcblk0 62521344 1',b'XOOM_DISK mmcblk0 62521344 0'),
+       data.replace(b'XOOM_DISK mmcblk0 62521344 1\n',b''),
+       data.replace(b'XOOM_ANDROID44_REPORT_DONE_V1\n',b''),
+       storage_body()]
+  for item in bad:
+   with self.subTest(item=item[-120:]),self.assertRaises(ProtocolError):self.result(item)
+ def test_writable_replayed_or_different_system_rejected(self):
+  data=android_body()
+  for before,after in [(b'/dev/mmcblk0p8',b'/dev/mmcblk0p9'),
+                       (b'ro,nosuid,nodev,norecovery',b'rw,nosuid,nodev,norecovery'),
+                       (b'ro,norecovery',b'rw,norecovery'),
+                       (b'ro,nosuid,nodev,norecovery',b'ro,nosuid,nodev'),
+                       (b'ro,norecovery',b'ro'),
+                       (b'ro,nosuid,nodev,norecovery',b'ro,norecovery')]:
+   with self.subTest(after=after),self.assertRaises(ProtocolError):self.result(data.replace(before,after))
+  self.assertTrue(self.result(data.replace(b'norecovery',b'noload'))['android_filesystems_mounted'])
+  self.assertTrue(self.result(data.replace(b'/dev/mmcblk0p8',b'/dev/block/mmcblk0p8'))['android_filesystems_mounted'])
+ def test_ram_data_overlay_origin_and_init_stage_gates(self):
+  data=android_body()
+  bad=[data.replace(b'tmpfs /data tmpfs',b'/dev/mmcblk0p10 /data ext4'),
+       data.replace(b'0:6 / /data',b'0:6 /old-data /data'),
+       data.replace(b'0:5 /xoom-hw',b'0:9 /xoom-hw'),
+       data.replace(b'/xoom-egl',b'/wrong-egl'),
+       data.replace(b'/system/lib/hw tmpfs ro',b'/system/lib/hw tmpfs rw'),
+       android_body(overlays=False),android_body(system=False,overlays=False),
+       data.replace(b'XOOM_MOUNTS_END\n',b'/dev/mmcblk0p9 /cache-extra ext4 ro 0 0\nXOOM_MOUNTS_END\n'),
+       data.replace(b'XOOM_MOUNTS_END\n',b'tmpfs /run tmpfs rw 0 0\nXOOM_MOUNTS_END\n')]
+  for item in bad:
+   with self.subTest(item=item[-100:]),self.assertRaises(ProtocolError):self.result(item)
+ def test_mountinfo_must_match_but_order_is_not_significant(self):
+  data=android_body()
+  marker=b'XOOM_ANDROID44_MOUNTINFO_BEGIN\n';before,rest=data.split(marker);info,after=rest.split(b'XOOM_ANDROID44_MOUNTINFO_END\n')
+  reordered=before+marker+b'\n'.join(reversed(info.splitlines()))+b'\n\nXOOM_ANDROID44_MOUNTINFO_END\n'+after
+  self.assertEqual(self.result(reordered)['state'],'geometry_matches_reference')
+  for item in [data.replace(b'0:5 / /run',b'bad / /run'),
+               data.replace(b' - tmpfs tmpfs rw',b' bad tmpfs tmpfs rw',1),
+               data.replace(b'XOOM_MOUNTS_END\n',b'XOOM_MOUNTS_END\nXOOM_MOUNTS_BEGIN\nXOOM_MOUNTS_END\n')]:
+   with self.assertRaises(ProtocolError):self.result(item)
+ def test_stacked_virtual_layers_allowed_but_stacked_system_is_rejected(self):
+  data=android_body()
+  virtual=[('proc','/proc','proc'),('sysfs','/sys','sysfs'),
+           ('devtmpfs','/dev','devtmpfs'),('tmpfs','/dev','tmpfs'),
+           ('devpts','/dev/pts','devpts'),('devpts','/dev/pts','devpts')]
+  lines=''.join(f'{src} {target} {kind} rw 0 0\n' for src,target,kind in virtual).encode()
+  info=''.join(f'{40+i} 1 0:{20+i} / {target} rw - {kind} {src} rw\n' for i,(src,target,kind) in enumerate(virtual)).encode()
+  data=data.replace(b'XOOM_MOUNTS_END\n',lines+b'XOOM_MOUNTS_END\n')
+  data=data.replace(b'XOOM_ANDROID44_MOUNTINFO_END\n',info+b'XOOM_ANDROID44_MOUNTINFO_END\n')
+  self.assertEqual(self.result(data)['state'],'geometry_matches_reference')
+  extra=b'/dev/mmcblk0p8 /system ext4 ro,nosuid,nodev,norecovery 0 0\n'
+  data=data.replace(b'XOOM_MOUNTS_END\n',extra+b'XOOM_MOUNTS_END\n')
+  data=data.replace(b'XOOM_ANDROID44_MOUNTINFO_END\n',b'60 1 179:8 / /system ro,nosuid,nodev,norecovery - ext4 /dev/mmcblk0p8 ro,norecovery\nXOOM_ANDROID44_MOUNTINFO_END\n')
+  with self.assertRaisesRegex(ProtocolError,'stacked Android mount'):self.result(data)
+ def test_expected_fuse_and_cgroups_are_only_opt_in(self):
+  data=android_body(fuse=True)
+  self.assertEqual(self.result(data)['state'],'geometry_matches_reference')
+  for before,after in [(b'SDCARD_RAM_SOURCE verified',b'SDCARD_RAM_SOURCE unverified'),
+                       (b'/mnt/shell/emulated',b'/mnt/media_rw/sdcard1'),
+                       (b'0:8 /0 /storage',b'0:9 /0 /storage'),
+                       (b'/dev/fuse',b'/dev/mmcblk0p10')]:
+   with self.subTest(after=after),self.assertRaises(ProtocolError):self.result(data.replace(before,after))
+  data=android_body()
+  data=data.replace(b'XOOM_MOUNTS_END\n',b'none /acct cgroup rw,cpuacct 0 0\nXOOM_MOUNTS_END\n')
+  data=data.replace(b'XOOM_ANDROID44_MOUNTINFO_END\n',b'35 1 0:10 / /acct rw - cgroup none rw,cpuacct\nXOOM_ANDROID44_MOUNTINFO_END\n')
+  self.assertEqual(self.result(data)['state'],'geometry_matches_reference')
+  with self.assertRaises(ProtocolError):self.result(data.replace(b'/acct',b'/unexpected'))
+  with self.assertRaises(ProtocolError):storage_result(data,GEOMETRY)
+ def test_mode_and_policy_duplicates_are_rejected(self):
+  with self.assertRaises(ProtocolError):storage_result(storage_body(),GEOMETRY,storage_mode='automatic')
+  data=android_body()
+  with self.assertRaises(ProtocolError):self.result(data+b'XOOM_ANDROID44_POLICY_BEGIN_V1\nXOOM_ANDROID44_POLICY_END_V1\n')
+  with self.assertRaises(ProtocolError):storage_result(data,GEOMETRY,70000000,storage_mode='android44-readonly')
+
 class Framing(unittest.TestCase):
  def test_fragments(self):
   data=payload(body=bytes(range(256))*4)

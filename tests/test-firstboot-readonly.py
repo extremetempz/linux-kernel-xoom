@@ -18,6 +18,7 @@ fixture=r'''
 #define MMC_CAP_NONREMOVABLE 1
 #define MMC_IOC_CMD 101
 #define MMC_IOC_MULTI_CMD 102
+#define BLKROSET 103
 #define __user
 typedef unsigned fmode_t;
 struct device_node { bool bigpart,firstboot; };
@@ -51,6 +52,7 @@ int main(void) {
   raw_calls=0;
   assert(mmc_blk_ioctl(&b,0,MMC_IOC_CMD,0)==(expected?-EROFS:11));
   assert(mmc_blk_ioctl(&b,0,MMC_IOC_MULTI_CMD,0)==(expected?-EROFS:12));
+  assert(mmc_blk_ioctl(&b,0,BLKROSET,0)==(expected?-EROFS:-EINVAL));
   assert(raw_calls==(expected?0:2));
   assert(mmc_blk_ioctl(&b,0,999,0)==-EINVAL);
  }
