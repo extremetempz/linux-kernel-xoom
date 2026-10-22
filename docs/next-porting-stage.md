@@ -1,3 +1,5 @@
+> **22 October 2026 update:** Image29 passed the first visible RGB scanout and P3 backlight test with retained USB/storage. Both originals are verified after restoration. The active next gate is Android ABI/init/graphics integration toward a real lockscreen; unrelated peripherals are deferred. See [image29](trace-boot-attempt-29.md) and [Android gates](android-boot-gates.md). The storage plan below is retained as historical context.
+
 # Next porting stage: trustworthy live storage evidence
 
 Decision, 21 October 2026: retain candidate 23's hardware-tested Linux 4.4.147

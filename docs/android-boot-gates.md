@@ -1,6 +1,6 @@
 # Android startup gates after early-memory repair
 
-Updated 21 October 2026 against the checked-out Wingray device tree and the
+Updated 22 October 2026 against the checked-out Wingray device tree and the
 working ROM's captured kernel configuration. Physical results are identified below; other
 items remain source/configuration findings, not hardware validation.
 
@@ -34,8 +34,7 @@ items remain source/configuration findings, not hardware validation.
    compensate for a userspace device-path mismatch.
 6. Validate display/input and graphics userspace compatibility. Image 27 passed
    the shared panel-supply/I2C dependency test and read the LP8550 identity and
-   twelve registers twice. P3 current-control behavior, display takeover and
-   touch still require separate implementation/validation. The legacy
+   twelve registers twice. Image29 subsequently passed P3 current control, a real 1280×800 framebuffer and operator-confirmed visible RGB scanout while retaining USB/storage. Touch and Android graphics/framework remain unvalidated. The legacy
    init/ueventd rules expect `/dev/nvmap` and `/dev/nvhost-*`. The current
    Wingray DRM configuration does not provide those legacy ioctl interfaces.
    Successful eMMC and Binder initialization therefore does not establish that
