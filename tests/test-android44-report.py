@@ -14,7 +14,7 @@ class AndroidReport(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='xoom-android-report-')
         self.path = Path(self.temp.name)
-        for name in ('proc/self', 'run', 'sys', 'system/bin', 'data/tombstones'):
+        for name in ('proc/self', 'run', 'sys', 'dev', 'system/bin', 'data/tombstones'):
             (self.path/name).mkdir(parents=True)
         self.compatible = self.path/'sys/firmware/devicetree/base/compatible'
         self.compatible.parent.mkdir(parents=True)
@@ -59,12 +59,14 @@ exec /usr/bin/busybox "$@"
     def execute(self, **env):
         script = (ROOT/'diagnostic/android44-report.sh').read_text()
         script = script.replace('/bin/busybox', str(self.busybox))
-        for name in ('proc', 'sys', 'run', 'data'):
+        for name in ('proc', 'sys', 'run', 'data', 'dev'):
             script = script.replace('/'+name+'/', str(self.path/name)+'/')
         script = script.replace('/system/bin/', str(self.path/'system/bin')+'/')
         # The expected cmdline remains canonical even though native tools are mocks.
         script = script.replace(str(self.path/'system/bin/sdcard')+'\n', '/system/bin/sdcard\n')
         script = script.replace(str(self.path/'data/media')+'\n', '/data/media\n')
+        # Mount-table device names and fixed identity strings stay canonical.
+        script = script.replace(str(self.path/'dev/mmcblk0p8'), '/dev/mmcblk0p8')
         target = self.path/'report'
         target.write_text(script)
         result = subprocess.run(['/usr/bin/busybox', 'sh', str(target)],
@@ -102,6 +104,12 @@ exec /usr/bin/busybox "$@"
         self.compatible.write_bytes(b'nvidia,other\0')
         self.assertIn(b'DENIED_BOARD', self.execute())
         self.assertFalse(self.calls.exists())
+
+    def test_input_directory_presence_is_reported_without_creating_devices(self):
+        self.assertIn(b'XOOM_ANDROID44_INPUT_DIRECTORY missing', self.execute())
+        (self.path/'dev/input').mkdir()
+        self.assertIn(b'XOOM_ANDROID44_INPUT_DIRECTORY present', self.execute())
+        self.assertEqual(list((self.path/'dev/input').iterdir()), [])
 
     def test_missing_readonly_flags_are_explicit(self):
         disk = self.path/'sys/block/mmcblk0'
