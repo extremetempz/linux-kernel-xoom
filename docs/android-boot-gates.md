@@ -32,7 +32,10 @@ items remain source/configuration findings, not hardware validation.
    expose a different platform path. Android init requires correct read-only
    system and writable data/cache mounts. Do not change on-disk partitions to
    compensate for a userspace device-path mismatch.
-6. Validate display/input and graphics userspace compatibility. The legacy
+6. Validate display/input and graphics userspace compatibility. Image 27 passed
+   the shared panel-supply/I2C dependency test and read the LP8550 identity and
+   twelve registers twice. P3 current-control behavior, display takeover and
+   touch still require separate implementation/validation. The legacy
    init/ueventd rules expect `/dev/nvmap` and `/dev/nvhost-*`. The current
    Wingray DRM configuration does not provide those legacy ioctl interfaces.
    Successful eMMC and Binder initialization therefore does not establish that

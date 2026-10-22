@@ -130,3 +130,39 @@ The next profile must retain the tested USB/MMC setup and memory reservations:
 These are future stages, not completed code or hardware validation. Each test
 keeps boot-only restoration, complete original checks and private raw evidence.
 No ROM install, partition write or recovery write is authorized by this plan.
+
+## Stage 27: shared panel supply and bus before display takeover
+
+The P3 board source uses PB2 as the shared panel/I2C supply; the older PD0 gate
+is not the P3 LP8550 path. Its P3 backlight driver uses control 0x03 and scaled
+A0 LED-current updates, unlike the broad profile's generic brightness-register
+path. Do not enable the broad peripheral profile to bypass that discrepancy.
+
+Image 27 retains image26 USB/MMC and adds only the fixed panel supply, two I2C1
+mux groups and adapter/character driver. Read twelve fixed LP8550 registers
+without force, scanning, value writes or programming. Check regulator software
+state (nominal voltage, not an electrical measurement), fresh storage geometry,
+USB report integrity and current clocks. Settings reflect the bootloader handoff.
+See [image 27](trace-boot-attempt-27.md). Display controller and backlight control
+remain disabled for this dependency test; no Android mount or reserved-RAM read.
+
+If this passes, implement and test the P3-specific brightness/current behavior
+before display takeover. Choose the RGB parent/divider from source and active
+clock measurements; the existing PLL_P default must not be assumed to reproduce
+the old PLL_C path. Retain hardware-observable evidence and the restoration gate.
+
+## Stage 27 outcome, 22 October 2026
+
+The isolated panel-supply/I2C test passed twice with intact framed USB and
+storage geometry. All twelve fixed LP8550 reads completed, chip identity was
+FC, and PB2 was claimed output-high by `wingray-panel`. Nominal regulator voltage
+is 5 V; no electrical measurement was made. Original boot/recovery are fully
+verified after restoration and original Android is running.
+
+The control byte at handoff was 02 and A0 was 80; A1–A7 match the original board
+settings. The new-kernel clock report records PLL_C/disp1 at 586 MHz with zero
+enable counts, while the sleeping old-ROM capture reported 598 MHz. These are
+software handoff states, not measured active pixel clocks. Retain these facts
+when implementing the P3 backlight driver and minimal display takeover; avoid
+assuming that the retained Motorola logo validates scanout. No display, touch
+or Android startup is claimed by the successful bus test.

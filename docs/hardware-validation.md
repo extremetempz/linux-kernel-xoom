@@ -1,3 +1,5 @@
+> **22 October 2026:** Image 27 retains USB/full-capacity/all-ten-BigPart matching and completes twelve guarded LP8550 reads twice (identity FC). The shared panel regulator claims PB2 output-high; the 5 V sysfs value is nominal, not an electrical measurement. Both complete original images are verified after restoration. Display takeover/backlight programming and touch remain pending. See [image 27](trace-boot-attempt-27.md).
+
 > **21 October 2026:** Linux 4.4 boots RAM diagnostic userspace and USB is hardware-tested. Image 26 passed two fresh checksummed reports with the original kernel's full eMMC capacity and all ten BigPart extents. Original boot was restored and both complete original images verified. See [image 26](trace-boot-attempt-26.md). Display/input and power management remain unverified; this is not an Android boot.
 
 # Wingray hardware validation
@@ -29,6 +31,7 @@ explicitly decompresses to physical 0x8000, matching Motorola's original kernel.
 
 | Area | Source implementation | New-kernel hardware result |
 | --- | --- | --- |
+| Shared panel/I2C | PB2 fixed rail and I2C1 pin/adapter path | Image 27: claimed output-high and twelve fixed register reads pass twice; no electrical voltage or display validation |
 | Power rails | CPCAP MFD/regulator backport, Wingray regulator modes, MAX8649 DT support | Not boot tested |
 | Restart/power off | CPCAP reboot flags and dedicated board GPIOs | Not boot tested |
 | Display | AUO timing, panel supply, Tegra DRM, LP8550 backlight | Not boot tested |
