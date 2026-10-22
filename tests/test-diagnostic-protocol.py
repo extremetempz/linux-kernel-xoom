@@ -45,6 +45,13 @@ def android_body(system=True,overlays=True,execute=True,fuse=False):
 
 class AndroidReadOnly(unittest.TestCase):
  def result(self,data):return storage_result(data,GEOMETRY,62521344,storage_mode='android44-readonly')
+ def test_touch_profile_keeps_identical_readonly_policy(self):
+  data=android_body().replace(b'4.4.147-wingray-android44\n',b'4.4.147-wingray-android44-touch\n')
+  result=self.result(data)
+  self.assertEqual(result['kernel_release'],'4.4.147-wingray-android44-touch')
+  self.assertTrue(result['all_emmc_readonly_flags'])
+  for suffix in (b'-other',b'-touch-other'):
+   with self.assertRaises(ProtocolError):self.result(data.replace(b'-touch\n',suffix+b'\n'))
  def test_explicit_opt_in_and_complete_ram_system_evidence(self):
   data=android_body()
   with self.assertRaisesRegex(ProtocolError,'nonvirtual'):storage_result(data,GEOMETRY)

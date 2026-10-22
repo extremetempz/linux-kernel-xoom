@@ -66,7 +66,7 @@ static long call6(long n, long a, long b, long c, long d, long e, long f)
     case 122:
         assert((void *)a == (void *)uts);
         strcpy(uts[2], mock.fault == WRONG_RELEASE ? "wrong-kernel" :
-               "4.4.147-wingray-android44");
+               XOOM_ABI_RELEASE);
         return 0;
     case 5: {
         const char *path = (const char *)a;
@@ -250,11 +250,12 @@ with tempfile.TemporaryDirectory(prefix='xoom-android44-probe-') as directory:
         header.parent.mkdir(parents=True, exist_ok=True)
         header.write_bytes((ROOT / 'sources/kernel-donor/include/uapi' / name).read_bytes())
     (path / 'test.c').write_text(fixture + source + mock)
-    subprocess.run([
-        'cc', '-std=gnu11', '-Wall', '-Wextra', '-Werror', '-O2',
-        '-fsanitize=undefined',
-        '-I', str(path / 'include'),
-        '-I', str(ROOT / 'sources/kernel-donor/drivers/staging/android'),
-        str(path / 'test.c'), '-o', str(path / 'test'),
-    ], check=True)
-    subprocess.run([str(path / 'test')], check=True)
+    for release in ('4.4.147-wingray-android44', '4.4.147-wingray-android44-touch'):
+        subprocess.run([
+            'cc', '-std=gnu11', '-Wall', '-Wextra', '-Werror', '-O2',
+            '-fsanitize=undefined', f'-DXOOM_ABI_RELEASE="{release}"',
+            '-I', str(path / 'include'),
+            '-I', str(ROOT / 'sources/kernel-donor/drivers/staging/android'),
+            str(path / 'test.c'), '-o', str(path / 'test'),
+        ], check=True)
+        subprocess.run([str(path / 'test')], check=True)

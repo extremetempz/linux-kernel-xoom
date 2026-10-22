@@ -91,6 +91,12 @@ exec /usr/bin/busybox "$@"
         self.assertIn('exec_original_android_init', self.stages)
         self.assertEqual((self.path / 'run/xoom-egl/libGLES.so').read_text(), 'fixture, never executed')
 
+    def test_touch_profile_retains_the_same_guarded_mount_and_exec_path(self):
+        result = self.execute(MOCK_RELEASE='4.4.147-wingray-android44-touch')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls[-1], 'original-init')
+        self.assertIn('readonly_geometry_passed', self.stages)
+
     def test_wrong_release_or_any_partition_ro_denies_before_abi_or_mounts(self):
         result = self.execute(MOCK_RELEASE='2.6.39.4')
         self.assertEqual(result.returncode, 88)
