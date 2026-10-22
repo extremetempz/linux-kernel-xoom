@@ -137,3 +137,18 @@ No Android partition is mounted; register reports go through the bound driver.
 Host tests cover actual backlight policy, framebuffer bounds/drawing and script
 behavior; pin tests cross-check the actual Tegra20 driver and reject image28's
 failed configuration. Successful scanout is distinct from a running framework.
+
+## Experimental installed-Android profile
+
+`XOOM_PROFILE=android44` selects the isolated installed-ROM ABI and its own DTB.
+Patches 0051–0054 add Binder protocol 7, ashmem, KitKat logger and a scoped
+software read-only eMMC policy. Patch 0055 rejects `BLKROSET` in the same profile
+before the generic block layer can change its RO flags. Other profiles retain
+their existing behavior. These are volatile software policies, not hardware
+write-protect programming or a security boundary against privileged kernel code.
+
+The first Android experiment uses the validated display/storage topology and
+RAM-backed data/cache; legacy NVIDIA HALs and GPU interfaces are bypassed using
+RAM-only default/software graphics overlays. Image 31 has completed a physical Android 4.4.4 boot to Welcome; touch
+remains disabled and lockscreen completion is unverified. See [image 30](../docs/android44-image-30-prepared.md) for offline
+build steps, failure gates, evidence and remaining uncertainties.
