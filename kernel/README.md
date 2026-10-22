@@ -5,7 +5,14 @@ The existing 0x8000 decompression fix was verified in the failed binary.
 Later tests identified and corrected a lowmem-zone sizing defect and a
 diagnostic hook calling freed init code. Original images are preserved.
 
-**Latest physical test:** image 26 boots Linux 4.4 diagnostic userspace,
+**Latest dependency test:** image 27 retains the verified USB/storage path and
+reads all twelve fixed LP8550 registers in two fresh checksummed reports. The
+shared panel regulator claims PB2 output-high; the regulator's 5 V value is
+nominal software metadata. Display clocks, backlight values and Android storage
+were not programmed by this test. Original boot/recovery are fully verified
+after restoration. See [image 27](../docs/trace-boot-attempt-27.md).
+
+**Storage milestone:** image 26 boots Linux 4.4 diagnostic userspace,
 enumerates USB and passes two fresh checksum-verified storage reports. Full
 eMMC capacity (62,521,344 sectors) and all ten BigPart partition extents match
 the working kernel. The scoped capacity correction and exact GPT boot-option
@@ -29,7 +36,7 @@ latest restoration.
 - Base commit: `bbcece6d21c83b6280061a91d27566aff1951c94`.
 - Local development branch: `codex/wingray-4.4`.
 - Initial port source commit: `5bf34d336ae657c03cac8609f073c46698c774a3`.
-- Latest hardware-tested diagnostic source: `47d284e7` (image 26), reconstructed by patches 0001–0044.
+- Latest hardware-tested diagnostic source: `e3ea2b29` (image 27), reconstructed by patches 0001–0045.
 - The patch in `patches/0001-wingray-bringup.patch` reconstructs that exact source tree from the base. It includes new files, not just changes to existing files.
 
 The private GitHub repository stores this patch series and the build workflow. Fetching the pinned base and applying the patch reconstructs the complete modified kernel source under `sources/kernel-donor`. This is not a separate GitHub fork containing every upstream kernel file.
@@ -101,3 +108,14 @@ These additions do not prove working display, touch or Wi-Fi. Diagnostic
 Linux 4.4 boots have been attempted but have not reached Android. Suspend,
 DVFS, charging, fuel gauge, audio, Bluetooth, cameras and sensors remain
 pending. Keep the existing ROM and recovery.
+
+### Isolated panel-supply/I2C readiness profile
+
+```sh
+XOOM_PROFILE=panelbus bash scripts/build-wingray.sh
+```
+
+Use `scripts/prepare-diagnostic.py --panelbus` only with this isolated kernel.
+It includes guarded fixed LP8550 register reads and virtual metadata; the broad
+peripheral profile remains unvalidated. This stage does not enable DRM, the
+backlight driver, touch, PMIC/CPU-rail drivers, Wi-Fi or suspend.
