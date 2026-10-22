@@ -1,0 +1,70 @@
+From 611dba55fad61c5d0cf4d4ff7de8c25d79f28c09 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 17:57:00 +1100
+Subject: [PATCH] mmc: reject raw commands in the Wingray RAM-data first-boot
+ profile
+
+---
+ drivers/mmc/card/block.c | 36 +++++++++++++++++++++---------------
+ 1 file changed, 21 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
+index 9abf4c08..6504bd2d 100644
+--- a/drivers/mmc/card/block.c
++++ b/drivers/mmc/card/block.c
+@@ -948,9 +948,30 @@ cmd_err:
+ 	return ioc_err ? ioc_err : err;
+ }
+ 
++/* Volatile software protection for the RAM-data first Android boot only.
++ * Never issue an eMMC write-protect command or change the card's EXT_CSD.
++ * md->read_only also prevents force_ro from clearing this policy in this boot.
++ */
++static bool mmc_wingray_firstboot_ro(struct mmc_card *card)
++{
++	struct device *parent = card->host->parent;
++
++	return of_machine_is_compatible("motorola,wingray") &&
++		mmc_card_mmc(card) &&
++		(card->host->caps & MMC_CAP_NONREMOVABLE) && parent &&
++		of_property_read_bool(parent->of_node, "motorola,xoom-bigpart") &&
++		of_property_read_bool(parent->of_node, "motorola,xoom-firstboot-ro");
++}
++
+ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
+ 	unsigned int cmd, unsigned long arg)
+ {
++	struct mmc_blk_data *md = bdev->bd_disk->private_data;
++
++	/* Raw MMC commands can program media even through an O_RDONLY fd. */
++	if ((cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD) && md &&
++	    mmc_wingray_firstboot_ro(md->queue.card))
++		return -EROFS;
+ 	switch (cmd) {
+ 	case MMC_IOC_CMD:
+ 		return mmc_blk_ioctl_cmd(bdev,
+@@ -2448,21 +2469,6 @@ out:
+ 	return ret;
+ }
+ 
+-/* Volatile software protection for the RAM-data first Android boot only.
+- * Never issue an eMMC write-protect command or change the card's EXT_CSD.
+- * md->read_only also prevents force_ro from clearing this policy in this boot.
+- */
+-static bool mmc_wingray_firstboot_ro(struct mmc_card *card)
+-{
+-	struct device *parent = card->host->parent;
+-
+-	return of_machine_is_compatible("motorola,wingray") &&
+-		mmc_card_mmc(card) &&
+-		(card->host->caps & MMC_CAP_NONREMOVABLE) && parent &&
+-		of_property_read_bool(parent->of_node, "motorola,xoom-bigpart") &&
+-		of_property_read_bool(parent->of_node, "motorola,xoom-firstboot-ro");
+-}
+-
+ static inline int mmc_blk_readonly(struct mmc_card *card)
+ {
+ 	return mmc_card_readonly(card) ||
+-- 
+2.43.0
+

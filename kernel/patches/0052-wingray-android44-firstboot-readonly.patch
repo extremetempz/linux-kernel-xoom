@@ -1,0 +1,89 @@
+From def54382ca105dd6ad3db862e5f54e907f0b96a7 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 17:55:36 +1100
+Subject: [PATCH] mmc: guard Wingray RAM-data Android first boot with software
+ read-only media
+
+---
+ .../tegra20-motorola-wingray-android44.dts    |  8 +++++++
+ arch/arm/configs/wingray_android44_defconfig  |  2 +-
+ drivers/mmc/card/block.c                      | 21 +++++++++++++++++++
+ 3 files changed, 30 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm/boot/dts/tegra20-motorola-wingray-android44.dts
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-android44.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-android44.dts
+new file mode 100644
+index 00000000..8328e6d2
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-android44.dts
+@@ -0,0 +1,8 @@
++/* GPL-2.0: first Android test uses read-only eMMC and RAM data/overlays. */
++#include "tegra20-motorola-wingray-display.dts"
++/ {
++ model = "Motorola Xoom P3 Android 4.4 RAM-data first boot";
++ sdhci@c8000600 {
++  motorola,xoom-firstboot-ro;
++ };
++};
+diff --git a/arch/arm/configs/wingray_android44_defconfig b/arch/arm/configs/wingray_android44_defconfig
+index 9e962197..0774564f 100644
+--- a/arch/arm/configs/wingray_android44_defconfig
++++ b/arch/arm/configs/wingray_android44_defconfig
+@@ -30,7 +30,7 @@ CONFIG_ARM_APPENDED_DTB=y
+ CONFIG_ARM_ATAG_DTB_COMPAT=y
+ CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
+ CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
+-CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-display"
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44"
+ CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0"
+ CONFIG_CMDLINE_EXTEND=y
+ CONFIG_DEVTMPFS=y
+diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
+index 8d169d5a..9abf4c08 100644
+--- a/drivers/mmc/card/block.c
++++ b/drivers/mmc/card/block.c
+@@ -35,6 +35,7 @@
+ #include <linux/capability.h>
+ #include <linux/compat.h>
+ #include <linux/pm_runtime.h>
++#include <linux/of.h>
+ 
+ #include <trace/events/mmc.h>
+ 
+@@ -2447,6 +2448,21 @@ out:
+ 	return ret;
+ }
+ 
++/* Volatile software protection for the RAM-data first Android boot only.
++ * Never issue an eMMC write-protect command or change the card's EXT_CSD.
++ * md->read_only also prevents force_ro from clearing this policy in this boot.
++ */
++static bool mmc_wingray_firstboot_ro(struct mmc_card *card)
++{
++	struct device *parent = card->host->parent;
++
++	return of_machine_is_compatible("motorola,wingray") &&
++		mmc_card_mmc(card) &&
++		(card->host->caps & MMC_CAP_NONREMOVABLE) && parent &&
++		of_property_read_bool(parent->of_node, "motorola,xoom-bigpart") &&
++		of_property_read_bool(parent->of_node, "motorola,xoom-firstboot-ro");
++}
++
+ static inline int mmc_blk_readonly(struct mmc_card *card)
+ {
+ 	return mmc_card_readonly(card) ||
+@@ -2494,6 +2510,11 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
+ 	 * and the write protect switch.
+ 	 */
+ 	md->read_only = mmc_blk_readonly(card);
++	if (mmc_wingray_firstboot_ro(card)) {
++		md->read_only = 1;
++		pr_info("%s: Wingray first-boot software read-only policy\n",
++			mmc_hostname(card->host));
++	}
+ 
+ 	md->disk = alloc_disk(perdev_minors);
+ 	if (md->disk == NULL) {
+-- 
+2.43.0
+
