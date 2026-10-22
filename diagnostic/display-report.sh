@@ -2,7 +2,7 @@
 # Read-only metadata. The bound driver owns SMBus; never use forced i2c tools.
 echo XOOM_DISPLAY_BEGIN
 case "$(/bin/busybox uname -r)" in
- 4.4.147-wingray-display|4.4.147-wingray-android44) ;;
+ 4.4.147-wingray-display|4.4.147-wingray-android44|4.4.147-wingray-android44-touch) ;;
  *)
  echo XOOM_DISPLAY_DENIED_RELEASE
  echo XOOM_DISPLAY_END

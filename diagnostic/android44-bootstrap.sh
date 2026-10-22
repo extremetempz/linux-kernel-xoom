@@ -7,7 +7,10 @@ fail() {
  while :; do /bin/busybox sleep 5; done
 }
 stage start
-[ "$(/bin/busybox uname -r)" = '4.4.147-wingray-android44' ] || fail release
+case "$(/bin/busybox uname -r)" in
+ 4.4.147-wingray-android44|4.4.147-wingray-android44-touch) ;;
+ *) fail release;;
+esac
 /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray || fail board
 waited=0
 while [ ! -d /sys/block/mmcblk0/mmcblk0p10 ] && [ "$waited" -lt 20 ]; do

@@ -7,11 +7,13 @@
 echo XOOM_ANDROID44_POLICY_BEGIN_V1
 release=$(/bin/busybox uname -r)
 echo "XOOM_ANDROID44_RELEASE $release"
-if [ "$release" != '4.4.147-wingray-android44' ]; then
+case "$release" in
+ 4.4.147-wingray-android44|4.4.147-wingray-android44-touch) ;;
+ *)
  echo XOOM_ANDROID44_DENIED_RELEASE
  echo XOOM_ANDROID44_POLICY_END_V1
- exit 0
-fi
+ exit 0;;
+esac
 if ! /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray; then
  echo XOOM_ANDROID44_DENIED_BOARD
  echo XOOM_ANDROID44_POLICY_END_V1

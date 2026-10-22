@@ -3,6 +3,9 @@
  * protection probes. No Binder transactions, mounts, block writes or valid
  * raw MMC commands. Device execution remains untested. */
 #define BINDER_IPC_32BIT 1
+#ifndef XOOM_ABI_RELEASE
+#define XOOM_ABI_RELEASE "4.4.147-wingray-android44"
+#endif
 #include <linux/types.h>
 typedef __kernel_pid_t pid_t;
 typedef __kernel_uid32_t uid_t;
@@ -79,7 +82,7 @@ void _start(void)
     volatile unsigned int *memory;
     unsigned int i;
     if(call6(122,(long)uts,0,0,0,0,0)<0 ||
-       !equal(uts[2],"4.4.147-wingray-android44"))end(1);
+       !equal(uts[2],XOOM_ABI_RELEASE))end(1);
     /* Opening with O_WRONLY does not write. Never use O_TRUNC or a write
      * syscall on these descriptors, even if a protection defect admits one. */
     for(i=0;i<sizeof(block_paths)/sizeof(block_paths[0]);++i) {
