@@ -1,12 +1,12 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
-**Latest result, 22 October 2026:** Image 27 retains Linux 4.4 USB serial and
-matching full eMMC capacity/all ten BigPart extents. Two fresh checksummed
-reports also completed twelve fixed LP8550 register reads with the expected
-chip identity; the shared panel regulator owns PB2 output-high. Original boot
-and recovery are fully verified after restoration. Android under Linux 4.4,
-display takeover, backlight control and touch remain unverified. See the
-[image-27 result](docs/trace-boot-attempt-27.md) and [next stages](docs/next-porting-stage.md).
+**Latest result, 22 October 2026:** Image 29 displays the first operator-confirmed
+RGB pattern under Linux 4.4. Two fresh verified USB reports confirm 1280×800×32
+scanout, connected/enabled LVDS and capped P3 backlight control while retaining
+full eMMC capacity/all ten BigPart extents. Original boot and recovery are fully
+verified after restoration. The real Android lockscreen is the active objective;
+Android init/framework/graphics integration and touch remain untested. See the
+[image-29 result](docs/trace-boot-attempt-29.md) and [Android gates](docs/android-boot-gates.md).
 
 Kernel bring-up workspace, prepared 18 October 2026.
 
@@ -27,7 +27,7 @@ bash scripts/test-bigpart.sh
 bash scripts/build-wingray.sh
 ```
 
-The new target is `wingray_bringup_defconfig` with `tegra20-motorola-wingray.dts`. It separates Samsung-only initialization, enables eMMC, GPIO keys, UART, USB gadget serial and persistent logging, preserves boot memory, and scopes BigPart remapping to the Xoom eMMC controller. A second patch adds P3/AUO display, touch, BCM4329 wiring, CPCAP/MAX8649 rails and restart support. These drivers are not yet runtime validated; suspend, charging and other peripherals remain unfinished. See [hardware validation](docs/hardware-validation.md). Do not move on to a ROM until kernel bring-up is validated.
+The new target is `wingray_bringup_defconfig` with `tegra20-motorola-wingray.dts`. It separates Samsung-only initialization, enables eMMC, GPIO keys, UART, USB gadget serial and persistent logging, preserves boot memory, and scopes BigPart remapping to the Xoom eMMC controller. A second patch adds P3/AUO display, touch, BCM4329 wiring, CPCAP/MAX8649 rails and restart support. These drivers are not yet runtime validated; suspend, charging and other peripherals remain unfinished. See [hardware validation](docs/hardware-validation.md). The next gate is Android ABI/init/graphics integration using the validated display and storage path; unrelated peripherals are deferred until the lockscreen.
 
 GitHub destination: `extremetempz/linux-kernel-xoom`. Repository visibility was changed to private on 18 October 2026.
 
