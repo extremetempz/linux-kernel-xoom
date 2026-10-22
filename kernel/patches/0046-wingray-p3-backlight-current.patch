@@ -1,0 +1,234 @@
+From bfebb737f9e34fcc8cf5fcc27dda3d09e3d18482 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 17:00:29 +1100
+Subject: [PATCH] backlight: lp855x: add guarded Wingray P3 LED-current control
+
+---
+ drivers/video/backlight/lp855x_bl.c | 123 +++++++++++++++++++++++++++-
+ 1 file changed, 119 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/video/backlight/lp855x_bl.c b/drivers/video/backlight/lp855x_bl.c
+index daca9e6a..4b4948d3 100644
+--- a/drivers/video/backlight/lp855x_bl.c
++++ b/drivers/video/backlight/lp855x_bl.c
+@@ -74,6 +74,7 @@ struct lp855x {
+ 	struct lp855x_platform_data *pdata;
+ 	struct pwm_device *pwm;
+ 	struct regulator *supply;	/* regulator for VDD input */
++	bool wingray_p3;
+ };
+ 
+ static int lp855x_write_byte(struct lp855x *lp, u8 reg, u8 data)
+@@ -81,6 +82,58 @@ static int lp855x_write_byte(struct lp855x *lp, u8 reg, u8 data)
+ 	return i2c_smbus_write_byte_data(lp->client, reg, data);
+ }
+ 
++/* P3 uses A0 LED-current control, not the generic brightness register.
++ * Keep the production A1-A7 settings; fail closed rather than reprogram them.
++ */
++static int lp855x_wingray_setup(struct lp855x *lp)
++{
++	if (!of_device_is_compatible(lp->dev->of_node,
++				     "motorola,wingray-p3-lp8550"))
++		return 0;
++	if (!of_machine_is_compatible("motorola,wingray") ||
++	    lp->chip_id != LP8550 ||
++	    !of_find_property(lp->dev->of_node, "power-supply", NULL) ||
++	    lp->pdata->device_control != 0x03 ||
++	    lp->pdata->period_ns || lp->pdata->size_program)
++		return -EINVAL;
++	lp->wingray_p3 = true;
++	return 0;
++}
++
++static int lp855x_wingray_verify(struct lp855x *lp)
++{
++	static const u8 production[] = { 0x67, 0xbf, 0x3f, 0x08, 0xea, 0x64, 0x2a };
++	int value, i;
++
++	value = i2c_smbus_read_byte_data(lp->client, 0x03);
++	if (value < 0)
++		return value;
++	if (value != 0xfc)
++		return -ENODEV;
++	for (i = 0; i < ARRAY_SIZE(production); i++) {
++		value = i2c_smbus_read_byte_data(lp->client, 0xa1 + i);
++		if (value < 0)
++			return value;
++		if (value != production[i])
++			return -EINVAL;
++	}
++	return 0;
++}
++
++static int lp855x_wingray_brightness(struct lp855x *lp, unsigned int brightness)
++{
++	int ret;
++
++	if (!brightness)
++		return lp855x_write_byte(lp, 0x01, 0x04);
++	/* Original AUO scaling: cap A0 at 185 for brightness 255. */
++	brightness = min(brightness, 255U) * 726U / 1000U;
++	ret = lp855x_write_byte(lp, 0xa0, brightness);
++	if (ret < 0)
++		return ret;
++	return lp855x_write_byte(lp, 0x01, 0x03);
++}
++
+ static int lp855x_update_bit(struct lp855x *lp, u8 reg, u8 mask, u8 data)
+ {
+ 	int ret;
+@@ -172,6 +225,9 @@ static int lp855x_configure(struct lp855x *lp)
+ 	int i, ret;
+ 	struct lp855x_platform_data *pd = lp->pdata;
+ 
++	if (lp->wingray_p3)
++		return lp855x_wingray_verify(lp);
++
+ 	switch (lp->chip_id) {
+ 	case LP8550:
+ 	case LP8551:
+@@ -263,6 +319,9 @@ static int lp855x_bl_update_status(struct backlight_device *bl)
+ 	if (bl->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK))
+ 		brightness = 0;
+ 
++	if (lp->wingray_p3)
++		return lp855x_wingray_brightness(lp, brightness);
++
+ 	if (lp->mode == PWM_BASED)
+ 		lp855x_pwm_ctrl(lp, brightness, bl->props.max_brightness);
+ 	else if (lp->mode == REGISTER_BASED)
+@@ -324,10 +383,47 @@ static ssize_t lp855x_get_bl_ctl_mode(struct device *dev,
+ 	return scnprintf(buf, PAGE_SIZE, "%s\n", strmode);
+ }
+ 
++static ssize_t wingray_registers_show(struct device *dev,
++				     struct device_attribute *attr, char *buf)
++{
++	static const u8 registers[] = {
++		0x00, 0x01, 0x03, 0x04, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
++	};
++	struct lp855x *lp = dev_get_drvdata(dev);
++	int i, value, len = 0;
++
++	if (!lp->wingray_p3)
++		return -ENODEV;
++	mutex_lock(&lp->bl->update_lock);
++	for (i = 0; i < ARRAY_SIZE(registers); i++) {
++		value = i2c_smbus_read_byte_data(lp->client, registers[i]);
++		if (value < 0) {
++			len = value;
++			break;
++		}
++		len += scnprintf(buf + len, PAGE_SIZE - len,
++				 "0x%02x 0x%02x\n", registers[i], value);
++	}
++	mutex_unlock(&lp->bl->update_lock);
++	return len;
++}
++static DEVICE_ATTR(wingray_registers, 0444, wingray_registers_show, NULL);
++
++static umode_t lp855x_attr_visible(struct kobject *kobj,
++				  struct attribute *attr, int index)
++{
++	struct lp855x *lp = dev_get_drvdata(kobj_to_dev(kobj));
++
++	if (attr == &dev_attr_wingray_registers.attr && !lp->wingray_p3)
++		return 0;
++	return attr->mode;
++}
++
+ static DEVICE_ATTR(chip_id, S_IRUGO, lp855x_get_chip_id, NULL);
+ static DEVICE_ATTR(bl_ctl_mode, S_IRUGO, lp855x_get_bl_ctl_mode, NULL);
+ 
+ static struct attribute *lp855x_attributes[] = {
++	&dev_attr_wingray_registers.attr,
+ 	&dev_attr_chip_id.attr,
+ 	&dev_attr_bl_ctl_mode.attr,
+ 	NULL,
+@@ -335,6 +431,7 @@ static struct attribute *lp855x_attributes[] = {
+ 
+ static const struct attribute_group lp855x_attr_group = {
+ 	.attrs = lp855x_attributes,
++	.is_visible = lp855x_attr_visible,
+ };
+ 
+ #ifdef CONFIG_OF
+@@ -396,6 +493,9 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
+ 	struct lp855x *lp;
+ 	int ret;
+ 
++	if (!id)
++		return -ENODEV;
++
+ 	if (!i2c_check_functionality(cl->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
+ 		return -EIO;
+ 
+@@ -415,6 +515,10 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
+ 			return ret;
+ 	}
+ 
++	ret = lp855x_wingray_setup(lp);
++	if (ret)
++		return ret;
++
+ 	if (lp->pdata->period_ns > 0)
+ 		lp->mode = PWM_BASED;
+ 	else
+@@ -440,24 +544,33 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
+ 	ret = lp855x_configure(lp);
+ 	if (ret) {
+ 		dev_err(lp->dev, "device config err: %d", ret);
+-		return ret;
++		goto disable_supply;
+ 	}
+ 
+ 	ret = lp855x_backlight_register(lp);
+ 	if (ret) {
+ 		dev_err(lp->dev,
+ 			"failed to register backlight. err: %d\n", ret);
+-		return ret;
++		goto disable_supply;
+ 	}
+ 
+ 	ret = sysfs_create_group(&lp->dev->kobj, &lp855x_attr_group);
+ 	if (ret) {
+ 		dev_err(lp->dev, "failed to register sysfs. err: %d\n", ret);
+-		return ret;
++		goto disable_supply;
+ 	}
+ 
+-	backlight_update_status(lp->bl);
++	ret = backlight_update_status(lp->bl);
++	if (ret && lp->wingray_p3) {
++		sysfs_remove_group(&lp->dev->kobj, &lp855x_attr_group);
++		goto disable_supply;
++	}
+ 	return 0;
++
++disable_supply:
++	if (lp->supply)
++		regulator_disable(lp->supply);
++	return ret;
+ }
+ 
+ static int lp855x_remove(struct i2c_client *cl)
+@@ -474,6 +587,7 @@ static int lp855x_remove(struct i2c_client *cl)
+ }
+ 
+ static const struct of_device_id lp855x_dt_ids[] = {
++	{ .compatible = "motorola,wingray-p3-lp8550", },
+ 	{ .compatible = "ti,lp8550", },
+ 	{ .compatible = "ti,lp8551", },
+ 	{ .compatible = "ti,lp8552", },
+@@ -486,6 +600,7 @@ static const struct of_device_id lp855x_dt_ids[] = {
+ MODULE_DEVICE_TABLE(of, lp855x_dt_ids);
+ 
+ static const struct i2c_device_id lp855x_ids[] = {
++	{"wingray-p3-lp8550", LP8550},
+ 	{"lp8550", LP8550},
+ 	{"lp8551", LP8551},
+ 	{"lp8552", LP8552},
+-- 
+2.43.0
+
