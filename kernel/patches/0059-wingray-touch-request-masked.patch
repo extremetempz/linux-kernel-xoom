@@ -1,0 +1,59 @@
+From 159616f7936b918918066b416140d03008a3526d Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 04:46:28 +1100
+Subject: [PATCH] input: request Wingray touch IRQ masked until objects are
+ ready
+
+Set IRQ_NOAUTOEN before requesting the Wingray level interrupt so an already-asserted CHG cannot preempt probe while object_table is NULL. Clear the descriptor flag after success or failure without enabling the line. Rely on the initial depth of one and existing mxt_acquire_irq enable; preserve generic reset handshakes.
+---
+ drivers/input/touchscreen/atmel_mxt_ts.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/input/touchscreen/atmel_mxt_ts.c b/drivers/input/touchscreen/atmel_mxt_ts.c
+index e274a1f4..e3090988 100644
+--- a/drivers/input/touchscreen/atmel_mxt_ts.c
++++ b/drivers/input/touchscreen/atmel_mxt_ts.c
+@@ -25,6 +25,7 @@
+ #include <linux/platform_data/atmel_mxt_ts.h>
+ #include <linux/input/mt.h>
+ #include <linux/interrupt.h>
++#include <linux/irq.h>
+ #include <linux/of.h>
+ #include <linux/slab.h>
+ #include <linux/gpio/consumer.h>
+@@ -2853,20 +2854,26 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 		return error;
+ 	}
+ 
++	/* request_threaded_irq() can run a higher-priority IRQ thread before
++	 * returning. Keep CHG masked until the object/message data is ready;
++	 * masking only after the request leaves a level-triggered IRQ window.
++	 */
++	if (mxt_is_wingray(data))
++		irq_set_status_flags(client->irq, IRQ_NOAUTOEN);
++
+ 	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
+ 				     pdata->irqflags | IRQF_ONESHOT,
+ 				     client->name, data);
++	/* This only restores the descriptor policy; it does not unmask CHG.
++	 * Clear it on request failure as well so no flag leaks to a retry.
++	 */
++	if (mxt_is_wingray(data))
++		irq_clear_status_flags(client->irq, IRQ_NOAUTOEN);
+ 	if (error) {
+ 		dev_err(&client->dev, "Failed to register interrupt\n");
+ 		goto err_free_mem;
+ 	}
+ 
+-	/* Avoid a level IRQ storm while the factory chip is still in reset.
+-	 * mxt_acquire_irq() unmasks it after object/message setup is complete.
+-	 */
+-	if (mxt_is_wingray(data))
+-		disable_irq(client->irq);
+-
+ 	if (data->reset_gpio && of_device_is_compatible(client->dev.of_node,
+ 					"motorola,wingray-maxtouch")) {
+ 		msleep(10);
+-- 
+2.43.0
+

@@ -1,0 +1,187 @@
+From ba02cf867d430f53f36c51d71b4959eff6a98e46 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 04:29:40 +1100
+Subject: [PATCH] input: preserve Wingray factory touch firmware during
+ bring-up
+
+Hide and reject firmware updates, deny config upload before backup/programming side effects, and fail closed when factory application info or T9 geometry cannot be read. Keep other boards and volatile power/calibration controls unchanged. Mask Wingray IRQs before reset settle, and free allocated probe data on regulator/GPIO failures without freeing an unrequested IRQ.
+---
+ drivers/input/touchscreen/atmel_mxt_ts.c | 70 ++++++++++++++++++++++--
+ 1 file changed, 64 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/input/touchscreen/atmel_mxt_ts.c b/drivers/input/touchscreen/atmel_mxt_ts.c
+index eebf4390..e274a1f4 100644
+--- a/drivers/input/touchscreen/atmel_mxt_ts.c
++++ b/drivers/input/touchscreen/atmel_mxt_ts.c
+@@ -266,6 +266,12 @@ struct mxt_data {
+ 	int suspended;
+ };
+ 
++static bool mxt_is_wingray(struct mxt_data *data)
++{
++	return of_device_is_compatible(data->client->dev.of_node,
++				       "motorola,wingray-maxtouch");
++}
++
+ static size_t mxt_obj_size(const struct mxt_object *obj)
+ {
+ 	return obj->size_minus_one + 1;
+@@ -1378,6 +1384,10 @@ static int mxt_update_cfg(struct mxt_data *data, const struct firmware *cfg)
+ 	u8 *config_mem;
+ 	size_t config_mem_size;
+ 
++	/* Never upload or BACKUPNV factory Wingray configuration. */
++	if (mxt_is_wingray(data))
++		return -EPERM;
++
+ 	mxt_update_crc(data, MXT_COMMAND_REPORTALL, 1);
+ 
+ 	if (strncmp(cfg->data, MXT_CFG_MAGIC, strlen(MXT_CFG_MAGIC))) {
+@@ -1848,8 +1858,11 @@ static int mxt_initialize_input_device(struct mxt_data *data)
+ 	case MXT_TOUCH_MULTI_T9:
+ 		num_mt_slots = data->T9_reportid_max - data->T9_reportid_min + 1;
+ 		error = mxt_read_t9_resolution(data);
+-		if (error)
++		if (error) {
+ 			dev_warn(dev, "Failed to initialize T9 resolution\n");
++			if (mxt_is_wingray(data))
++				return error;
++		}
+ 		break;
+ 
+ 	case MXT_TOUCH_MULTITOUCHSCREEN_T100:
+@@ -1987,6 +2000,17 @@ static int mxt_initialize(struct mxt_data *data)
+ 		if (!error)
+ 			break;
+ 
++		/* This bring-up profile requires working factory application
++		 * firmware. It must not recover into a firmware-programming mode
++		 * or bind successfully without a usable input device.
++		 */
++		if (mxt_is_wingray(data)) {
++			dev_err(&client->dev,
++				"Factory Wingray application info unavailable: %d\n",
++				error);
++			return error;
++		}
++
+ 		/* Check bootloader state */
+ 		error = mxt_probe_bootloader(data, false);
+ 		if (error) {
+@@ -2273,6 +2297,9 @@ static int mxt_load_fw(struct device *dev, const char *fn)
+ 	unsigned int frame = 0;
+ 	int ret;
+ 
++	if (mxt_is_wingray(data))
++		return -EPERM;
++
+ 	ret = request_firmware(&fw, fn, dev);
+ 	if (ret) {
+ 		dev_err(dev, "Unable to open firmware %s\n", fn);
+@@ -2391,6 +2418,9 @@ static ssize_t mxt_update_fw_store(struct device *dev,
+ 	struct mxt_data *data = dev_get_drvdata(dev);
+ 	int error;
+ 
++	if (mxt_is_wingray(data))
++		return -EPERM;
++
+ 	error = mxt_load_fw(dev, MXT_FW_NAME);
+ 	if (error) {
+ 		dev_err(dev, "The firmware update failed(%d)\n", error);
+@@ -2482,8 +2512,21 @@ static struct attribute *mxt_attrs[] = {
+ 	NULL
+ };
+ 
++static umode_t mxt_attr_is_visible(struct kobject *kobj,
++				 struct attribute *attr, int index)
++{
++	struct mxt_data *data = dev_get_drvdata(kobj_to_dev(kobj));
++
++	/* Keep identity/object reads and volatile suspend control available. */
++	if (mxt_is_wingray(data) && attr == &dev_attr_update_fw.attr)
++		return 0;
++
++	return attr->mode;
++}
++
+ static const struct attribute_group mxt_attr_group = {
+ 	.attrs = mxt_attrs,
++	.is_visible = mxt_attr_is_visible,
+ };
+ 
+ static void mxt_start(struct mxt_data *data)
+@@ -2774,15 +2817,17 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 	if (of_device_is_compatible(client->dev.of_node, "motorola,wingray-maxtouch")) {
+ 		struct regulator *panel = devm_regulator_get(&client->dev, "panel");
+ 
+-		if (IS_ERR(panel))
+-			return PTR_ERR(panel);
++		if (IS_ERR(panel)) {
++			error = PTR_ERR(panel);
++			goto err_free_mem;
++		}
+ 		error = regulator_enable(panel);
+ 		if (error)
+-			return error;
++			goto err_free_mem;
+ 		error = devm_add_action(&client->dev, mxt_disable_panel_supply, panel);
+ 		if (error) {
+ 			regulator_disable(panel);
+-			return error;
++			goto err_free_mem;
+ 		}
+ 	}
+ 
+@@ -2792,6 +2837,8 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 	if (IS_ERR(data->enable_gpio)) {
+ 		error = PTR_ERR(data->enable_gpio);
+ 		dev_err(&client->dev, "Failed to get enable gpio: %d\n", error);
++		if (mxt_is_wingray(data))
++			goto err_free_mem;
+ 		return error;
+ 	}
+ 
+@@ -2801,6 +2848,8 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 	if (IS_ERR(data->reset_gpio)) {
+ 		error = PTR_ERR(data->reset_gpio);
+ 		dev_err(&client->dev, "Failed to get reset gpio: %d\n", error);
++		if (mxt_is_wingray(data))
++			goto err_free_mem;
+ 		return error;
+ 	}
+ 
+@@ -2812,6 +2861,12 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 		goto err_free_mem;
+ 	}
+ 
++	/* Avoid a level IRQ storm while the factory chip is still in reset.
++	 * mxt_acquire_irq() unmasks it after object/message setup is complete.
++	 */
++	if (mxt_is_wingray(data))
++		disable_irq(client->irq);
++
+ 	if (data->reset_gpio && of_device_is_compatible(client->dev.of_node,
+ 					"motorola,wingray-maxtouch")) {
+ 		msleep(10);
+@@ -2829,7 +2884,8 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 		data->in_bootloader = false;
+ 	}
+ 
+-	disable_irq(client->irq);
++	if (!mxt_is_wingray(data))
++		disable_irq(client->irq);
+ 
+ 	error = mxt_initialize(data);
+ 	if (error)
+@@ -2856,6 +2912,8 @@ err_free_object:
+ err_free_irq:
+ 	free_irq(client->irq, data);
+ err_free_mem:
++	if (mxt_is_wingray(data))
++		i2c_set_clientdata(client, NULL);
+ 	kfree(data);
+ 	return error;
+ }
+-- 
+2.43.0
+

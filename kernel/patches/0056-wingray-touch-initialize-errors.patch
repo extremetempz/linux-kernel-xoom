@@ -1,0 +1,67 @@
+From 85445c6a6e3b7682a5e8fb00908f78dea1562825 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 22:31:39 +1100
+Subject: [PATCH] input: propagate Wingray factory touch initialization
+ failures
+
+Require the factory T9 touch object, call synchronous object setup directly, and return power/input registration errors. Synchronize Wingray IRQ handlers before object/message memory is freed on failed setup.
+---
+ drivers/input/touchscreen/atmel_mxt_ts.c | 27 ++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/input/touchscreen/atmel_mxt_ts.c b/drivers/input/touchscreen/atmel_mxt_ts.c
+index d91b9ab5..eebf4390 100644
+--- a/drivers/input/touchscreen/atmel_mxt_ts.c
++++ b/drivers/input/touchscreen/atmel_mxt_ts.c
+@@ -2021,16 +2021,36 @@ static int mxt_initialize(struct mxt_data *data)
+ 		return error;
+ 	}
+ 
++	/* Factory Wingray firmware uses T9; a bound driver without a touch
++	 * object must not be reported as successful bring-up.
++	 */
++	if (of_device_is_compatible(client->dev.of_node,
++				    "motorola,wingray-maxtouch") &&
++	    data->multitouch != MXT_TOUCH_MULTI_T9) {
++		dev_err(&client->dev, "Factory Wingray T9 touch object missing\n");
++		error = -EINVAL;
++		goto err_free_object_table;
++	}
++
+ 	error = mxt_acquire_irq(data);
+-	if (error)
++	if (error) {
++		if (of_device_is_compatible(client->dev.of_node,
++					    "motorola,wingray-maxtouch"))
++			disable_irq(data->irq);
+ 		goto err_free_object_table;
++	}
+ 
+ 	/* Preserve the factory configuration on Wingray. A generic maxtouch
+ 	 * configuration file must never overwrite this board's touch NVRAM.
+ 	 */
+ 	if (of_device_is_compatible(client->dev.of_node,
+ 				    "motorola,wingray-maxtouch")) {
+-		mxt_config_cb(NULL, data);
++		error = mxt_configure_objects(data, NULL);
++		if (error) {
++			/* Synchronize the IRQ before freeing its object/message data. */
++			disable_irq(data->irq);
++			goto err_free_object_table;
++		}
+ 		return 0;
+ 	}
+ 
+@@ -2828,6 +2848,9 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+ 	return 0;
+ 
+ err_free_object:
++	if (of_device_is_compatible(client->dev.of_node,
++				    "motorola,wingray-maxtouch"))
++		disable_irq(client->irq);
+ 	mxt_free_input_device(data);
+ 	mxt_free_object_table(data);
+ err_free_irq:
+-- 
+2.43.0
+
