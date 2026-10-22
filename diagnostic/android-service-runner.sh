@@ -1,7 +1,6 @@
 #!/bin/busybox sh
-# DRAFT: incomplete Android image-30 integration; do not deploy directly.
-# See docs/android44-lockscreen-checkpoint.md for missing generation and validation.
-# Arguments originate only in the generated, audited init.rc, never USB input.
+# Experimental image-30 service runner; arguments come only from generated init.
+# Keep inherited property workspace/socket descriptors and the Android environment.
 name=$1
 shift
 case "$name" in

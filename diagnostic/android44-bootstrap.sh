@@ -1,6 +1,5 @@
 #!/bin/busybox sh
-# DRAFT: incomplete Android image-30 integration; do not deploy directly.
-# See docs/android44-lockscreen-checkpoint.md for missing generation and validation.
+# Experimental image-30 integration; package only with prepare-android44.py.
 # First Android boot: immutable eMMC policy, read-only system, RAM data only.
 stage() { echo "XOOM_ANDROID44_STAGE $1" >> /run/android44-stages.txt; }
 fail() {
@@ -41,6 +40,11 @@ echo "XOOM_ANDROID44_ABI_EXIT $result" >> /run/android44-abi.txt
 [ "$result" -eq 0 ] || fail abi
 stage abi_passed
 # Set the already-tested fixed framebuffer mode before any Android HAL opens it.
+waited=0
+while [ ! -e /dev/fb0 ] && [ "$waited" -lt 15 ]; do
+ /bin/busybox sleep 1
+ waited=$((waited + 1))
+done
 /bin/display-pattern > /run/display-pattern-result.txt 2>&1
 result=$?
 echo "XOOM_PATTERN_EXIT $result" >> /run/display-pattern-result.txt
@@ -54,16 +58,16 @@ stage display_passed
 /bin/busybox sha256sum -c /bin/android44-system-sha256 > /run/android44-system-check.txt 2>&1 || fail system_hashes
 stage system_readonly_verified
 # This ROM has no vendor HAL/EGL directories. Refuse an unreviewed layout.
-[ ! -d /vendor/lib/hw ] && [ ! -d /vendor/lib/egl ] || fail vendor_layout
+[ ! -d /system/vendor/lib/hw ] && [ ! -d /system/vendor/lib/egl ] || fail vendor_layout
 for name in gralloc.default audio.primary.default audio_policy.default power.default keystore.default local_time.default; do
  /bin/busybox cp "/system/lib/hw/$name.so" /run/xoom-hw/ || fail hal_copy
 done
 /bin/busybox cp /system/lib/egl/libGLES_android.so /run/xoom-egl/libGLES.so || fail egl_copy
 /bin/busybox cp /system/lib/egl/libGLES_android.so /run/xoom-egl/libGLES_android.so || fail egl_copy
 /bin/busybox mount -o bind /run/xoom-hw /system/lib/hw || fail hal_bind
-/bin/busybox mount -o remount,bind,ro /system/lib/hw || fail hal_bind_ro
+/bin/busybox mount -o remount,bind,ro,nosuid,nodev /run/xoom-hw /system/lib/hw || fail hal_bind_ro
 /bin/busybox mount -o bind /run/xoom-egl /system/lib/egl || fail egl_bind
-/bin/busybox mount -o remount,bind,ro /system/lib/egl || fail egl_bind_ro
+/bin/busybox mount -o remount,bind,ro,nosuid,nodev /run/xoom-egl /system/lib/egl || fail egl_bind_ro
 stage ram_graphics_overlays_ready
 # Android init must be PID1 to create its property workspace and reap services.
 stage exec_original_android_init

@@ -1,6 +1,5 @@
 #!/bin/busybox sh
-# DRAFT: incomplete Android image-30 integration; do not deploy directly.
-# See docs/android44-lockscreen-checkpoint.md for missing generation and validation.
+# Experimental image-30 reporter; package only with prepare-android44.py.
 # Fixed framed requests only. Survives PID1 exec; no interactive shell.
 echo -1000 > /proc/self/oom_score_adj
 while :; do

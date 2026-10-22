@@ -1,14 +1,15 @@
-/* DRAFT: latest block checks are not compiled or hardware tested.
- * See docs/android44-lockscreen-checkpoint.md before packaging. */
 /* SPDX-License-Identifier: GPL-2.0
- * Pre-init Android4.4 ABI gate. Only private RAM objects and socket creation;
- * no Binder transactions/context-manager registration, mounts or block I/O. */
+ * Pre-init Android4.4 ABI gate: RAM logger/ashmem, sockets and fixed block
+ * protection probes. No Binder transactions, mounts, block writes or valid
+ * raw MMC commands. Device execution remains untested. */
 #define BINDER_IPC_32BIT 1
 #include <linux/types.h>
 typedef __kernel_pid_t pid_t;
 typedef __kernel_uid32_t uid_t;
 typedef __kernel_size_t size_t;
 #include <linux/android/binder.h>
+#include <linux/fs.h>
+#include <linux/major.h>
 #include <linux/mmc/ioctl.h>
 #include "uapi/ashmem.h"
 #include "logger.h"
@@ -92,8 +93,11 @@ void _start(void)
      * reject them before decode (EROFS), not merely fail copy_from_user. */
     if(call6(54,fd,MMC_IOC_CMD,0,0,0,0)!=-30 ||
        call6(54,fd,MMC_IOC_MULTI_CMD,0,0,0,0)!=-30)end(14);
+    /* Also reject generic read-only-flag changes before payload decoding.
+     * NULL cannot request clearing protection, even on an unguarded kernel. */
+    if(call6(54,fd,BLKROSET,0,0,0,0)!=-30)end(15);
     call6(6,fd,0,0,0,0,0);
-    line("XOOM_ANDROID44_BLOCK_WRITE_OPENS_AND_RAW_DISPATCH_REJECTED\n");
+    line("XOOM_ANDROID44_BLOCK_WRITE_OPENS_RAW_AND_ROSET_REJECTED\n");
     fd=call6(5,(long)"/dev/binder",2,0,0,0,0);
     if(fd<0)end(2);
     if(call6(54,fd,BINDER_VERSION,(long)&version,0,0,0)<0 ||
