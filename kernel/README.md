@@ -152,3 +152,29 @@ RAM-backed data/cache; legacy NVIDIA HALs and GPU interfaces are bypassed using
 RAM-only default/software graphics overlays. Image 31 has completed a physical Android 4.4.4 boot to Welcome; touch
 remains disabled and lockscreen completion is unverified. See [image 30](../docs/android44-image-30-prepared.md) for offline
 build steps, failure gates, evidence and remaining uncertainties.
+
+## Isolated Android touch profile
+
+`XOOM_PROFILE=android44-touch` selects a separate configuration and device tree,
+derived from the hardware-tested Android/display control. It enables input,
+evdev and the existing generic maXTouch driver for Wingray P3. The tested
+`android44` and `display` source configurations are preserved. Patches 0056–0058
+separate initialization error handling, factory-firmware preservation and board
+enablement. Physical acceptance is tracked in
+[image 32 preparation](../docs/trace-boot-attempt-32-prepared.md).
+
+```bash
+XOOM_PROFILE=android44-touch XOOM_BUILD_ROOT=/tmp/xoom-touch-build XOOM_ARTIFACT_DIR="$PWD/artifacts/touch-local" bash scripts/build-wingray.sh
+XOOM_BUILD_ROOT=/tmp/xoom-touch-build XOOM_ARTIFACT_DIR="$PWD/artifacts/touch-local" bash scripts/build-android44-probe.sh
+XOOM_BUILD_ROOT=/tmp/xoom-touch-build XOOM_ARTIFACT_DIR="$PWD/artifacts/touch-local" bash scripts/build-display-pattern.sh
+XOOM_BUILD_ROOT=/tmp/xoom-touch-build XOOM_ARTIFACT_DIR="$PWD/artifacts/touch-local" bash scripts/build-touch-events.sh
+python3 scripts/prepare-android44.py --profile android44-touch --kernel-dir artifacts/touch-local --runtime-dir artifacts/touch-local --output-dir artifacts/touch-image-local
+```
+
+These commands build and audit local artifacts only. Use a fresh artifact and
+image directory for each attempt. The fixed touch observer reads the evdev
+stream independently for five seconds, without grabbing input from Android.
+Events, screen response, orientation and multi-touch still require the device.
+The profile retains software graphics, UP execution, existing memory
+reservations and read-only eMMC policy; it does not enable PL310, DVFS, suspend
+or Samsung board power controls.
