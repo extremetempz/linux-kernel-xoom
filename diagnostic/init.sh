@@ -9,6 +9,10 @@ export PATH=/bin:/system/bin
 /bin/busybox mount -t tmpfs tmpfs /tmp
 /bin/busybox mount -t devpts devpts /dev/pts
 /bin/busybox mount -t debugfs debugfs /sys/kernel/debug
+# Display test is opt-in at packaging and independent of the USB server.
+if [ -x /bin/display-start ]; then
+ /bin/busybox sh /bin/display-start > /run/display-pattern-result.txt 2>&1 &
+fi
 # No unsolicited output: the host sets raw mode before requesting a report.
 while :; do
  if [ -c /dev/ttyGS0 ]; then

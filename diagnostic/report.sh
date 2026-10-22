@@ -64,6 +64,9 @@ done
 if [ -x /bin/panelbus-report ]; then
  /bin/busybox sh /bin/panelbus-report
 fi
+if [ -x /bin/display-report ]; then
+ /bin/busybox sh /bin/display-report
+fi
 /bin/busybox printf 'XOOM_DMESG_BEGIN\n'
 /bin/busybox dmesg
 /bin/busybox printf 'XOOM_DMESG_END\nXOOM_FRESH_REPORT_DONE %s\n' "$nonce"
