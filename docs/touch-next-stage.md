@@ -1,3 +1,5 @@
+> **Update, 23 October 2026:** The isolated plan below was implemented as image 32. Android Welcome responds to touch, and read-only evdev samples verify presses, releases, movement and two active contacts. See [physical result](trace-boot-attempt-32.md). Full edge calibration and suspend remain pending.
+
 # Isolated touch stage after the first Android boot
 
 Source audit, 22 October 2026. Image 31 boots Android to Welcome, but deliberately
