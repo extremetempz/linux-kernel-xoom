@@ -1,0 +1,25 @@
+From a8a2681902796e1aeabad72ace9c6574872e2ab7 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 17:23:41 +1100
+Subject: [PATCH] ARM: tegra: identify shared-pull display candidate 29
+
+---
+ arch/arm/configs/wingray_display_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/configs/wingray_display_defconfig b/arch/arm/configs/wingray_display_defconfig
+index 34352b24..b3ed59c7 100644
+--- a/arch/arm/configs/wingray_display_defconfig
++++ b/arch/arm/configs/wingray_display_defconfig
+@@ -72,7 +72,7 @@ CONFIG_PSTORE_RAM=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_PROGRESS=y
+ CONFIG_MOTOROLA_XOOM_BOOT_TRACE_PAGE_WINDOW=y
+-CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001c
++CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001d
+ 
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+-- 
+2.43.0
+

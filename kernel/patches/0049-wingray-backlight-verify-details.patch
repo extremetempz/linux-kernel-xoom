@@ -1,0 +1,54 @@
+From 6f2c4e9d0802fdf856073dd37e7bd0c80abe2d4c Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 17:23:40 +1100
+Subject: [PATCH] backlight: report Wingray production-register rejection
+ precisely
+
+---
+ drivers/video/backlight/lp855x_bl.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/video/backlight/lp855x_bl.c b/drivers/video/backlight/lp855x_bl.c
+index 4b4948d3..561fb686 100644
+--- a/drivers/video/backlight/lp855x_bl.c
++++ b/drivers/video/backlight/lp855x_bl.c
+@@ -103,21 +103,30 @@ static int lp855x_wingray_setup(struct lp855x *lp)
+ static int lp855x_wingray_verify(struct lp855x *lp)
+ {
+ 	static const u8 production[] = { 0x67, 0xbf, 0x3f, 0x08, 0xea, 0x64, 0x2a };
+-	int value, i;
++	int value, i, mismatch = 0;
+ 
+ 	value = i2c_smbus_read_byte_data(lp->client, 0x03);
+-	if (value < 0)
++	if (value < 0) {
++		dev_err(lp->dev, "P3 chip-ID read failed: %d\n", value);
+ 		return value;
+-	if (value != 0xfc)
++	}
++	if (value != 0xfc) {
++		dev_err(lp->dev, "P3 chip ID %02x, expected fc\n", value);
+ 		return -ENODEV;
++	}
+ 	for (i = 0; i < ARRAY_SIZE(production); i++) {
+ 		value = i2c_smbus_read_byte_data(lp->client, 0xa1 + i);
+-		if (value < 0)
++		if (value < 0) {
++			dev_err(lp->dev, "P3 register %02x read failed: %d\n",
++				0xa1 + i, value);
+ 			return value;
++		}
++		dev_info(lp->dev, "P3 register %02x=%02x, expected %02x\n",
++			 0xa1 + i, value, production[i]);
+ 		if (value != production[i])
+-			return -EINVAL;
++			mismatch = 1;
+ 	}
+-	return 0;
++	return mismatch ? -EINVAL : 0;
+ }
+ 
+ static int lp855x_wingray_brightness(struct lp855x *lp, unsigned int brightness)
+-- 
+2.43.0
+
