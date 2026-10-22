@@ -19,9 +19,12 @@ parser.add_argument('--panic-seconds', type=int, default=0,
 parser.add_argument('--legacy-shell', action='store_true',
                     help='Reproduce the historical unsolicited report/interactive shell (not the default framed reporter)')
 parser.add_argument('--panelbus', action='store_true', help='Include fixed Wingray panel-bus readback; requires the isolated panelbus kernel')
+parser.add_argument('--display', action='store_true', help='Include one-shot framebuffer color bars and read-only metadata; requires the display kernel')
 args = parser.parse_args()
-if args.panelbus and (args.legacy_shell or args.android_runtime):
-    parser.error('Panel-bus readback requires the framed standalone diagnostic')
+if (args.panelbus or args.display) and (args.legacy_shell or args.android_runtime):
+    parser.error('Hardware readback requires the framed standalone diagnostic')
+if args.panelbus and args.display:
+    parser.error('Display owns the backlight bus; raw panel-bus readback is excluded')
 if args.android_runtime:
     args.static_busybox = None
     args.legacy_shell = True
@@ -115,6 +118,20 @@ if args.panelbus:
         assert f'CONFIG_{option}=y' in config
     assert b'i2cget\0' in (files['bin/busybox']).read_bytes(), 'Pinned runtime must include i2cget'
     diagnostic_files['bin/panelbus-report'] = (root/'diagnostic/panelbus-report.sh').read_bytes()
+if args.display:
+    subprocess.run(['python3',str(root/'scripts/verify-kernel.py'),str(args.kernel_dir),'display'],check=True)
+    pattern=args.kernel_dir/'display-pattern'
+    manifest=json.loads((args.kernel_dir/'display-pattern-manifest.json').read_text())
+    assert hashlib.sha256(pattern.read_bytes()).hexdigest() == manifest['sha256']
+    assert hashlib.sha256((root/'diagnostic/display-pattern.c').read_bytes()).hexdigest() == manifest['source_sha256']
+    ph=subprocess.check_output(['readelf','-lW',str(pattern)],text=True)
+    pd=subprocess.check_output(['readelf','-dW',str(pattern)],text=True)
+    pa=subprocess.check_output(['readelf','-A',str(pattern)],text=True)
+    assert 'INTERP' not in ph and '(NEEDED)' not in pd
+    assert 'Tag_CPU_arch: v7' in pa and 'Tag_Advanced_SIMD_arch:' not in pa
+    files['bin/display-pattern']=pattern
+    diagnostic_files['bin/display-start']=(root/'diagnostic/display-start.sh').read_bytes()
+    diagnostic_files['bin/display-report']=(root/'diagnostic/display-report.sh').read_bytes()
 archive = bytearray(); ino = 0
 def add(name, mode, data=b'', major=0, minor=0):
  global ino
@@ -140,6 +157,8 @@ header[:8] = b'ANDROID!'
 struct.pack_into('<10I',header,8,len(kernel),ka,len(ramdisk),ra,0,sa,tags,page,0,0)
 header[48:48+len(b'wingray-diag')] = b'wingray-diag'
 cmd = f'androidboot.carrier=wifi-only product_type=w rdinit=/init panic={args.panic_seconds}'.encode()
+if args.display:
+    cmd += b' drm.debug=0x06'
 header[64:64+len(cmd)] = cmd
 h = hashlib.sha1()
 for data in (kernel,ramdisk,b''):

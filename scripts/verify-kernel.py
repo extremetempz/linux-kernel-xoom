@@ -6,9 +6,10 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus')
+assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus', 'display')
 image = (artifacts / 'zImage').read_bytes()
-dtname = ('tegra20-motorola-wingray-panelbus' if profile == 'panelbus' else
+dtname = ('tegra20-motorola-wingray-display' if profile == 'display' else
+          'tegra20-motorola-wingray-panelbus' if profile == 'panelbus' else
           'tegra20-motorola-wingray-diagnostic' if profile == 'diagnostic' else
           'tegra20-motorola-wingray-early' if profile in ('early', 'trace') else 'tegra20-motorola-wingray')
 dtb = (artifacts / (dtname + '.dtb')).read_bytes()
@@ -50,10 +51,10 @@ assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
 pinmux_phandle = nodes['/pinmux@70000014'].get('phandle') or nodes['/pinmux@70000014']['linux,phandle']
 assert struct.unpack('>4I', nodes['/gpio@6000d000']['gpio-ranges']) == (struct.unpack('>I', pinmux_phandle)[0], 0, 0, 224)
 
-if profile in ('diagnostic', 'panelbus'):
+if profile in ('diagnostic', 'panelbus', 'display'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'NET',
-                   'INPUT', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC',
+                   'INPUT', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC', 'TEGRA_IOMMU_GART',
                    'CPU_FREQ', 'CPU_IDLE', 'SUSPEND']:
         assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
     for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM',
@@ -64,11 +65,15 @@ if profile in ('diagnostic', 'panelbus'):
         assert f'CONFIG_{option}=y' in config, option
     for node in ['/sdhci@c8000600', '/usb@c5000000', '/usb-phy@c5000000']:
         assert nodes[node]['status'] == b'okay\0', node
-    assert nodes['/host1x@50000000']['status'] == b'disabled\0'
+    if profile != 'display':
+        assert 'CONFIG_DRM=y' not in config and 'CONFIG_DRM=m' not in config
+        assert nodes['/host1x@50000000']['status'] == b'disabled\0'
     assert nodes['/usb@c5000000']['compatible'] == b'nvidia,tegra20-udc\0'
     assert nodes['/usb-phy@c5000000']['dr_mode'] == b'peripheral\0'
     assert 'motorola,xoom-bigpart' in nodes['/sdhci@c8000600']
-    assert '/panel' not in nodes and '/i2c@7000c000/touchscreen@5b' not in nodes
+    assert '/i2c@7000c000/touchscreen@5b' not in nodes
+    if profile != 'display':
+        assert '/panel' not in nodes
     for node in ['/gpio@6000d000/usb-data-enable', '/gpio@6000d000/usb-forceon-n']:
         assert 'gpio-hog' in nodes[node] and 'output-high' in nodes[node]
     for name, region in [('/reserved-memory/legacy-video@2e800000', (0x2e800000, 0x11800000)),
@@ -79,13 +84,14 @@ if profile in ('diagnostic', 'panelbus'):
     names = {line.split()[-1] for line in symbols if len(line.split()) == 3}
     for name in ['tegra_usb_phy_probe', 'tegra_udc_probe', 'devm_usb_get_phy_by_phandle']:
         assert name in names, 'Missing actual USB PHY implementation: ' + name
-    if profile == 'panelbus':
+    if profile in ('panelbus', 'display'):
         for option in ['I2C', 'I2C_TEGRA', 'I2C_CHARDEV', 'REGULATOR', 'REGULATOR_FIXED_VOLTAGE']:
             assert f'CONFIG_{option}=y' in config, option
-        assert 'CONFIG_BACKLIGHT_LP855X=y' not in config and 'CONFIG_BACKLIGHT_LP855X=m' not in config
+        if profile == 'panelbus':
+            assert 'CONFIG_BACKLIGHT_LP855X=y' not in config and 'CONFIG_BACKLIGHT_LP855X=m' not in config
         assert nodes['/i2c@7000c000']['status'] == b'okay\0'
         assert nodes['/aliases']['i2c0'] == b'/i2c@7000c000\0'
-        assert not any(n.startswith('/i2c@7000c000/') for n in nodes)
+        assert [n for n in nodes if n.startswith('/i2c@7000c000/')] == (['/i2c@7000c000/backlight@2c'] if profile == 'display' else [])
         rail = nodes['/panel-power']
         assert struct.unpack('>III', rail['gpio'])[1:] == (10, 0)
         assert 'enable-active-high' in rail and 'regulator-boot-on' in rail and 'regulator-always-on' in rail
@@ -98,6 +104,44 @@ if profile in ('diagnostic', 'panelbus'):
         assert nodes['/pinmux@70000014']['pinctrl-0'] == nodes['/pinmux@70000014/panelbus-mux']['phandle']
         assert '/backlight-gate' not in nodes and '/spi@7000d400/pmic@0' not in nodes
         assert 'tegra_i2c_probe' in names and 'reg_fixed_voltage_probe' in names
+        if profile == 'display':
+            for option in ['DRM', 'DRM_TEGRA', 'DRM_TEGRA_FBDEV', 'DRM_PANEL_SIMPLE', 'BACKLIGHT_LP855X', 'DMA_CMA']:
+                assert f'CONFIG_{option}=y' in config, option
+            assert 'CONFIG_CMA_SIZE_MBYTES=16' in config
+            assert 'CONFIG_LOCALVERSION="-wingray-display"' in config
+            assert 'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001d' in config
+            assert nodes['/panel']['compatible'] == b'motorola,wingray-auo-panel\0'
+            backlight = nodes['/i2c@7000c000/backlight@2c']
+            assert backlight['compatible'].split(b'\0')[:2] == [b'motorola,wingray-p3-lp8550', b'ti,lp8550']
+            assert backlight['dev-ctrl'] == b'\x03' and backlight['init-brt'] == b'\x80'
+            assert backlight['power-supply'] == nodes['/panel']['power-supply'] == rail['phandle']
+            assert nodes['/panel']['backlight'] == backlight['phandle']
+            host = '/host1x@50000000'
+            assert nodes[host]['status'] == b'okay\0'
+            dc = nodes[host+'/dc@54200000']
+            assert dc['status'] == b'okay\0'
+            clock = nodes['/clock@60006000']['phandle']
+            c = struct.unpack('>I', clock)[0]
+            # TEGRA20_CLK_DISP1=27, PLL_C=114 from the pinned binding.
+            assert struct.unpack('>4I',dc['clocks']) == (c,27,c,114)
+            assert struct.unpack('>2I',dc['assigned-clocks']) == (c,114)
+            assert struct.unpack('>I',dc['assigned-clock-rates']) == (598000000,)
+            assert nodes[host+'/dc@54200000/rgb']['status'] == b'okay\0'
+            assert nodes[host+'/dc@54200000/rgb']['nvidia,panel'] == nodes['/panel']['phandle']
+            for disabled in ['mpe@54040000','vi@54080000','epp@540c0000','isp@54100000','gr2d@54140000','gr3d@54180000','dc@54240000','hdmi@54280000']:
+                assert nodes[host+'/'+disabled]['status'] == b'disabled\0', disabled
+            groups = [p for n,p in nodes.items() if n.startswith('/pinmux@70000014/panelbus-mux/') and p.get('nvidia,function') == b'displaya\0']
+            assert len(groups) == 31
+            assert all('nvidia,pull' not in p for p in groups), 'LCD mux groups have no per-signal pull controls'
+            data_pulls = nodes['/pinmux@70000014/panelbus-mux/display-data-pulls']
+            control_pulls = nodes['/pinmux@70000014/panelbus-mux/display-control-pulls']
+            assert data_pulls['nvidia,pins'].split(b'\0')[:-1] == [b'ld17_0',b'ld19_18',b'ld21_20',b'ld23_22']
+            assert struct.unpack('>I',data_pulls['nvidia,pull']) == (1,)
+            assert control_pulls['nvidia,pins'].split(b'\0')[:-1] == [b'lc',b'ls']
+            assert struct.unpack('>I',control_pulls['nvidia,pull']) == (2,)
+            assert 'lp855x_probe' in names and 'tegra_dc_probe' in names and 'tegra_dc_rgb_init' in names
+            print('Verified display profile: UP/USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/touch/PMIC disabled.')
+            sys.exit(0)
         print('Verified panel-bus profile: same UP/USB/MMC gates; PB2 shared supply and I2C1 only; no display/backlight/touch/network or PMIC control.')
         sys.exit(0)
     else:
@@ -106,7 +150,7 @@ if profile in ('diagnostic', 'panelbus'):
 if profile in ('early', 'trace'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'BLOCK',
-                   'MMC', 'USB', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC']:
+                   'MMC', 'USB', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC', 'TEGRA_IOMMU_GART']:
         assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
     for node in ['/host1x@50000000', '/sdhci@c8000600', '/usb@c5000000', '/usb-phy@c5000000']:
         assert nodes[node]['status'] == b'disabled\0', node
