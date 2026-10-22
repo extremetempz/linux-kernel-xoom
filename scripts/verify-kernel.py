@@ -6,9 +6,13 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
+android44 = profile == 'android44'
+if android44:
+    profile = 'display'
 assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus', 'display')
 image = (artifacts / 'zImage').read_bytes()
-dtname = ('tegra20-motorola-wingray-display' if profile == 'display' else
+dtname = ('tegra20-motorola-wingray-android44' if android44 else
+          'tegra20-motorola-wingray-display' if profile == 'display' else
           'tegra20-motorola-wingray-panelbus' if profile == 'panelbus' else
           'tegra20-motorola-wingray-diagnostic' if profile == 'diagnostic' else
           'tegra20-motorola-wingray-early' if profile in ('early', 'trace') else 'tegra20-motorola-wingray')
@@ -53,10 +57,19 @@ assert struct.unpack('>4I', nodes['/gpio@6000d000']['gpio-ranges']) == (struct.u
 
 if profile in ('diagnostic', 'panelbus', 'display'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
-    for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'NET',
+    for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS',
                    'INPUT', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC', 'TEGRA_IOMMU_GART',
                    'CPU_FREQ', 'CPU_IDLE', 'SUSPEND']:
         assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
+    if android44:
+        for option in ['NET','UNIX','INET','IPV6','ANDROID','ANDROID_BINDER_IPC','ANDROID_BINDER_IPC_32BIT','ASHMEM','ANDROID_LOGGER','SYNC','CGROUPS','CGROUP_CPUACCT','CGROUP_SCHED','FUSE_FS']:
+            assert f'CONFIG_{option}=y' in config, option
+        assert 'CONFIG_ANDROID_BINDER_DEVICES="binder"' in config
+        assert 'CONFIG_NETDEVICES=y' not in config and 'CONFIG_NETDEVICES=m' not in config
+        assert 'CONFIG_WIRELESS=y' not in config
+        assert 'motorola,xoom-firstboot-ro' in nodes['/sdhci@c8000600']
+    else:
+        assert 'CONFIG_NET=y' not in config and 'CONFIG_NET=m' not in config
     for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM',
                    'MOTOROLA_XOOM_BOOT_TRACE', 'MOTOROLA_XOOM_BIGPART',
                    'MMC_BLOCK', 'MMC_SDHCI_TEGRA', 'USB_CHIPIDEA_UDC',
@@ -108,8 +121,8 @@ if profile in ('diagnostic', 'panelbus', 'display'):
             for option in ['DRM', 'DRM_TEGRA', 'DRM_TEGRA_FBDEV', 'DRM_PANEL_SIMPLE', 'BACKLIGHT_LP855X', 'DMA_CMA']:
                 assert f'CONFIG_{option}=y' in config, option
             assert 'CONFIG_CMA_SIZE_MBYTES=16' in config
-            assert 'CONFIG_LOCALVERSION="-wingray-display"' in config
-            assert 'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001d' in config
+            assert ('CONFIG_LOCALVERSION="-wingray-android44"' if android44 else 'CONFIG_LOCALVERSION="-wingray-display"') in config
+            assert ('CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001e' if android44 else 'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001d') in config
             assert nodes['/panel']['compatible'] == b'motorola,wingray-auo-panel\0'
             backlight = nodes['/i2c@7000c000/backlight@2c']
             assert backlight['compatible'].split(b'\0')[:2] == [b'motorola,wingray-p3-lp8550', b'ti,lp8550']
@@ -140,6 +153,10 @@ if profile in ('diagnostic', 'panelbus', 'display'):
             assert control_pulls['nvidia,pins'].split(b'\0')[:-1] == [b'lc',b'ls']
             assert struct.unpack('>I',control_pulls['nvidia,pull']) == (2,)
             assert 'lp855x_probe' in names and 'tegra_dc_probe' in names and 'tegra_dc_rgb_init' in names
+            if android44:
+                for name in ['binder_init','ashmem_init','logger_write_iter']:
+                    assert name in names, name
+                print('Verified Android4.4 prerequisites: legacy32 Binder, ashmem, cgroups and core sockets; this does not prove Android startup.')
             print('Verified display profile: UP/USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/touch/PMIC disabled.')
             sys.exit(0)
         print('Verified panel-bus profile: same UP/USB/MMC gates; PB2 shared supply and I2C1 only; no display/backlight/touch/network or PMIC control.')
