@@ -1,5 +1,12 @@
 # Android lockscreen checkpoint — 22 October 2026
 
+**Historical checkpoint.** Offline development resumed afterward. The image
+builder, runtime probes and read-only Android report path are now implemented;
+see [image 30 preparation](android44-image-30-prepared.md) for the current state.
+Image 31 subsequently completed a physical Android 4.4.4 boot to Welcome;
+see the [result](trace-boot-attempt-31.md). Both original images were fully
+verified after restoration.
+
 ## Verified milestone
 
 Image 29 displayed RGB bars on the physical MZ604; the operator confirmed seeing them. USB reports also verified the framebuffer/backlight, full eMMC capacity and all ten BigPart extents. See `trace-boot-attempt-29.md` for evidence and limitations. Android has not started under the new kernel.

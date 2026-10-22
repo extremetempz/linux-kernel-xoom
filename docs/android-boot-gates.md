@@ -4,6 +4,14 @@ Updated 22 October 2026 against the checked-out Wingray device tree and the
 working ROM's captured kernel configuration. Physical results are identified below; other
 items remain source/configuration findings, not hardware validation.
 
+The [image 30 experiment](android44-image-30-prepared.md) now packages the
+installed Android 4.4 init with an explicit legacy Binder/logger profile,
+read-only system and fresh RAM data/cache. Image 30 exposed an EventHub directory assertion. Image 31 corrected it and
+physically completed Android 4.4.4 startup to Welcome, with two fresh reports
+confirming both boot-completion flags and SystemUI. Touch remains disabled;
+see [the result](trace-boot-attempt-31.md). This remains separate from the future
+Android 8.1 ROM.
+
 1. Complete memory setup without descriptor-array overrun. Candidate 14 passed
    the lowmem-ceiling correction. Keep the retained firmware/video
    reservations and BigPart geometry unchanged.
@@ -45,7 +53,7 @@ items remain source/configuration findings, not hardware validation.
    boot logs and restoration evidence. Wi-Fi, audio, charging and suspend
    validation follow their actual drivers and board power sequencing.
 
-The diagnostic RAM disk mounts only virtual filesystems. It is intentionally
+The standalone diagnostic RAM disk mounts only virtual filesystems. It is intentionally
 separate from installed Android init, so an early diagnostic success must not
 be described as a working Android ROM.
 
