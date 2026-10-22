@@ -1,0 +1,214 @@
+From c5368d2889efb9738a87c42cff0577347e927b96 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 17:23:17 +1100
+Subject: [PATCH] ARM: tegra: use shared Tegra20 LCD pull groups
+
+---
+ .../dts/tegra20-motorola-wingray-display.dts  | 40 +++++--------------
+ 1 file changed, 9 insertions(+), 31 deletions(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-display.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-display.dts
+index fdca8353..caf5129f 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-display.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-display.dts
+@@ -13,188 +13,166 @@
+ 				nvidia,pins = "ld0";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld1 {
+ 				nvidia,pins = "ld1";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld10 {
+ 				nvidia,pins = "ld10";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld11 {
+ 				nvidia,pins = "ld11";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld12 {
+ 				nvidia,pins = "ld12";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld13 {
+ 				nvidia,pins = "ld13";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld14 {
+ 				nvidia,pins = "ld14";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld15 {
+ 				nvidia,pins = "ld15";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld16 {
+ 				nvidia,pins = "ld16";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld17 {
+ 				nvidia,pins = "ld17";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld2 {
+ 				nvidia,pins = "ld2";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld3 {
+ 				nvidia,pins = "ld3";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld4 {
+ 				nvidia,pins = "ld4";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld5 {
+ 				nvidia,pins = "ld5";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld6 {
+ 				nvidia,pins = "ld6";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld7 {
+ 				nvidia,pins = "ld7";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld8 {
+ 				nvidia,pins = "ld8";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ld9 {
+ 				nvidia,pins = "ld9";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			ldi {
+ 				nvidia,pins = "ldi";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			lhp0 {
+ 				nvidia,pins = "lhp0";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			lhp1 {
+ 				nvidia,pins = "lhp1";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			lhp2 {
+ 				nvidia,pins = "lhp2";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			lhs {
+ 				nvidia,pins = "lhs";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
+ 			lpp {
+ 				nvidia,pins = "lpp";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			lpw0 {
+ 				nvidia,pins = "lpw0";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
+ 			lpw2 {
+ 				nvidia,pins = "lpw2";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
+ 			lsc0 {
+ 				nvidia,pins = "lsc0";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
+ 			lsc1 {
+ 				nvidia,pins = "lsc1";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
+ 			lspi {
+ 				nvidia,pins = "lspi";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
+ 			lvp1 {
+ 				nvidia,pins = "lvp1";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <1>;
+ 			};
+ 			lvs {
+ 				nvidia,pins = "lvs";
+ 				nvidia,function = "displaya";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <2>;
+ 			};
++   /* Tegra20 exposes shared pull groups separately from per-pin muxes. */
++   display-data-pulls {
++    nvidia,pins = "ld17_0", "ld19_18", "ld21_20", "ld23_22";
++    nvidia,pull = <1>;
++   };
++   display-control-pulls {
++    nvidia,pins = "lc", "ls";
++    nvidia,pull = <2>;
++   };
+   };
+  };
+  i2c@7000c000 {
+-- 
+2.43.0
+
