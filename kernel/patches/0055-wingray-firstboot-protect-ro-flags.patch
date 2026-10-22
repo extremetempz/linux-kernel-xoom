@@ -1,0 +1,30 @@
+From 400dbc8e5179b641099a84fc1da0c6cd938aa8a0 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 22 Oct 2026 21:56:36 +1100
+Subject: [PATCH] mmc: preserve Wingray first-boot read-only flags against
+ BLKROSET
+
+---
+ drivers/mmc/card/block.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
+index 6504bd2d..e7a3ed1c 100644
+--- a/drivers/mmc/card/block.c
++++ b/drivers/mmc/card/block.c
+@@ -968,8 +968,10 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
+ {
+ 	struct mmc_blk_data *md = bdev->bd_disk->private_data;
+ 
+-	/* Raw MMC commands can program media even through an O_RDONLY fd. */
+-	if ((cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD) && md &&
++	/* Raw commands can program media through an O_RDONLY fd. BLKROSET
++	 * otherwise falls back to generic set_device_ro() after -EINVAL.
++	 */
++	if ((cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD || cmd == BLKROSET) && md &&
+ 	    mmc_wingray_firstboot_ro(md->queue.card))
+ 		return -EROFS;
+ 	switch (cmd) {
+-- 
+2.43.0
+
