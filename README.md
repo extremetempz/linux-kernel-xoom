@@ -1,11 +1,12 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
-**Latest result, 21 October 2026:** Linux 4.4 boots diagnostic userspace with USB
-serial. Image 26 passed two fresh checksummed reports matching the working
-kernel's full eMMC capacity and all ten BigPart partition extents. Original
-boot and recovery are fully verified after restoration. Android under Linux
-4.4, display/input and power management remain unverified. See the
-[image-26 result](docs/trace-boot-attempt-26.md) and [next stages](docs/next-porting-stage.md).
+**Latest result, 22 October 2026:** Image 27 retains Linux 4.4 USB serial and
+matching full eMMC capacity/all ten BigPart extents. Two fresh checksummed
+reports also completed twelve fixed LP8550 register reads with the expected
+chip identity; the shared panel regulator owns PB2 output-high. Original boot
+and recovery are fully verified after restoration. Android under Linux 4.4,
+display takeover, backlight control and touch remain unverified. See the
+[image-27 result](docs/trace-boot-attempt-27.md) and [next stages](docs/next-porting-stage.md).
 
 Kernel bring-up workspace, prepared 18 October 2026.
 
