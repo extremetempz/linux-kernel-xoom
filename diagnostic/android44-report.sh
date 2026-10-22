@@ -54,6 +54,15 @@ done
 echo "XOOM_ANDROID44_SDCARD_RAM_SOURCE $sdcard"
 echo XOOM_ANDROID44_POLICY_END_V1
 
+echo XOOM_ANDROID44_INPUT_BEGIN
+if [ -d /dev/input ]; then
+ echo XOOM_ANDROID44_INPUT_DIRECTORY present
+ /bin/busybox ls -ld /dev/input
+else
+ echo XOOM_ANDROID44_INPUT_DIRECTORY missing
+fi
+echo XOOM_ANDROID44_INPUT_END
+
 # Files must be regular files, not final-component symlinks. All paths below
 # are fixed, and file contents are capped even if a failing service floods RAM.
 bounded_file() {
