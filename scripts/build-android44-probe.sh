@@ -30,7 +30,7 @@ assert not subprocess.check_output(['nm','-u',str(p)],text=True).strip()
  'sha256':hashlib.sha256(elf).hexdigest(),
  'source_sha256':hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest(),
  'expected_binder_protocol':7,'physical_execution':False,
- 'purpose':'draft pre-init Binder, ashmem, sockets and logger gate plus fixed-path read-only open checks and NULL-payload MMC ioctl rejection; no writes or mounts',
+ 'purpose':'pre-init Binder, ashmem, sockets and logger gate plus fixed-path read-only open checks and NULL-payload MMC/BLKROSET rejection; no block writes or mounts',
 },indent=2)+'\n')
 print('Compiled static non-NEON Android4.4 ABI gate; hardware execution pending.')
 PY

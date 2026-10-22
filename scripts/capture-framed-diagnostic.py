@@ -22,6 +22,8 @@ p.add_argument('--port', type=Path, help='Expected gadget ttyACM node; autodetec
 p.add_argument('--expected-geometry', type=Path, default=root/'artifacts/hardware-private/geometry.txt')
 p.add_argument('--expected-disk-sectors', type=int)
 p.add_argument('--report-timeout', type=int, default=45)
+p.add_argument('--storage-mode', choices=('virtual-only', 'android44-readonly'), default='virtual-only',
+               help='Explicit opt-in for the isolated Android44 RAM-data/read-only-system experiment')
 a = p.parse_args()
 if not 25 <= a.report_timeout <= 60:
     p.error('report-timeout must be between 25 and 60 seconds')
@@ -57,7 +59,8 @@ except PermissionError:
 nonce = secrets.token_hex(16)
 status = {'state': 'started', 'nonce': nonce,
           'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-          'requests': ['PING', 'REPORT'], 'arbitrary_shell_commands': False}
+          'requests': ['PING', 'REPORT'], 'arbitrary_shell_commands': False,
+          'storage_mode': a.storage_mode}
 try:
     out.mkdir(parents=True, exist_ok=False)
     tty.setraw(fd, termios.TCSANOW)
@@ -72,9 +75,10 @@ try:
         write_request(fd, 'REPORT', nonce)
         payload = receive_report(fd, nonce, timeout=a.report_timeout, record=wire.write)
     (out/'report-private.txt').write_bytes(payload)
-    geometry = storage_result(payload, expected, a.expected_disk_sectors)
+    status.update(report_integrity='verified', bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+    geometry = storage_result(payload, expected, a.expected_disk_sectors, a.storage_mode)
     (out/'storage-result-private.json').write_text(json.dumps(geometry, indent=2)+'\n')
-    status.update(state='verified', bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest(), storage_state=geometry['state'])
+    status.update(state='verified', storage_state=geometry['state'])
     print('Report integrity verified. Storage result: '+geometry['state'], flush=True)
 except Exception as exc:
     status.update(state='failed', error=f'{type(exc).__name__}: {exc}')

@@ -1,6 +1,7 @@
 """Bounded, nonce-correlated diagnostic transport. No device writes beyond fixed requests."""
 import base64
 import binascii
+from collections import Counter
 import hashlib
 import os
 from pathlib import Path
@@ -139,16 +140,167 @@ def expected_geometry(path):
         result[match[1]] = (int(lines[index+1]), int(lines[index+2]))
     return result
 
-def storage_result(payload, expected, disk_sectors=None):
-    text = payload.decode('utf-8', errors='replace')
-    mounts = re.search(r'^XOOM_MOUNTS_BEGIN\n(.*?)^XOOM_MOUNTS_END\n', text, re.M | re.S)
-    if not mounts:
-        raise ProtocolError('Mount-state evidence is missing')
-    virtual = {'rootfs', 'proc', 'sysfs', 'devtmpfs', 'tmpfs', 'devpts', 'debugfs', 'pstore'}
-    for line in mounts[1].splitlines():
+def _section(text, begin, end):
+    """Require one complete metadata section, rather than accept stale duplicates."""
+    if text.count(begin + '\n') != 1 or text.count(end + '\n') != 1:
+        raise ProtocolError('Missing or duplicate ' + begin + ' section')
+    match = re.search(r'^' + re.escape(begin) + r'\n(.*?)^' + re.escape(end) + r'\n',
+                      text, re.M | re.S)
+    if not match:
+        raise ProtocolError('Malformed ' + begin + ' section')
+    return match[1]
+
+
+def _mountinfo(text):
+    records = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
         fields = line.split()
-        if len(fields) < 4 or fields[2] not in virtual:
-            raise ProtocolError('Unexpected nonvirtual mount in diagnostic report')
+        try:
+            separator = fields.index('-')
+        except ValueError as exc:
+            raise ProtocolError('Malformed Android mountinfo') from exc
+        if (separator < 6 or len(fields) != separator + 4
+                or not fields[0].isdigit() or not fields[1].isdigit()
+                or not re.fullmatch(r'[0-9]+:[0-9]+', fields[2])):
+            raise ProtocolError('Malformed Android mountinfo')
+        records.append({'device': fields[2], 'root': fields[3], 'target': fields[4],
+                        'options': set(fields[5].split(',')), 'fstype': fields[separator+1],
+                        'source': fields[separator+2],
+                        'super_options': set(fields[separator+3].split(','))})
+    return records
+
+
+def _android44_mount_policy(text, mounts):
+    """Validate the isolated, RAM-data Android experiment, never general ROM mounts.
+
+    This is evidence validation, not an additional device write-protection layer.
+    Snapshots are not atomic; a bootstrap mount transition may require a new report.
+    """
+    if re.findall(r'^XOOM_ANDROID44_REPORT_DONE_V1$', text, re.M) != ['XOOM_ANDROID44_REPORT_DONE_V1']:
+        raise ProtocolError('Android report helper did not complete exactly once')
+    policy = _section(text, 'XOOM_ANDROID44_POLICY_BEGIN_V1', 'XOOM_ANDROID44_POLICY_END_V1')
+    if re.findall(r'^XOOM_ANDROID44_RELEASE (.*)$', policy, re.M) != ['4.4.147-wingray-android44']:
+        raise ProtocolError('Android read-only mode requires the exact Android44 kernel release')
+    if re.findall(r'^XOOM_ANDROID44_BOARD (.*)$', policy, re.M) != ['motorola,wingray']:
+        raise ProtocolError('Android read-only mode requires the Wingray board identity')
+    wanted = {'mmcblk0', *(f'mmcblk0p{i}' for i in range(1, 11))}
+    flags = re.findall(r'^XOOM_ANDROID44_BLOCK_RO (\S+) (\S+)$', policy, re.M)
+    if len(flags) != 11 or dict(flags) != dict.fromkeys(wanted, '1'):
+        raise ProtocolError('Android mode requires all eleven eMMC read-only flags')
+    info = _mountinfo(_section(policy, 'XOOM_ANDROID44_MOUNTINFO_BEGIN',
+                              'XOOM_ANDROID44_MOUNTINFO_END'))
+    if Counter((m['source'], m['target'], m['fstype']) for m in info) != Counter(
+            (m[0], m[1], m[2]) for m in mounts):
+        raise ProtocolError('Android mounts and mountinfo snapshots disagree; request a fresh report')
+
+    by_target = {}
+    for record in info:
+        by_target.setdefault(record['target'], []).append(record)
+
+    def unique(target, required=False):
+        records = by_target.get(target, [])
+        if len(records) > 1 or (required and len(records) != 1):
+            raise ProtocolError('Missing or stacked Android mount: ' + target)
+        return records[0] if records else None
+
+    run = unique('/run', required=True)
+    if run['fstype'] != 'tmpfs' or run['root'] != '/':
+        raise ProtocolError('Android report workspace is not a fresh tmpfs')
+    data, cache, system = unique('/data'), unique('/cache'), unique('/system')
+    for target, record in [('/data', data), ('/cache', cache)]:
+        if record and (record['fstype'] != 'tmpfs' or record['root'] != '/'):
+            raise ProtocolError('Android ' + target + ' must be a fresh tmpfs')
+    if system and not (data and cache):
+        raise ProtocolError('Read-only Android system requires RAM data and cache')
+
+    virtual_targets = {
+        'rootfs': {'/'}, 'proc': {'/proc'}, 'sysfs': {'/sys'},
+        'devtmpfs': {'/dev'}, 'devpts': {'/dev/pts'},
+        'tmpfs': {'/dev', '/run', '/tmp', '/data', '/cache', '/mnt/asec', '/mnt/obb',
+                  '/mnt/fuse', '/sys/fs/cgroup'},
+        'debugfs': {'/sys/kernel/debug'},
+        'cgroup': {'/acct', '/dev/cpuctl', '/sys/fs/cgroup/memory'},
+    }
+    overlays = {'/system/lib/hw': '/xoom-hw', '/system/lib/egl': '/xoom-egl'}
+    seen_overlays = []
+    fuse = []
+    remaining = list(info)
+    for fields in mounts:
+        source, target, fstype, options = fields[:4]
+        record = next(record for record in remaining
+                      if (record['source'], record['target'], record['fstype']) == (source, target, fstype))
+        remaining.remove(record)
+        opts = set(options.split(','))
+        if any('\\' in item for item in (source, target, record['root'])):
+            raise ProtocolError('Escaped paths are outside the fixed Android mount policy')
+        if target == '/system':
+            if (source not in ('/dev/mmcblk0p8', '/dev/block/mmcblk0p8') or fstype != 'ext4'
+                    or not {'ro', 'nosuid', 'nodev'} <= opts or 'rw' in opts
+                    or not {'ro', 'nosuid', 'nodev'} <= record['options']
+                    or 'rw' in record['options'] or 'rw' in record['super_options']
+                    or 'ro' not in record['super_options'] or record['root'] != '/'
+                    or not {'noload', 'norecovery'} & opts
+                    or not {'noload', 'norecovery'} & record['super_options']):
+                raise ProtocolError('Android system must be fixed p8 ext4 read-only with journal replay disabled')
+        elif target in overlays:
+            if (not system or fstype != 'tmpfs' or record['device'] != run['device']
+                    or record['root'] != overlays[target] or not {'ro', 'nosuid', 'nodev'} <= opts or 'rw' in opts
+                    or not {'ro', 'nosuid', 'nodev'} <= record['options'] or 'rw' in record['options']):
+                raise ProtocolError('Android graphics overlay is not a read-only bind from the RAM workspace')
+            unique(target, required=True)
+            seen_overlays.append(target)
+        elif fstype in ('fuse', 'fuse.sdcard'):
+            if (not system or not data or source != '/dev/fuse'
+                    or not (target in ('/mnt/shell/emulated', '/storage/emulated')
+                            or re.fullmatch(r'/storage/emulated/[0-9]+', target))):
+                raise ProtocolError('Unexpected Android FUSE mount')
+            fuse.append(record)
+        elif fstype not in virtual_targets or target not in virtual_targets[fstype]:
+            raise ProtocolError('Unexpected filesystem or mount path in Android read-only report')
+        elif source.startswith('/dev/'):
+            # None of the allowed virtual mounts should name a block/device source.
+            raise ProtocolError('Unexpected device source for Android virtual filesystem')
+
+    if fuse:
+        primary = unique('/mnt/shell/emulated', required=True)
+        if (primary['fstype'] not in ('fuse', 'fuse.sdcard') or primary['root'] != '/'
+                or re.findall(r'^XOOM_ANDROID44_SDCARD_RAM_SOURCE (.*)$', policy, re.M) != ['verified']
+                or any(item['device'] != primary['device'] for item in fuse)):
+            raise ProtocolError('Android FUSE mount lacks the fixed RAM-backed sdcard process evidence')
+
+    stages = _section(text, 'XOOM_ANDROID44_STAGES_BEGIN', 'XOOM_ANDROID44_STAGES_END')
+    exec_attempted = 'XOOM_ANDROID44_STAGE exec_original_android_init' in stages.splitlines()
+    if exec_attempted and (not system or set(seen_overlays) != set(overlays)):
+        raise ProtocolError('Android init execution requires read-only system and both RAM graphics overlays')
+    return {'storage_mode': 'android44-readonly', 'android_filesystems_mounted': bool(system),
+            'ram_data_mounted': bool(data), 'ram_cache_mounted': bool(cache),
+            'readonly_graphics_overlays': sorted(seen_overlays),
+            'android_init_exec_attempted': exec_attempted,
+            'all_emmc_readonly_flags': True}
+
+
+def storage_result(payload, expected, disk_sectors=None, storage_mode='virtual-only'):
+    if storage_mode not in ('virtual-only', 'android44-readonly'):
+        raise ProtocolError('Unknown storage-report mode')
+    if storage_mode == 'android44-readonly':
+        if disk_sectors not in (None, 62521344):
+            raise ProtocolError('Android44 profile requires the verified Wingray disk capacity reference')
+        disk_sectors = 62521344
+    text = payload.decode('utf-8', errors='replace')
+    mount_lines = _section(text, 'XOOM_MOUNTS_BEGIN', 'XOOM_MOUNTS_END').splitlines()
+    mounts = [line.split() for line in mount_lines]
+    if any(len(fields) != 6 for fields in mounts):
+        raise ProtocolError('Malformed mount-state evidence')
+    virtual = {'rootfs', 'proc', 'sysfs', 'devtmpfs', 'tmpfs', 'devpts', 'debugfs', 'pstore'}
+    android = {'storage_mode': 'virtual-only', 'android_filesystems_mounted': False}
+    if storage_mode == 'android44-readonly':
+        android = _android44_mount_policy(text, mounts)
+    else:
+        for fields in mounts:
+            if fields[2] not in virtual:
+                raise ProtocolError('Unexpected nonvirtual mount in diagnostic report')
     actual = {}
     for name, start, size in re.findall(r'^XOOM_PART (mmcblk0p[0-9]+) ([0-9]+) ([0-9]+)$', text, re.M):
         if name in actual:
@@ -157,11 +309,15 @@ def storage_result(payload, expected, disk_sectors=None):
     disks = re.findall(r'^XOOM_DISK mmcblk0 ([0-9]+) ([01])$', text, re.M)
     if len(disks) > 1:
         raise ProtocolError('Duplicate disk geometry')
-    result = {'state': 'not_discovered', 'android_filesystems_mounted': False,
+    result = {'state': 'not_discovered', **android,
               'actual': actual, 'missing': sorted(set(expected)-set(actual))}
     if not disks:
+        if storage_mode == 'android44-readonly':
+            raise ProtocolError('Android mode lacks the disk geometry and read-only snapshot')
         return result
     sectors, ro = map(int, disks[0])
+    if storage_mode == 'android44-readonly' and ro != 1:
+        raise ProtocolError('Android disk read-only evidence contradicts the Android policy section')
     result.update(disk_sectors=sectors, disk_read_only=bool(ro))
     if disk_sectors is not None and sectors != disk_sectors:
         result['state'] = 'disk_capacity_mismatch'
