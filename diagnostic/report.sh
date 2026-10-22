@@ -60,6 +60,10 @@ done
 /bin/busybox printf 'XOOM_INTERRUPTS_END\nXOOM_GPIO_BEGIN\n'
 [ ! -r /sys/kernel/debug/gpio ] || /bin/busybox cat /sys/kernel/debug/gpio
 [ ! -r /sys/kernel/debug/tegra_gpio ] || /bin/busybox cat /sys/kernel/debug/tegra_gpio
-/bin/busybox printf 'XOOM_GPIO_END\nXOOM_DMESG_BEGIN\n'
+/bin/busybox printf 'XOOM_GPIO_END\n'
+if [ -x /bin/panelbus-report ]; then
+ /bin/busybox sh /bin/panelbus-report
+fi
+/bin/busybox printf 'XOOM_DMESG_BEGIN\n'
 /bin/busybox dmesg
 /bin/busybox printf 'XOOM_DMESG_END\nXOOM_FRESH_REPORT_DONE %s\n' "$nonce"
