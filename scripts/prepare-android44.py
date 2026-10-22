@@ -28,7 +28,7 @@ def check_static_arm(path, cpu):
     return data
 
 
-def checked_runtime(directory, name, source):
+def checked_runtime(directory, name, source, expected_release=None, kernel_config=None):
     path = directory / name
     manifest = json.loads((directory / f'{name}-manifest.json').read_text())
     data = check_static_arm(path, 'v7')
@@ -36,6 +36,11 @@ def checked_runtime(directory, name, source):
         raise ValueError('Stale or mismatched runtime manifest: ' + name)
     if name == 'android44-abi-probe' and manifest['expected_binder_protocol'] != 7:
         raise ValueError('Wrong Binder ABI')
+    if expected_release is not None:
+        if manifest.get('expected_release') != expected_release or expected_release.encode() + b'\0' not in data:
+            raise ValueError('Runtime compiled for a different kernel release: ' + name)
+    if kernel_config is not None and manifest.get('kernel_config_sha256') != digest(kernel_config):
+        raise ValueError('ABI probe was not built against this kernel configuration')
     return data
 
 
@@ -63,12 +68,15 @@ def main():
     parser.add_argument('--output-dir', required=True, type=Path)
     parser.add_argument('--kernel-dir', type=Path, default=ROOT / 'artifacts/candidate-30-guarded')
     parser.add_argument('--runtime-dir', type=Path, default=ROOT / 'artifacts/candidate-30-guarded')
+    parser.add_argument('--profile', choices=('android44', 'android44-touch'), default='android44')
     args = parser.parse_args()
     output = args.output_dir.resolve()
     if not output.is_relative_to((ROOT / 'artifacts').resolve()) or output.exists():
         parser.error('Require a new directory under ignored artifacts/; never overwrite evidence')
     # Every prerequisite is checked before the output directory is created.
-    subprocess.run(['python3', str(ROOT / 'scripts/verify-kernel.py'), str(args.kernel_dir), 'android44'], check=True)
+    subprocess.run(['python3', str(ROOT / 'scripts/verify-kernel.py'), str(args.kernel_dir), args.profile], check=True)
+    release = '4.4.147-wingray-' + args.profile
+    config = (args.kernel_dir / 'kernel.config').read_bytes()
     backup = (ROOT / 'artifacts/hardware-private/backup-boot.img').read_bytes()
     original = original_entries(backup)
     busybox_path = ROOT / 'artifacts/busybox-static-armv5l'
@@ -78,7 +86,7 @@ def main():
     hashes_text, hashes = system_hashes()
     files = {
         'bin/busybox': busybox,
-        'bin/android44-abi-probe': checked_runtime(args.runtime_dir, 'android44-abi-probe', ROOT / 'diagnostic/android44-abi-probe.c'),
+        'bin/android44-abi-probe': checked_runtime(args.runtime_dir, 'android44-abi-probe', ROOT / 'diagnostic/android44-abi-probe.c', release, config),
         'bin/display-pattern': checked_runtime(args.runtime_dir, 'display-pattern', ROOT / 'diagnostic/display-pattern.c'),
         'bin/android44-system-sha256': hashes_text,
     }
@@ -89,6 +97,9 @@ def main():
         'bin/diagnostic-report': 'report.sh', 'bin/android44-report': 'android44-report.sh',
         'bin/display-report': 'display-report.sh',
     }
+    if args.profile == 'android44-touch':
+        files['bin/touch-events'] = checked_runtime(args.runtime_dir, 'touch-events', ROOT / 'diagnostic/touch-events.c', release, config)
+        helpers['bin/touch-report'] = 'touch-report.sh'
     for name, source in helpers.items():
         path = ROOT / 'diagnostic' / source
         subprocess.run(['bash', '-n', str(path)], check=True)
@@ -101,6 +112,8 @@ def main():
     manifest = {
         'purpose': 'offline-prepared Android 4.4 RAM-data experiment; no device operations',
         'hardware_tested': False, 'android_booted': False,
+        'kernel_profile': args.profile, 'expected_kernel_release': release,
+        'touch_diagnostics': args.profile == 'android44-touch',
         'storage_mode': 'android44-readonly',
         'storage_policy': 'software read-only eMMC; system ro,noload; tmpfs data/cache; no persistent writes intended',
         'graphics_policy': 'fixed RGB mode; RAM-only default HAL and exact software GLES overlay; custom ROM fallback untested',
@@ -112,7 +125,7 @@ def main():
         'archive': [{'name': e.name, 'mode': oct(e.mode), 'uid': e.uid, 'gid': e.gid,
                      'size': len(e.data), 'sha256': digest(e.data)} for e in entries.values()],
         'limits': ['No target Android startup or ABI validation yet.',
-                   'No touch, GPU acceleration, wake alarms or suspend validation.',
+                   'Input is experimental only in the touch profile; GPU acceleration/wake alarms/suspend remain unvalidated.',
                    'RAM data is temporary; first DEX generation may exceed available memory.',
                    'Only fixed previously saved system references are hashed, not the whole system partition.'],
     }

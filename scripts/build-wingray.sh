@@ -8,10 +8,11 @@ case "$profile" in
   early) defconfig=wingray_early_defconfig; dtname=tegra20-motorola-wingray-early; default_dest="$root/artifacts/wingray-early";;
   trace) defconfig=wingray_trace_defconfig; dtname=tegra20-motorola-wingray-early; default_dest="$root/artifacts/wingray-trace";;
   android44) defconfig=wingray_android44_defconfig; dtname=tegra20-motorola-wingray-android44; default_dest="$root/artifacts/wingray-android44";;
+  android44-touch) defconfig=wingray_android44_touch_defconfig; dtname=tegra20-motorola-wingray-android44-touch; default_dest="$root/artifacts/wingray-android44-touch";;
   display) defconfig=wingray_display_defconfig; dtname=tegra20-motorola-wingray-display; default_dest="$root/artifacts/wingray-display";;
   panelbus) defconfig=wingray_panelbus_defconfig; dtname=tegra20-motorola-wingray-panelbus; default_dest="$root/artifacts/wingray-panelbus";;
   diagnostic) defconfig=wingray_diagnostic_defconfig; dtname=tegra20-motorola-wingray-diagnostic; default_dest="$root/artifacts/wingray-diagnostic";;
-  *) echo 'XOOM_PROFILE must be peripherals, early, trace, diagnostic, panelbus, display or android44.' >&2; exit 1;;
+  *) echo 'XOOM_PROFILE must be peripherals, early, trace, diagnostic, panelbus, display, android44 or android44-touch.' >&2; exit 1;;
 esac
 dest="${XOOM_ARTIFACT_DIR:-$default_dest}"
 toolchain="${XOOM_TOOLCHAIN_DIR:-$root/toolchains/android-gcc49}"

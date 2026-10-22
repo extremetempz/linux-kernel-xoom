@@ -6,12 +6,14 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-android44 = profile == 'android44'
+touch32 = profile == 'android44-touch'
+android44 = profile in ('android44', 'android44-touch')
 if android44:
     profile = 'display'
 assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus', 'display')
 image = (artifacts / 'zImage').read_bytes()
-dtname = ('tegra20-motorola-wingray-android44' if android44 else
+dtname = ('tegra20-motorola-wingray-android44-touch' if touch32 else
+          'tegra20-motorola-wingray-android44' if android44 else
           'tegra20-motorola-wingray-display' if profile == 'display' else
           'tegra20-motorola-wingray-panelbus' if profile == 'panelbus' else
           'tegra20-motorola-wingray-diagnostic' if profile == 'diagnostic' else
@@ -58,9 +60,18 @@ assert struct.unpack('>4I', nodes['/gpio@6000d000']['gpio-ranges']) == (struct.u
 if profile in ('diagnostic', 'panelbus', 'display'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS',
-                   'INPUT', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC', 'TEGRA_IOMMU_GART',
+                   'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC', 'TEGRA_IOMMU_GART',
                    'CPU_FREQ', 'CPU_IDLE', 'SUSPEND']:
         assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
+    if not touch32:
+        assert 'CONFIG_INPUT=y' not in config and 'CONFIG_INPUT=m' not in config
+    else:
+        for option in ['INPUT', 'INPUT_EVDEV', 'INPUT_TOUCHSCREEN', 'TOUCHSCREEN_ATMEL_MXT']:
+            assert f'CONFIG_{option}=y' in config, option
+        for option in ['TOUCHSCREEN_MXT1386', 'INPUT_KEYBOARD', 'INPUT_MOUSE', 'INPUT_JOYSTICK',
+                       'INPUT_TABLET', 'INPUT_MISC', 'INPUT_JOYDEV', 'INPUT_MOUSEDEV',
+                       'SAMSUNG_INPUT', 'HID', 'USB_HID', 'SERIO', 'GAMEPORT', 'NEON']:
+            assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
     if android44:
         for option in ['NET','UNIX','INET','IPV6','ANDROID','ANDROID_BINDER_IPC','ANDROID_BINDER_IPC_32BIT','ASHMEM','ANDROID_LOGGER','SYNC','CGROUPS','CGROUP_CPUACCT','CGROUP_SCHED','FUSE_FS']:
             assert f'CONFIG_{option}=y' in config, option
@@ -84,7 +95,8 @@ if profile in ('diagnostic', 'panelbus', 'display'):
     assert nodes['/usb@c5000000']['compatible'] == b'nvidia,tegra20-udc\0'
     assert nodes['/usb-phy@c5000000']['dr_mode'] == b'peripheral\0'
     assert 'motorola,xoom-bigpart' in nodes['/sdhci@c8000600']
-    assert '/i2c@7000c000/touchscreen@5b' not in nodes
+    if not touch32:
+        assert '/i2c@7000c000/touchscreen@5b' not in nodes
     if profile != 'display':
         assert '/panel' not in nodes
     for node in ['/gpio@6000d000/usb-data-enable', '/gpio@6000d000/usb-forceon-n']:
@@ -104,7 +116,11 @@ if profile in ('diagnostic', 'panelbus', 'display'):
             assert 'CONFIG_BACKLIGHT_LP855X=y' not in config and 'CONFIG_BACKLIGHT_LP855X=m' not in config
         assert nodes['/i2c@7000c000']['status'] == b'okay\0'
         assert nodes['/aliases']['i2c0'] == b'/i2c@7000c000\0'
-        assert [n for n in nodes if n.startswith('/i2c@7000c000/')] == (['/i2c@7000c000/backlight@2c'] if profile == 'display' else [])
+        children = {n for n in nodes if n.startswith('/i2c@7000c000/')}
+        expected_children = {'/i2c@7000c000/backlight@2c'} if profile == 'display' else set()
+        if touch32:
+            expected_children.add('/i2c@7000c000/touchscreen@5b')
+        assert children == expected_children
         rail = nodes['/panel-power']
         assert struct.unpack('>III', rail['gpio'])[1:] == (10, 0)
         assert 'enable-active-high' in rail and 'regulator-boot-on' in rail and 'regulator-always-on' in rail
@@ -121,8 +137,10 @@ if profile in ('diagnostic', 'panelbus', 'display'):
             for option in ['DRM', 'DRM_TEGRA', 'DRM_TEGRA_FBDEV', 'DRM_PANEL_SIMPLE', 'BACKLIGHT_LP855X', 'DMA_CMA']:
                 assert f'CONFIG_{option}=y' in config, option
             assert 'CONFIG_CMA_SIZE_MBYTES=16' in config
-            assert ('CONFIG_LOCALVERSION="-wingray-android44"' if android44 else 'CONFIG_LOCALVERSION="-wingray-display"') in config
-            assert ('CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001e' if android44 else 'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE=0x584d001d') in config
+            release = '-wingray-android44-touch' if touch32 else '-wingray-android44' if android44 else '-wingray-display'
+            cookie = '0x584d0020' if touch32 else '0x584d001e' if android44 else '0x584d001d'
+            assert f'CONFIG_LOCALVERSION="{release}"' in config
+            assert f'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE={cookie}' in config
             assert nodes['/panel']['compatible'] == b'motorola,wingray-auo-panel\0'
             backlight = nodes['/i2c@7000c000/backlight@2c']
             assert backlight['compatible'].split(b'\0')[:2] == [b'motorola,wingray-p3-lp8550', b'ti,lp8550']
@@ -157,7 +175,28 @@ if profile in ('diagnostic', 'panelbus', 'display'):
                 for name in ['binder_init','ashmem_init','logger_write_iter']:
                     assert name in names, name
                 print('Verified Android4.4 prerequisites: legacy32 Binder, ashmem, cgroups and core sockets; this does not prove Android startup.')
-            print('Verified display profile: UP/USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/touch/PMIC disabled.')
+            if touch32:
+                touch = nodes['/i2c@7000c000/touchscreen@5b']
+                assert touch['compatible'].split(b'\0')[:-1] == [b'motorola,wingray-maxtouch', b'atmel,maxtouch']
+                assert struct.unpack('>I', touch['reg']) == (0x5b,)
+                assert touch['interrupt-parent'] == nodes['/gpio@6000d000']['phandle']
+                assert struct.unpack('>II', touch['interrupts']) == (170, 8)
+                gpio = struct.unpack('>I', nodes['/gpio@6000d000']['phandle'])[0]
+                assert struct.unpack('>III', touch['enable-gpios']) == (gpio, 74, 1)
+                assert struct.unpack('>III', touch['reset-gpios']) == (gpio, 140, 1)
+                assert touch['panel-supply'] == rail['phandle']
+                for group, pin, function, pull in [('touch-wake', 'gmd', 'gmi', 2),
+                                                   ('touch-reset', 'kbcd', 'sdio2', 2),
+                                                   ('touch-irq', 'uac', 'rsvd4', 0)]:
+                    mux = nodes['/pinmux@70000014/panelbus-mux/' + group]
+                    assert mux['nvidia,pins'] == pin.encode() + b'\0'
+                    assert mux['nvidia,function'] == function.encode() + b'\0'
+                    assert struct.unpack('>I', mux['nvidia,pull']) == (pull,)
+                    assert struct.unpack('>I', mux['nvidia,tristate']) == (0,)
+                for name in ['mxt_probe', 'evdev_connect', 'input_register_device']:
+                    assert name in names, name
+                print('Verified isolated P3 mXT/evdev profile: existing shared supply, GPIO74/140/170, three supported pin groups; hardware touch pending.')
+            print('Verified display profile: UP/USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/PMIC disabled.')
             sys.exit(0)
         print('Verified panel-bus profile: same UP/USB/MMC gates; PB2 shared supply and I2C1 only; no display/backlight/touch/network or PMIC control.')
         sys.exit(0)

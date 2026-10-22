@@ -181,7 +181,8 @@ def _android44_mount_policy(text, mounts):
     if re.findall(r'^XOOM_ANDROID44_REPORT_DONE_V1$', text, re.M) != ['XOOM_ANDROID44_REPORT_DONE_V1']:
         raise ProtocolError('Android report helper did not complete exactly once')
     policy = _section(text, 'XOOM_ANDROID44_POLICY_BEGIN_V1', 'XOOM_ANDROID44_POLICY_END_V1')
-    if re.findall(r'^XOOM_ANDROID44_RELEASE (.*)$', policy, re.M) != ['4.4.147-wingray-android44']:
+    releases = re.findall(r'^XOOM_ANDROID44_RELEASE (.*)$', policy, re.M)
+    if len(releases) != 1 or releases[0] not in ('4.4.147-wingray-android44', '4.4.147-wingray-android44-touch'):
         raise ProtocolError('Android read-only mode requires the exact Android44 kernel release')
     if re.findall(r'^XOOM_ANDROID44_BOARD (.*)$', policy, re.M) != ['motorola,wingray']:
         raise ProtocolError('Android read-only mode requires the Wingray board identity')
@@ -275,6 +276,7 @@ def _android44_mount_policy(text, mounts):
     if exec_attempted and (not system or set(seen_overlays) != set(overlays)):
         raise ProtocolError('Android init execution requires read-only system and both RAM graphics overlays')
     return {'storage_mode': 'android44-readonly', 'android_filesystems_mounted': bool(system),
+            'kernel_release': releases[0],
             'ram_data_mounted': bool(data), 'ram_cache_mounted': bool(cache),
             'readonly_graphics_overlays': sorted(seen_overlays),
             'android_init_exec_attempted': exec_attempted,
