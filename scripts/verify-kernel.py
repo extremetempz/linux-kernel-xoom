@@ -6,9 +6,10 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-assert profile in ('early', 'trace', 'peripherals', 'diagnostic')
+assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus')
 image = (artifacts / 'zImage').read_bytes()
-dtname = ('tegra20-motorola-wingray-diagnostic' if profile == 'diagnostic' else
+dtname = ('tegra20-motorola-wingray-panelbus' if profile == 'panelbus' else
+          'tegra20-motorola-wingray-diagnostic' if profile == 'diagnostic' else
           'tegra20-motorola-wingray-early' if profile in ('early', 'trace') else 'tegra20-motorola-wingray')
 dtb = (artifacts / (dtname + '.dtb')).read_bytes()
 assert struct.unpack_from('<I', image, 36)[0] == 0x016F2818, 'Invalid ARM zImage magic'
@@ -49,7 +50,7 @@ assert struct.unpack('>II', nodes['/memory']['reg']) == (0, 0x40000000)
 pinmux_phandle = nodes['/pinmux@70000014'].get('phandle') or nodes['/pinmux@70000014']['linux,phandle']
 assert struct.unpack('>4I', nodes['/gpio@6000d000']['gpio-ranges']) == (struct.unpack('>I', pinmux_phandle)[0], 0, 0, 224)
 
-if profile == 'diagnostic':
+if profile in ('diagnostic', 'panelbus'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
     for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS', 'NET',
                    'INPUT', 'DRM', 'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC',
@@ -78,7 +79,29 @@ if profile == 'diagnostic':
     names = {line.split()[-1] for line in symbols if len(line.split()) == 3}
     for name in ['tegra_usb_phy_probe', 'tegra_udc_probe', 'devm_usb_get_phy_by_phandle']:
         assert name in names, 'Missing actual USB PHY implementation: ' + name
-    print('Verified diagnostic profile: UP, fixed reservations, USB peripheral/serial and BigPart eMMC, no display/network/input probes.')
+    if profile == 'panelbus':
+        for option in ['I2C', 'I2C_TEGRA', 'I2C_CHARDEV', 'REGULATOR', 'REGULATOR_FIXED_VOLTAGE']:
+            assert f'CONFIG_{option}=y' in config, option
+        assert 'CONFIG_BACKLIGHT_LP855X=y' not in config and 'CONFIG_BACKLIGHT_LP855X=m' not in config
+        assert nodes['/i2c@7000c000']['status'] == b'okay\0'
+        assert nodes['/aliases']['i2c0'] == b'/i2c@7000c000\0'
+        assert not any(n.startswith('/i2c@7000c000/') for n in nodes)
+        rail = nodes['/panel-power']
+        assert struct.unpack('>III', rail['gpio'])[1:] == (10, 0)
+        assert 'enable-active-high' in rail and 'regulator-boot-on' in rail and 'regulator-always-on' in rail
+        assert struct.unpack('>I',rail['startup-delay-us']) == (200000,)
+        assert struct.unpack('>I',rail['regulator-min-microvolt']) == (5000000,)
+        assert struct.unpack('>I',rail['regulator-max-microvolt']) == (5000000,)
+        mux=nodes['/pinmux@70000014/panelbus-mux/i2c1']
+        assert mux['nvidia,pins'].split(b'\0')[:-1] == [b'spdi', b'spdo']
+        assert mux['nvidia,function'] == b'i2c1\0'
+        assert nodes['/pinmux@70000014']['pinctrl-0'] == nodes['/pinmux@70000014/panelbus-mux']['phandle']
+        assert '/backlight-gate' not in nodes and '/spi@7000d400/pmic@0' not in nodes
+        assert 'tegra_i2c_probe' in names and 'reg_fixed_voltage_probe' in names
+        print('Verified panel-bus profile: same UP/USB/MMC gates; PB2 shared supply and I2C1 only; no display/backlight/touch/network or PMIC control.')
+        sys.exit(0)
+    else:
+        print('Verified diagnostic profile: UP, fixed reservations, USB peripheral/serial and BigPart eMMC, no display/network/input probes.')
     sys.exit(0)
 if profile in ('early', 'trace'):
     config = (artifacts / 'kernel.config').read_text().splitlines()

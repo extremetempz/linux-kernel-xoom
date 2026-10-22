@@ -18,7 +18,10 @@ parser.add_argument('--panic-seconds', type=int, default=0,
                     help='Default 0 preserves a panic for inspection instead of rebooting')
 parser.add_argument('--legacy-shell', action='store_true',
                     help='Reproduce the historical unsolicited report/interactive shell (not the default framed reporter)')
+parser.add_argument('--panelbus', action='store_true', help='Include fixed Wingray panel-bus readback; requires the isolated panelbus kernel')
 args = parser.parse_args()
+if args.panelbus and (args.legacy_shell or args.android_runtime):
+    parser.error('Panel-bus readback requires the framed standalone diagnostic')
 if args.android_runtime:
     args.static_busybox = None
     args.legacy_shell = True
@@ -105,6 +108,13 @@ else:
         'bin/diagnostic-server': (root/'diagnostic/server.sh').read_bytes(),
         'bin/diagnostic-report': (root/'diagnostic/report.sh').read_bytes(),
     }
+if args.panelbus:
+    config = (args.kernel_dir/'kernel.config').read_text()
+    assert 'CONFIG_LOCALVERSION="-wingray-panelbus"' in config
+    for option in ['I2C_CHARDEV', 'I2C_TEGRA', 'REGULATOR_FIXED_VOLTAGE']:
+        assert f'CONFIG_{option}=y' in config
+    assert b'i2cget\0' in (files['bin/busybox']).read_bytes(), 'Pinned runtime must include i2cget'
+    diagnostic_files['bin/panelbus-report'] = (root/'diagnostic/panelbus-report.sh').read_bytes()
 archive = bytearray(); ino = 0
 def add(name, mode, data=b'', major=0, minor=0):
  global ino
