@@ -198,6 +198,9 @@ def transform_init(original):
 def board_init(log_uids):
     # These storage paths reproduce only the RAM-backed emulated storage layout.
     lines = ['# Generated RAM-data board setup; no legacy device/USB imports.', 'on init',
+             # Original Android init has already replaced bootstrap /dev here.
+             # EventHub fatally requires this watch directory, even with no devices.
+             '    mkdir /dev/input 0755 root input',
              '    mkdir /run/android-logs 0755 root root']
     for name, (user, _) in sorted(log_uids.items()):
         lines.append(f'    mkdir /run/android-logs/{name} 0700 {user} root')
