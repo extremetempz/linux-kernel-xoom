@@ -1,3 +1,5 @@
+> **23 October 2026 — image32:** Android Welcome responds to real touch. Three fresh USB reports retain Android boot completion, full eMMC/all ten BigPart extents and read-only storage. Evdev verifies presses, movement, releases and two active contacts. Complete original boot/recovery match after restoration. A startup IRQ burst has a separate built, unflashed correction; full calibration/suspend and lockscreen remain unverified. See [result](trace-boot-attempt-32.md).
+
 > **22 October 2026 — image31:** First completed Android 4.4.4 boot under Linux 4.4.147. Two fresh verified reports show both boot-completion flags set and SystemUI running; logs and operator confirm the Welcome screen. USB/full capacity/all ten BigPart extents remain correct under the read-only system/RAM-data policy. Both complete original images match after restoration. Touch is disabled; a lockscreen and full peripheral support remain unverified. See [result](trace-boot-attempt-31.md) and [isolated touch plan](touch-next-stage.md).
 
 > **22 October 2026 — image29:** First operator-confirmed visible RGB pattern under Linux4.4. Two fresh reports verify 1280×800×32 fb0, connected/enabled LVDS, capped P3 backlight control, advancing DC interrupts, retained USB/full capacity/all ten BigPart extents. Full original boot/recovery readbacks match after restoration and original Android runs. Android under Linux4.4 and touch were untested at this stage. See [result](trace-boot-attempt-29.md).
@@ -38,11 +40,11 @@ explicitly decompresses to physical 0x8000, matching Motorola's original kernel.
 | Shared panel/I2C | PB2 fixed rail and I2C1 pin/adapter path | Image 27: claimed output-high and twelve fixed register reads pass twice; no electrical voltage or display validation |
 | Power rails | CPCAP MFD/regulator backport, Wingray regulator modes, MAX8649 DT support | Not boot tested |
 | Restart/power off | CPCAP reboot flags and dedicated board GPIOs | Not boot tested |
-| Display | AUO timing, panel supply, Tegra DRM, LP8550 backlight | Not boot tested |
-| Touch | P3 PV2 interrupt, active-low reset/wake, existing controller configuration retained | Not boot tested |
+| Display | AUO timing, panel supply, Tegra DRM, LP8550 backlight | Image 29 RGB; images 31/32 Android Welcome; accelerated GPU unvalidated |
+| Touch | Isolated P3 PV2 interrupt, active-low reset/wake, factory T9 retained | Image 32 real UI response, presses/movement/releases and two active contacts; startup IRQ burst recorded separately |
 | Wi-Fi | BCM4329 SDIO, PU4 power/PU2 reset, PU5 host wake, board delays/tap | Not boot tested; firmware/NVRAM integration pending |
 | Storage | eMMC, external SD, scoped relocated-GPT and BigPart support | Image 26: eMMC full capacity and all ten BigPart extents match twice; external SD, filesystem and stress checks pending |
-| Pinmux | Live working P3 mux/pull/tristate mapped into DT | Not boot tested |
+| Pinmux | Live working P3 mux/pull/tristate mapped into isolated DT | Display/USB/eMMC and touch pin groups physically exercised; broad peripheral tree unvalidated |
 | Suspend/DVFS | Deliberately disabled during bring-up | Not implemented/validated |
 | Battery/charging | CPCAP core is a prerequisite | Charger, fuel gauge and thermal integration pending |
 | Audio/Bluetooth/cameras/sensors/HDMI | Inventory captured; original drivers available for reference | Porting pending |
@@ -53,15 +55,16 @@ chip identity, firmware compatibility and MAC handling require runtime checks.
 Do not distribute the device's NVRAM or assume that a firmware filename proves
 compatibility.
 
-## Next hardware test
+## Next hardware gate
 
-First produce a diagnostic RAM boot image with a read-only environment and
-serial-over-USB logging. Verify the original boot/recovery backups and image
-addresses, then use a temporary boot only if the bootloader supports it. Do not
-flash the candidate, mount Android storage writable, or change BigPart. Confirm
-boot logs, CPCAP identity, rail state, display/backlight, touch input and SDIO
-probe before enabling suspend or attempting a ROM. Cross-compilation alone is
-not evidence of working hardware.
+Preserve image 32 as the working Android/touch control. Patch 0059 closes a
+startup touch IRQ request race and has passed host tests/full kernel compilation;
+its removal of the physical burst still needs a boot-only test/restore cycle.
+Keep read-only eMMC, RAM-data/cache and the original image checks. Confirm edge
+alignment, two-contact release and stable IRQ behavior before suspend or broader
+power changes. The Decatf reuse review will stage SMP, PL310, voltage/EMC and
+legacy graphics separately; no Samsung board tables are authorized by the shared
+SoC alone. Cross-compilation alone is not hardware validation.
 
 ## Physical boot attempt, 2026-10-18
 
