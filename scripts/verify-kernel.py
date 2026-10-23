@@ -6,13 +6,17 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-touch32 = profile == 'android44-touch'
-android44 = profile in ('android44', 'android44-touch')
+experiment = profile if profile in ('android44-l2', 'android44-smp') else None
+smp = experiment == 'android44-smp'
+l2 = experiment is not None
+touch32 = profile in ('android44-touch', 'android44-l2', 'android44-smp')
+android44 = profile in ('android44', 'android44-touch', 'android44-l2', 'android44-smp')
 if android44:
     profile = 'display'
 assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus', 'display')
 image = (artifacts / 'zImage').read_bytes()
-dtname = ('tegra20-motorola-wingray-android44-touch' if touch32 else
+dtname = ('tegra20-motorola-wingray-' + experiment if experiment else
+          'tegra20-motorola-wingray-android44-touch' if touch32 else
           'tegra20-motorola-wingray-android44' if android44 else
           'tegra20-motorola-wingray-display' if profile == 'display' else
           'tegra20-motorola-wingray-panelbus' if profile == 'panelbus' else
@@ -59,10 +63,23 @@ assert struct.unpack('>4I', nodes['/gpio@6000d000']['gpio-ranges']) == (struct.u
 
 if profile in ('diagnostic', 'panelbus', 'display'):
     config = (artifacts / 'kernel.config').read_text().splitlines()
-    for option in ['SMP', 'CACHE_L2X0', 'DEBUG_LL', 'DEBUG_UNCOMPRESS',
+    disabled = ['DEBUG_LL', 'DEBUG_UNCOMPRESS',
                    'MFD_CPCAP', 'REGULATOR_MAX8649', 'BRCMFMAC', 'TEGRA_IOMMU_GART',
-                   'CPU_FREQ', 'CPU_IDLE', 'SUSPEND']:
+                   'CPU_FREQ', 'CPU_IDLE', 'SUSPEND']
+    disabled += ([] if smp else ['SMP']) + ([] if l2 else ['CACHE_L2X0'])
+    for option in disabled:
         assert f'CONFIG_{option}=y' not in config and f'CONFIG_{option}=m' not in config, option
+    if l2:
+        assert 'CONFIG_CACHE_L2X0=y' in config
+        assert struct.unpack('>3I', nodes['/cache-controller@50043000']['arm,tag-latency']) == (4, 4, 2)
+        assert struct.unpack('>3I', nodes['/cache-controller@50043000']['arm,data-latency']) == (5, 5, 2)
+    if smp:
+        for line in ['CONFIG_SMP=y', 'CONFIG_SMP_ON_UP=y', 'CONFIG_NR_CPUS=2',
+                     '# CONFIG_HOTPLUG_CPU is not set']:
+            assert line in config, line
+        cmdline = next(x for x in config if x.startswith('CONFIG_CMDLINE='))
+        assert cmdline.count('maxcpus=1') == 1
+        assert not any(x.startswith('CONFIG_MOTOROLA_XOOM_BOOT_TRACE') for x in config)
     if not touch32:
         assert 'CONFIG_INPUT=y' not in config and 'CONFIG_INPUT=m' not in config
     else:
@@ -82,11 +99,13 @@ if profile in ('diagnostic', 'panelbus', 'display'):
     else:
         assert 'CONFIG_NET=y' not in config and 'CONFIG_NET=m' not in config
     for option in ['ARM_APPENDED_DTB', 'ARM_ATAG_DTB_COMPAT', 'PSTORE_RAM',
-                   'MOTOROLA_XOOM_BOOT_TRACE', 'MOTOROLA_XOOM_BIGPART',
+                   'MOTOROLA_XOOM_BIGPART',
                    'MMC_BLOCK', 'MMC_SDHCI_TEGRA', 'USB_CHIPIDEA_UDC',
                    'USB_G_SERIAL', 'USB_TEGRA_PHY', 'USB_PHY', 'USB_ULPI_VIEWPORT',
                    'SWP_EMULATE', 'DEVTMPFS', 'BINFMT_ELF', 'BINFMT_SCRIPT']:
         assert f'CONFIG_{option}=y' in config, option
+    if not smp:
+        assert 'CONFIG_MOTOROLA_XOOM_BOOT_TRACE=y' in config
     for node in ['/sdhci@c8000600', '/usb@c5000000', '/usb-phy@c5000000']:
         assert nodes[node]['status'] == b'okay\0', node
     if profile != 'display':
@@ -107,6 +126,13 @@ if profile in ('diagnostic', 'panelbus', 'display'):
     assert not any('earlycon=' in line or 'earlyprintk' in line for line in config if line.startswith('CONFIG_CMDLINE='))
     symbols = (artifacts / 'System.map').read_text().splitlines()
     names = {line.split()[-1] for line in symbols if len(line.split()) == 3}
+    if l2:
+        assert 'l2x0_of_init' in names and 'outer_cache' in names
+    if smp:
+        # GCC inlines the Tegra20 helper into the registered dispatcher.
+        for name in ['tegra_smp_ops', 'tegra_boot_secondary', 'secondary_startup']:
+            assert name in names, name
+        assert 'wingray_boottrace_c_early' not in names, 'UP-only tracer must not enter SMP image'
     for name in ['tegra_usb_phy_probe', 'tegra_udc_probe', 'devm_usb_get_phy_by_phandle']:
         assert name in names, 'Missing actual USB PHY implementation: ' + name
     if profile in ('panelbus', 'display'):
@@ -137,10 +163,11 @@ if profile in ('diagnostic', 'panelbus', 'display'):
             for option in ['DRM', 'DRM_TEGRA', 'DRM_TEGRA_FBDEV', 'DRM_PANEL_SIMPLE', 'BACKLIGHT_LP855X', 'DMA_CMA']:
                 assert f'CONFIG_{option}=y' in config, option
             assert 'CONFIG_CMA_SIZE_MBYTES=16' in config
-            release = '-wingray-android44-touch' if touch32 else '-wingray-android44' if android44 else '-wingray-display'
+            release = '-wingray-' + experiment if experiment else '-wingray-android44-touch' if touch32 else '-wingray-android44' if android44 else '-wingray-display'
             cookie = '0x584d0020' if touch32 else '0x584d001e' if android44 else '0x584d001d'
             assert f'CONFIG_LOCALVERSION="{release}"' in config
-            assert f'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE={cookie}' in config
+            if not smp:
+                assert f'CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE={"0x584d0022" if l2 else cookie}' in config
             assert nodes['/panel']['compatible'] == b'motorola,wingray-auo-panel\0'
             backlight = nodes['/i2c@7000c000/backlight@2c']
             assert backlight['compatible'].split(b'\0')[:2] == [b'motorola,wingray-p3-lp8550', b'ti,lp8550']
@@ -196,7 +223,8 @@ if profile in ('diagnostic', 'panelbus', 'display'):
                 for name in ['mxt_probe', 'evdev_connect', 'input_register_device']:
                     assert name in names, name
                 print('Verified isolated P3 mXT/evdev profile: existing shared supply, GPIO74/140/170, three supported pin groups; hardware touch pending.')
-            print('Verified display profile: UP/USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/PMIC disabled.')
+            cpu = 'SMP maxcpus=1 control with PL310' if smp else 'UP with PL310' if l2 else 'UP'
+            print(f'Verified display profile: {cpu}, USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/PMIC disabled.')
             sys.exit(0)
         print('Verified panel-bus profile: same UP/USB/MMC gates; PB2 shared supply and I2C1 only; no display/backlight/touch/network or PMIC control.')
         sys.exit(0)

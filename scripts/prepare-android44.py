@@ -69,7 +69,11 @@ def main():
     parser.add_argument('--kernel-dir', type=Path, default=ROOT / 'artifacts/candidate-30-guarded')
     parser.add_argument('--runtime-dir', type=Path, default=ROOT / 'artifacts/candidate-30-guarded')
     parser.add_argument('--profile', choices=('android44', 'android44-touch'), default='android44')
+    parser.add_argument('--soc-observer', action='store_true',
+                        help='Include bounded read-only CPU/cache/clock/memory metadata in the touch experiment')
     args = parser.parse_args()
+    if args.soc_observer and args.profile != 'android44-touch':
+        parser.error('--soc-observer currently requires the isolated touch runtime')
     output = args.output_dir.resolve()
     if not output.is_relative_to((ROOT / 'artifacts').resolve()) or output.exists():
         parser.error('Require a new directory under ignored artifacts/; never overwrite evidence')
@@ -100,6 +104,8 @@ def main():
     if args.profile == 'android44-touch':
         files['bin/touch-events'] = checked_runtime(args.runtime_dir, 'touch-events', ROOT / 'diagnostic/touch-events.c', release, config)
         helpers['bin/touch-report'] = 'touch-report.sh'
+    if args.soc_observer:
+        helpers['bin/soc-report'] = 'soc-report.sh'
     for name, source in helpers.items():
         path = ROOT / 'diagnostic' / source
         subprocess.run(['bash', '-n', str(path)], check=True)
@@ -114,6 +120,7 @@ def main():
         'hardware_tested': False, 'android_booted': False,
         'kernel_profile': args.profile, 'expected_kernel_release': release,
         'touch_diagnostics': args.profile == 'android44-touch',
+        'soc_observer': args.soc_observer,
         'storage_mode': 'android44-readonly',
         'storage_policy': 'software read-only eMMC; system ro,noload; tmpfs data/cache; no persistent writes intended',
         'graphics_policy': 'fixed RGB mode; RAM-only default HAL and exact software GLES overlay; custom ROM fallback untested',

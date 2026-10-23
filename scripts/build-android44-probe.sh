@@ -27,6 +27,8 @@ d=subprocess.check_output(['readelf','-dW',str(p)],text=True)
 a=subprocess.check_output(['readelf','-A',str(p)],text=True)
 assert elf[:7]==b'\x7fELF\x01\x01\x01' and elf[18:20]==b'\x28\x00'
 assert 'INTERP' not in h and '(NEEDED)' not in d
+stack=[line for line in h.splitlines() if line.strip().startswith('GNU_STACK')]
+assert len(stack)==1 and stack[0].split()[-2]=='RW', 'Probe requires a non-executable stack for exact ashmem protection checks'
 assert 'Tag_CPU_arch: v7' in a and 'Tag_Advanced_SIMD_arch:' not in a
 assert not subprocess.check_output(['nm','-u',str(p)],text=True).strip()
 assert sys.argv[3].encode()+b'\0' in elf
@@ -36,7 +38,7 @@ assert sys.argv[3].encode()+b'\0' in elf
  'expected_binder_protocol':7,'physical_execution':False,
  'expected_release':sys.argv[3],
  'kernel_config_sha256':hashlib.sha256(Path(sys.argv[4]).read_bytes()).hexdigest(),
- 'purpose':'pre-init Binder, ashmem, sockets and logger gate plus fixed-path read-only open checks and NULL-payload MMC/BLKROSET rejection; no block writes or mounts',
+ 'purpose':'pre-init Binder version, logger v1/v2, sockets, private 4KiB ashmem pin/protection/reclaim checks plus fixed-path read-only open checks and NULL-payload MMC/BLKROSET rejection; no global purge, block writes or mounts',
 },indent=2)+'\n')
 print('Compiled static non-NEON Android4.4 ABI gate; hardware execution pending.')
 PY
