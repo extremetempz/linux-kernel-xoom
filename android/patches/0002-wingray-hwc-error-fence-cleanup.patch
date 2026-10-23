@@ -1,0 +1,102 @@
+From 53dfbe3ead151267066d2f8f469fedd5a7466067 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:36:02 +1100
+Subject: [PATCH] hwc: release owned acquire fences on set error paths
+
+---
+ hwc/hwc_tegra2.cpp | 64 +++++++++++++++++++++++++++-------------------
+ 1 file changed, 37 insertions(+), 27 deletions(-)
+
+diff --git a/hwc/hwc_tegra2.cpp b/hwc/hwc_tegra2.cpp
+index e25b7f5..32d7470 100755
+--- a/hwc/hwc_tegra2.cpp
++++ b/hwc/hwc_tegra2.cpp
+@@ -221,6 +221,18 @@ static int ensure_xlatebuf(void **buffer, int *capacity, size_t layers)
+     return 0;
+ }
+ 
++/* set() owns acquire descriptors even when translation or submission fails. */
++static void release_acquire_fences(hwc_display_contents_1_t *contents)
++{
++    for (size_t i = 0; i < contents->numHwLayers; ++i) {
++        if (contents->hwLayers[i].acquireFenceFd >= 0)
++            close(contents->hwLayers[i].acquireFenceFd);
++        contents->hwLayers[i].acquireFenceFd = -1;
++        contents->hwLayers[i].releaseFenceFd = -1;
++    }
++    contents->retireFenceFd = -1;
++}
++
+ static int tegra2_set(struct hwc_composer_device_1 *dev,
+         size_t numDisplays, hwc_display_contents_1_t** displays)
+ {
+@@ -228,41 +240,39 @@ static int tegra2_set(struct hwc_composer_device_1 *dev,
+         return 0;
+ 
+     tegra2_hwc_composer_device_1_t *pdev = (tegra2_hwc_composer_device_1_t *)dev;
+-
+     hwc_display_contents_1_t *contents = displays[0];
+-    if (!contents || !contents->numHwLayers)
+-        return 0;
+-
+-    if (!contents->dpy || !contents->sur)
++    if (!contents)
+         return 0;
+ 
+-    // If blanking, make gralloc handle everything to aovid crashes
+-    if (pdev->fbblanked)
+-        return -ENODEV;
++    /* An unrepresentable list cannot be safely enumerated for cleanup. */
++    if (contents->numHwLayers > ((size_t)INT_MAX - sizeof(hwc_layer_list_t)) /
++                                sizeof(hwc_layer_t)) {
++        contents->retireFenceFd = -1;
++        return -EOVERFLOW;
++    }
++    int ret = 0;
++    hwc_layer_list_t *lst;
++    if (!contents->numHwLayers || !contents->dpy || !contents->sur)
++        goto out;
++
++    // If blanking, make gralloc handle everything to avoid crashes
++    if (pdev->fbblanked) {
++        ret = -ENODEV;
++        goto out;
++    }
+ 
+-    int error = ensure_xlatebuf(&pdev->set_xlatebuf,
+-                               &pdev->set_xlatebufsz, contents->numHwLayers);
+-    if (error)
+-        return error;
+-    hwc_layer_list_t* lst = (hwc_layer_list_t*) pdev->set_xlatebuf;
++    ret = ensure_xlatebuf(&pdev->set_xlatebuf,
++                          &pdev->set_xlatebufsz, contents->numHwLayers);
++    if (ret)
++        goto out;
++    lst = (hwc_layer_list_t*) pdev->set_xlatebuf;
+ 
+     copy_display_contents_1_to_layer_list(lst,contents);
+-    int ret = pdev->org->set(pdev->org, contents->dpy, contents->sur, lst);
++    ret = pdev->org->set(pdev->org, contents->dpy, contents->sur, lst);
+     copy_layer_list_to_display_contents_1(contents,lst);
+ 
+-    //Wait until all buffers are available
+-    unsigned int d;
+-    for (d = 0; d < contents->numHwLayers; d++) {
+-
+-        // Release handles we own...
+-        if (contents->hwLayers[d].acquireFenceFd >= 0)
+-            close(contents->hwLayers[d].acquireFenceFd);
+-        contents->hwLayers[d].acquireFenceFd = -1;
+-
+-        // And let surfaceFlinger read inmediately...
+-        contents->hwLayers[d].releaseFenceFd = -1;
+-    }
+-
++out:
++    release_acquire_fences(contents);
+     return ret;
+ }
+ 
+-- 
+2.43.0
+
