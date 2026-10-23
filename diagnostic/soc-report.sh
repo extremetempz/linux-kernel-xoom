@@ -3,7 +3,7 @@
 # arbitrary register reads, clock changes, allocation tests or purge operations.
 echo XOOM_SOC_BEGIN
 case "$(/bin/busybox uname -r)" in
- 4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp) ;;
+ 4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace) ;;
  *) echo XOOM_SOC_DENIED_RELEASE; echo XOOM_SOC_END; exit 0;;
 esac
 if ! /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray; then

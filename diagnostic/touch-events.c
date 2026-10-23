@@ -15,7 +15,9 @@ _Static_assert(sizeof(struct pollfd) == 8, "Linux ARM poll wire size");
 #define MAX_SLOTS 32
 #define MAX_EVENTS 8192U
 #define MAX_RECORDS 64U
+#ifndef EXPECTED_RELEASE
 #define EXPECTED_RELEASE "4.4.147-wingray-android44-touch"
+#endif
 #define EXPECTED_NAME "Atmel maXTouch Touchscreen"
 
 static long call6(long n, long a, long b, long c, long d, long e, long f)

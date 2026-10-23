@@ -76,6 +76,11 @@ fi
 if [ -x /bin/soc-report ]; then
  /bin/busybox sh /bin/soc-report
 fi
+if [ -r /run/cpu-handoff.txt ]; then
+ echo XOOM_CPU_HANDOFF_REPORT_BEGIN
+ /bin/busybox head -c 2048 /run/cpu-handoff.txt
+ echo XOOM_CPU_HANDOFF_REPORT_END
+fi
 /bin/busybox printf 'XOOM_DMESG_BEGIN\n'
 /bin/busybox dmesg | /bin/busybox tail -c 262144
 /bin/busybox printf 'XOOM_DMESG_END\nXOOM_FRESH_REPORT_DONE %s\n' "$nonce"

@@ -8,7 +8,7 @@ fail() {
 }
 stage start
 case "$(/bin/busybox uname -r)" in
- 4.4.147-wingray-android44|4.4.147-wingray-android44-touch) ;;
+ 4.4.147-wingray-android44|4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace) ;;
  *) fail release;;
 esac
 /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray || fail board
@@ -42,6 +42,13 @@ result=$?
 echo "XOOM_ANDROID44_ABI_EXIT $result" >> /run/android44-abi.txt
 [ "$result" -eq 0 ] || fail abi
 stage abi_passed
+if [ -x /bin/cpu-handoff-probe ]; then
+ /bin/cpu-handoff-probe > /run/cpu-handoff.txt 2>&1
+ result=$?
+ echo "XOOM_CPU_HANDOFF_EXIT $result" >> /run/cpu-handoff.txt
+ [ "$result" -eq 0 ] || fail cpu_handoff
+ stage cpu_handoff_passed
+fi
 # Set the already-tested fixed framebuffer mode before any Android HAL opens it.
 waited=0
 while [ ! -e /dev/fb0 ] && [ "$waited" -lt 15 ]; do
