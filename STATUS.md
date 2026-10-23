@@ -6,17 +6,17 @@ Android completion, real single/two-contact events, USB, full eMMC capacity and
 all ten BigPart extents without the earlier startup IRQ burst. Original boot
 and recovery were restored and completely verified. A lockscreen has not been
 verified. This is an experimental RAM-data/software-graphics boot, not a complete
-ROM or a newer Android release. Image 37 additionally confirms an initial
-two-core Android boot with PL310 and diagnostic tracing enabled.
+ROM or a newer Android release. Images 37/38 additionally confirm initial
+two-core Android boots with PL310, with and without diagnostic tracing.
 
 | Component | What is done | What is not done | Verdict |
 |---|---|---|---|
-| Tegra 2 SMP / CPU bring-up | Image 37 boots Android with both CPUs online; two fresh reports, two-core memory/affinity probe, advancing local timers/reschedule IPIs and retained startup trace confirm initial execution | Image 36 failure remains unexplained; non-trace repeatability, concurrent stress, hotplug and suspend unvalidated | Initial two-core hardware boot passed with tracing; not fully validated |
-| PL310 L2 | Images 34/35/37 boot Android with PL310 enabled, 1 MiB; CPU0 and bounded cross-CPU memory checks pass | Broader cache-capacity, RAM-pressure and endurance validation pending | Initial UP/SMP smoke tests passed; not fully validated |
+| Tegra 2 SMP / CPU bring-up | Images 37 (traced) and 38 (unchanged non-trace image 36) boot Android with both CPUs online; CPU probes and timer/reschedule-IPI progress pass | Earlier attempt-36 failure remains unexplained; broader repeatability, concurrent stress, hotplug and suspend unvalidated | Initial traced and non-traced two-core boots passed; not fully validated |
+| PL310 L2 | Images 34/35/37/38 boot Android with PL310 enabled, 1 MiB; CPU0 and bounded cross-CPU memory checks pass | Broader cache-capacity, RAM-pressure and endurance validation pending | Initial UP/SMP smoke tests passed; not fully validated |
 | CPU frequency / voltage | Clock acquisition/unwind, shared EMC failure/rollback reporting, PLL error propagation, voltage-unit correction and stock Wingray table cap implemented; fault tests and ARM object checks pass | Motorola OPP/rail coupling, installed-DRAM EMC tables, voltage-failure veto and complete transition sequencing unvalidated; scaling/voltage driver remain disabled in tested profiles | Prerequisites implemented; not operational |
 | NVIDIA nvhost / nvmap | ARM32 layouts measured; stale nvhost job pointer fixed; optional Motorola 24-byte submission decoder implemented and tested in both formats | No physical nvmap lifetime/cache/GART/engine validation or GPU submissions; alternate legacy drivers remain disabled | Interface work in progress; GPU not working |
 | EGL / gralloc / HWC | Software graphics reaches Android Welcome; existing Wingray composer allocation bounds and acquire-descriptor error cleanup corrected and host-tested | Matched accelerated blob/HAL build, asynchronous buffer-fence ordering and actual accelerated composition pending | Software path demonstrated; accelerated integration incomplete |
-| Android 4.4 Binder / ashmem / logger / VM | Real framework startup, Binder protocol 7 check, logger v1/v2 round trips, private-page ashmem test and existing VM/LMK startup demonstrated physically; expanded pin/protection probe passes physically in images 34/35/37 | Full Binder transaction/FD, reclaim/OOM and endurance coverage pending; wallpaper RenderScript crashes and Play services ANRs unresolved | Basic KitKat support demonstrated; not fully validated |
+| Android 4.4 Binder / ashmem / logger / VM | Real framework startup, Binder protocol 7 check, logger v1/v2 round trips, private-page ashmem test and existing VM/LMK startup demonstrated physically; expanded pin/protection probe passes physically in images 34/35/37/38 | Full Binder transaction/FD, reclaim/OOM and endurance coverage pending; wallpaper RenderScript crashes and Play services ANRs unresolved | Basic KitKat support demonstrated; not fully validated |
 
 Do not count the six headings as six completed hardware features. The strongest
 validated milestone is Android 4.4.4 startup with display, touch, USB and storage.
@@ -29,6 +29,7 @@ Non-trace SMP repeatability, broader L2 validation, DVFS and legacy GPU enableme
 - [Image 35 SMP control results](docs/trace-boot-attempt-35.md)
 - [Image 36 two-CPU observation](docs/trace-boot-attempt-36.md)
 - [Image 37 two-core Android hardware results](docs/trace-boot-attempt-37.md)
+- [Attempt 38 unchanged non-trace two-core boot](docs/trace-boot-attempt-38.md)
 - [Image 37 startup trace and validation limits](docs/smp-startup-trace-37.md)
 - [PL310/SMP implementation and build controls](docs/decatf-implementation-progress.md)
 - [Power, graphics and Android ABI corrections and next gates](docs/power-graphics-abi-stage.md)

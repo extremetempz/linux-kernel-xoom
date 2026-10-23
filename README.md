@@ -1,16 +1,18 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
-**Latest physical result, 24 October 2026:** Image 37 boots Android 4.4.4 on
-Linux 4.4.147 with both Tegra 2 CPUs online and PL310 enabled. Two fresh reports,
+**Latest physical result, 24 October 2026:** Images 37/38 boot Android 4.4.4 on
+Linux 4.4.147 with both Tegra 2 CPUs online and PL310 enabled. Attempt 38
+uses the unchanged non-trace image from attempt 36. Two fresh reports,
 a bounded two-core memory/affinity check, advancing local timers/reschedule IPIs
-and retained CPU1 startup checkpoints confirm initial SMP execution. Both
+and image-37 CPU1 startup checkpoints confirm initial SMP execution. Both
 original image hashes match after restoration. Earlier images demonstrated
 Welcome and touch, USB and full-capacity/all-ten BigPart storage.
 
 See the [six-component completion status](STATUS.md),
+[non-trace attempt-38 evidence](docs/trace-boot-attempt-38.md),
 [image-37 hardware evidence](docs/trace-boot-attempt-37.md) and
 [diagnostic implementation](docs/smp-startup-trace-37.md).
-Non-trace SMP repeatability and broader cache/stress testing are still pending;
+Broader boot repeatability and cache/stress testing are still pending;
 the cause of image 36's failure remains unknown. DVFS and accelerated NVIDIA
 graphics remain disabled. This remains an experimental RAM-data/software-
 graphics boot; a lockscreen, suspend and full ROM functionality are unverified.
