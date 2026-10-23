@@ -64,6 +64,7 @@ exec /usr/bin/busybox "$@"
         source = source.replace('while :; do /bin/busybox sleep 5; done', 'exit 88')
         for old, new in (('/bin/android44-abi-probe', str(self.path / 'abi')),
                          ('/bin/display-pattern', str(self.path / 'pattern')),
+                         ('/bin/cpu-handoff-probe', str(self.path / 'cpu-handoff')),
                          ('/init.android', str(self.path / 'original-init')),
                          ('/bin/busybox', str(self.bb))):
             source = source.replace(old, new)
@@ -78,6 +79,26 @@ exec /usr/bin/busybox "$@"
         self.calls = calls.read_text().splitlines() if calls.exists() else []
         self.stages = (self.path / 'run/android44-stages.txt').read_text()
         return result
+
+    def test_cpu_probe_success_precedes_display_and_android(self):
+        probe=self.path/'cpu-handoff'
+        probe.write_text('#!/bin/sh\necho cpu-handoff >> "$MOCK_CALLS"\nexit 0\n')
+        probe.chmod(0o755)
+        result=self.execute(MOCK_RELEASE='4.4.147-wingray-android44-smp2')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertLess(self.calls.index('abi'),self.calls.index('cpu-handoff'))
+        self.assertLess(self.calls.index('cpu-handoff'),self.calls.index('pattern'))
+        self.assertIn('cpu_handoff_passed',self.stages)
+
+    def test_cpu_probe_failure_never_starts_display_or_android(self):
+        probe=self.path/'cpu-handoff'
+        probe.write_text('#!/bin/sh\necho cpu-handoff >> "$MOCK_CALLS"\nexit 2\n')
+        probe.chmod(0o755)
+        result=self.execute(MOCK_RELEASE='4.4.147-wingray-android44-smp2')
+        self.assertEqual(result.returncode,88,result.stderr)
+        self.assertNotIn('pattern',self.calls)
+        self.assertNotIn('original-init',self.calls)
+        self.assertIn('FAILED_cpu_handoff',self.stages)
 
     def test_success_only_mounts_fixed_ro_system_and_ram_then_execs(self):
         result = self.execute()

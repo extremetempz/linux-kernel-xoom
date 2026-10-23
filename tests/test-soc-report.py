@@ -49,9 +49,9 @@ esac
         self.assertIn(b'unavailable',data);self.assertTrue(data.endswith(b'XOOM_SOC_END\n'))
 
     def test_exact_new_cpu_profiles_and_unknown_release(self):
-        for suffix in ['l2','smp']:
+        for suffix in ['l2','smp','smp2','smptrace']:
             self.assertNotIn(b'DENIED',self.run_report('4.4.147-wingray-android44-'+suffix))
-        self.calls.unlink();data=self.run_report('4.4.147-wingray-android44-smp2')
+        self.calls.unlink();data=self.run_report('4.4.147-wingray-android44-smp3')
         self.assertIn(b'DENIED_RELEASE',data);self.assertEqual(self.calls.read_text(),'uname\n')
 
     def test_wrong_board_denied_before_metadata(self):

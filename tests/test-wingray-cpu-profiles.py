@@ -33,7 +33,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--dtc', required=True)
     p.add_argument('--artifacts', type=Path)
-    p.add_argument('--profile', choices=['android44-l2', 'android44-smp'])
+    p.add_argument('--profile', choices=['android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace'])
     a = p.parse_args()
     base_path = 'arch/arm/configs/wingray_android44_touch_defconfig'
     pinned = subprocess.check_output(['git','-C',str(TREE),'show','fd24d166:'+base_path], text=True)
@@ -41,20 +41,22 @@ def main():
     base = config(pinned)
     allowed = {'CONFIG_LOCALVERSION','CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES',
                'CONFIG_CACHE_L2X0','CONFIG_MOTOROLA_XOOM_BOOT_TRACE_COOKIE'}
-    for suffix in ['l2', 'smp']:
+    for suffix in ['l2', 'smp', 'smp2', 'smptrace']:
         path = TREE/f'arch/arm/configs/wingray_android44_{suffix}_defconfig'
         c = config(path.read_text())
         allowed_here = set(allowed)
-        if suffix == 'smp':
+        if suffix.startswith('smp'):
             allowed_here |= {'CONFIG_SMP','CONFIG_SMP_ON_UP','CONFIG_NR_CPUS','CONFIG_HOTPLUG_CPU',
                              'CONFIG_CMDLINE', *[k for k in base if k.startswith('CONFIG_MOTOROLA_XOOM_BOOT_TRACE')]}
+        if suffix == 'smptrace':
+            allowed_here |= {'CONFIG_MOTOROLA_XOOM_SMP_TRACE','CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE'}
         changed = {k for k in base.keys()|c.keys() if base.get(k) != c.get(k)}
         assert changed <= allowed_here, changed - allowed_here
         assert c['CONFIG_CACHE_L2X0'] == 'y'
         assert c['CONFIG_CPU_FREQ'] == c['CONFIG_CPU_IDLE'] == c['CONFIG_SUSPEND'] == 'n'
-        if suffix == 'smp':
+        if suffix.startswith('smp'):
             assert c['CONFIG_SMP']=='y' and c['CONFIG_NR_CPUS']=='2'
-            assert c['CONFIG_HOTPLUG_CPU']=='n' and 'maxcpus=1' in c['CONFIG_CMDLINE']
+            assert c['CONFIG_HOTPLUG_CPU']=='n' and ('maxcpus=2' if suffix in ('smp2','smptrace') else 'maxcpus=1') in c['CONFIG_CMDLINE']
             assert c['CONFIG_MOTOROLA_XOOM_BOOT_TRACE']=='n'
         else:
             assert c['CONFIG_SMP']=='n' and c['CONFIG_MOTOROLA_XOOM_BOOT_TRACE']=='y'
@@ -72,9 +74,11 @@ def main():
             text = (out/'kernel.config').read_text()
             mutations = [text.replace('# CONFIG_CPU_FREQ is not set','CONFIG_CPU_FREQ=y'),
                          text.replace('CONFIG_CACHE_L2X0=y','# CONFIG_CACHE_L2X0 is not set')]
-            if a.profile == 'android44-smp':
+            if a.profile in ('android44-smp','android44-smp2','android44-smptrace'):
                 mutations += [text + '\nCONFIG_MOTOROLA_XOOM_BOOT_TRACE=y\n',
-                              text.replace('maxcpus=1','maxcpus=2'),text.replace('CONFIG_NR_CPUS=2','CONFIG_NR_CPUS=4')]
+                              text.replace('maxcpus=2','maxcpus=1') if a.profile in ('android44-smp2','android44-smptrace') else text.replace('maxcpus=1','maxcpus=2'),text.replace('CONFIG_NR_CPUS=2','CONFIG_NR_CPUS=4')]
+            if a.profile == 'android44-smptrace':
+                mutations += [text.replace('CONFIG_MOTOROLA_XOOM_SMP_TRACE=y','# CONFIG_MOTOROLA_XOOM_SMP_TRACE is not set'), text.replace('CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0037','CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0038')]
             for bad in mutations:
                 assert bad != text
                 (out/'kernel.config').write_text(bad)
