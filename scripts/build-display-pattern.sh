@@ -4,7 +4,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 build="${XOOM_BUILD_ROOT:?Set XOOM_BUILD_ROOT to the completed display kernel build}"
 dest="${XOOM_ARTIFACT_DIR:?Set XOOM_ARTIFACT_DIR to its artifact directory}"
 test -f "$dest/kernel.config"
-grep -Eq '^CONFIG_LOCALVERSION="-wingray-(display|android44|android44-touch)"$' "$dest/kernel.config"
+grep -Eq '^CONFIG_LOCALVERSION="-wingray-(display|android44|android44-touch|android44-l2|android44-smp|android44-smp2|android44-smptrace)"$' "$dest/kernel.config"
 make -s -C "$build/source" O="$build/out" ARCH=arm \
     INSTALL_HDR_PATH="$build/headers" headers_install
 test ! -e "$dest/display-pattern"

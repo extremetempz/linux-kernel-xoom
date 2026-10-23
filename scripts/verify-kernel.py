@@ -6,11 +6,12 @@ import sys
 
 artifacts = Path(sys.argv[1])
 profile = sys.argv[2] if len(sys.argv) > 2 else 'peripherals'
-experiment = profile if profile in ('android44-l2', 'android44-smp') else None
-smp = experiment == 'android44-smp'
+experiment = profile if profile in ('android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace') else None
+smp = experiment in ('android44-smp', 'android44-smp2', 'android44-smptrace')
+smp_cpus = 2 if experiment in ('android44-smp2', 'android44-smptrace') else 1
 l2 = experiment is not None
-touch32 = profile in ('android44-touch', 'android44-l2', 'android44-smp')
-android44 = profile in ('android44', 'android44-touch', 'android44-l2', 'android44-smp')
+touch32 = profile in ('android44-touch', 'android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace')
+android44 = profile in ('android44', 'android44-touch', 'android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace')
 if android44:
     profile = 'display'
 assert profile in ('early', 'trace', 'peripherals', 'diagnostic', 'panelbus', 'display')
@@ -78,8 +79,14 @@ if profile in ('diagnostic', 'panelbus', 'display'):
                      '# CONFIG_HOTPLUG_CPU is not set']:
             assert line in config, line
         cmdline = next(x for x in config if x.startswith('CONFIG_CMDLINE='))
-        assert cmdline.count('maxcpus=1') == 1
+        assert cmdline.count('maxcpus=') == 1 and f'maxcpus={smp_cpus}' in cmdline
         assert not any(x.startswith('CONFIG_MOTOROLA_XOOM_BOOT_TRACE') for x in config)
+        if experiment == 'android44-smptrace':
+            assert 'CONFIG_MOTOROLA_XOOM_SMP_TRACE=y' in config
+            assert 'CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0037' in config
+        else:
+            assert 'CONFIG_MOTOROLA_XOOM_SMP_TRACE=y' not in config
+
     if not touch32:
         assert 'CONFIG_INPUT=y' not in config and 'CONFIG_INPUT=m' not in config
     else:
@@ -133,6 +140,11 @@ if profile in ('diagnostic', 'panelbus', 'display'):
         for name in ['tegra_smp_ops', 'tegra_boot_secondary', 'secondary_startup']:
             assert name in names, name
         assert 'wingray_boottrace_c_early' not in names, 'UP-only tracer must not enter SMP image'
+        addresses = {line.split()[-1]: int(line.split()[0],16) for line in symbols if len(line.split())==3}
+        footprint = addresses['__tegra_cpu_reset_handler_end'] - addresses['__tegra_cpu_reset_handler_start']
+        assert 0 < footprint <= 1024, 'Reset handler exceeds its reserved 1 KiB IRAM'
+        assert ('wingray_smptrace_ready' in names) == (experiment == 'android44-smptrace')
+
     for name in ['tegra_usb_phy_probe', 'tegra_udc_probe', 'devm_usb_get_phy_by_phandle']:
         assert name in names, 'Missing actual USB PHY implementation: ' + name
     if profile in ('panelbus', 'display'):
@@ -223,7 +235,7 @@ if profile in ('diagnostic', 'panelbus', 'display'):
                 for name in ['mxt_probe', 'evdev_connect', 'input_register_device']:
                     assert name in names, name
                 print('Verified isolated P3 mXT/evdev profile: existing shared supply, GPIO74/140/170, three supported pin groups; hardware touch pending.')
-            cpu = 'SMP maxcpus=1 control with PL310' if smp else 'UP with PL310' if l2 else 'UP'
+            cpu = f'SMP maxcpus={smp_cpus} with PL310' if smp else 'UP with PL310' if l2 else 'UP'
             print(f'Verified display profile: {cpu}, USB/MMC retained, isolated DC0 RGB, 16MiB CMA, P3 backlight and 598MHz parent assignment; GPU/DC1/HDMI/PMIC disabled.')
             sys.exit(0)
         print('Verified panel-bus profile: same UP/USB/MMC gates; PB2 shared supply and I2C1 only; no display/backlight/touch/network or PMIC control.')

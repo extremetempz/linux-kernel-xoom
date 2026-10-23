@@ -4,7 +4,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 build="${XOOM_BUILD_ROOT:?Set the completed android44 kernel build directory}"
 dest="${XOOM_ARTIFACT_DIR:?Set its kernel artifact directory}"
 version=$(sed -n 's/^CONFIG_LOCALVERSION="\(.*\)"$/\1/p' "$dest/kernel.config")
-case "$version" in -wingray-android44|-wingray-android44-touch) ;; *) exit 1;; esac
+case "$version" in -wingray-android44|-wingray-android44-touch|-wingray-android44-l2|-wingray-android44-smp|-wingray-android44-smp2|-wingray-android44-smptrace) ;; *) exit 1;; esac
 release="4.4.147$version"
 grep -qx 'CONFIG_ANDROID_BINDER_IPC_32BIT=y' "$dest/kernel.config"
 test ! -e "$dest/android44-abi-probe"

@@ -41,6 +41,8 @@ def checked_runtime(directory, name, source, expected_release=None, kernel_confi
             raise ValueError('Runtime compiled for a different kernel release: ' + name)
     if kernel_config is not None and manifest.get('kernel_config_sha256') != digest(kernel_config):
         raise ValueError('ABI probe was not built against this kernel configuration')
+    if name == 'cpu-handoff-probe' and manifest.get('expected_cpu_count') != (2 if expected_release.endswith(('-smp2', '-smptrace')) else 1):
+        raise ValueError('Wrong CPU migration-test expectation')
     return data
 
 
@@ -68,12 +70,14 @@ def main():
     parser.add_argument('--output-dir', required=True, type=Path)
     parser.add_argument('--kernel-dir', type=Path, default=ROOT / 'artifacts/candidate-30-guarded')
     parser.add_argument('--runtime-dir', type=Path, default=ROOT / 'artifacts/candidate-30-guarded')
-    parser.add_argument('--profile', choices=('android44', 'android44-touch'), default='android44')
+    parser.add_argument('--profile', choices=('android44', 'android44-touch', 'android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace'), default='android44')
     parser.add_argument('--soc-observer', action='store_true',
                         help='Include bounded read-only CPU/cache/clock/memory metadata in the touch experiment')
     args = parser.parse_args()
-    if args.soc_observer and args.profile != 'android44-touch':
+    if args.soc_observer and args.profile == 'android44':
         parser.error('--soc-observer currently requires the isolated touch runtime')
+    if args.profile in ('android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace') and not args.soc_observer:
+        parser.error('CPU experiments require --soc-observer')
     output = args.output_dir.resolve()
     if not output.is_relative_to((ROOT / 'artifacts').resolve()) or output.exists():
         parser.error('Require a new directory under ignored artifacts/; never overwrite evidence')
@@ -101,9 +105,11 @@ def main():
         'bin/diagnostic-report': 'report.sh', 'bin/android44-report': 'android44-report.sh',
         'bin/display-report': 'display-report.sh',
     }
-    if args.profile == 'android44-touch':
+    if args.profile != 'android44':
         files['bin/touch-events'] = checked_runtime(args.runtime_dir, 'touch-events', ROOT / 'diagnostic/touch-events.c', release, config)
         helpers['bin/touch-report'] = 'touch-report.sh'
+    if args.profile in ('android44-l2', 'android44-smp', 'android44-smp2', 'android44-smptrace'):
+        files['bin/cpu-handoff-probe'] = checked_runtime(args.runtime_dir, 'cpu-handoff-probe', ROOT / 'diagnostic/cpu-handoff-probe.c', release, config)
     if args.soc_observer:
         helpers['bin/soc-report'] = 'soc-report.sh'
     for name, source in helpers.items():
@@ -119,8 +125,10 @@ def main():
         'purpose': 'offline-prepared Android 4.4 RAM-data experiment; no device operations',
         'hardware_tested': False, 'android_booted': False,
         'kernel_profile': args.profile, 'expected_kernel_release': release,
-        'touch_diagnostics': args.profile == 'android44-touch',
+        'touch_diagnostics': args.profile != 'android44',
         'soc_observer': args.soc_observer,
+        'smp_trace': args.profile == 'android44-smptrace',
+        'trace_policy': '128-byte reserved RAM checkpoints; no UP tracer' if args.profile == 'android44-smptrace' else 'unchanged profile trace policy',
         'storage_mode': 'android44-readonly',
         'storage_policy': 'software read-only eMMC; system ro,noload; tmpfs data/cache; no persistent writes intended',
         'graphics_policy': 'fixed RGB mode; RAM-only default HAL and exact software GLES overlay; custom ROM fallback untested',
