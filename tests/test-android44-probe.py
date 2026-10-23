@@ -39,13 +39,18 @@ enum fault {
     LOGGER_OPEN_FAILED, LOGGER_WRONG_VERSION, LOGGER_SHORT_WRITE,
     LOGGER_SHORT_READ, LOGGER_BAD_PAYLOAD, LOGGER_SET_FAILED,
     ASHMEM_OPEN_FAILED, ASHMEM_NAME_FAILED, ASHMEM_SIZE_FAILED,
-    ASHMEM_GET_FAILED, ASHMEM_MAP_FAILED, UNIX_FAILED, UEVENT_FAILED
+    ASHMEM_GET_FAILED, ASHMEM_MAP_FAILED, ASHMEM_BAD_NAME, ASHMEM_BAD_INITIAL_PIN,
+    ASHMEM_BAD_RANGE_ADMITTED, ASHMEM_UNPIN_FAILED, ASHMEM_BAD_UNPIN_STATUS,
+    ASHMEM_REPIN_FAILED, ASHMEM_BAD_REPIN_STATUS, ASHMEM_PURGED, ASHMEM_CORRUPT,
+    ASHMEM_PROT_SET_FAILED, ASHMEM_PROT_GET_FAILED, ASHMEM_PROT_ESCALATION,
+    ASHMEM_WRITE_MAP_ADMITTED, ASHMEM_WRITE_MAP_WRONG_ERRNO, UNIX_FAILED, UEVENT_FAILED
 };
 static struct {
     enum fault fault;
     unsigned index, write_opens, raw_calls, roset_calls, closes, log_writes;
     unsigned socket_calls, block_writes, nonnull_raw_commands;
     int logger_version, admitted_open_closed, last_block_fd;
+    int pin_stage, prot_restricted; unsigned ashmem_maps;
     char output[2048];
     size_t output_size;
 } mock;
@@ -148,8 +153,42 @@ static long call6(long n, long a, long b, long c, long d, long e, long f)
             assert(c == 4096);
             return mock.fault == ASHMEM_SIZE_FAILED ? -22 : 0;
         }
-        assert(b == ASHMEM_GET_SIZE && c == 0);
-        return mock.fault == ASHMEM_GET_FAILED ? 0 : 4096;
+        if (b == ASHMEM_GET_SIZE) {
+            assert(c == 0);return mock.fault == ASHMEM_GET_FAILED ? 0 : 4096;
+        }
+        if (b == ASHMEM_GET_NAME) {
+            assert(c==(long)ashmem_read_name);strcpy(ashmem_read_name,ashmem_name);
+            if(mock.fault==ASHMEM_BAD_NAME)ashmem_read_name[0]='!';
+            return 0;
+        }
+        if (b == ASHMEM_GET_PIN_STATUS) {
+            assert(c==(long)&ashmem_range);
+            if((mock.pin_stage==0&&mock.fault==ASHMEM_BAD_INITIAL_PIN)||
+               (mock.pin_stage==2&&mock.fault==ASHMEM_BAD_REPIN_STATUS))return ASHMEM_IS_UNPINNED;
+            if(mock.pin_stage==1)return mock.fault==ASHMEM_BAD_UNPIN_STATUS?ASHMEM_IS_PINNED:ASHMEM_IS_UNPINNED;
+            return ASHMEM_IS_PINNED;
+        }
+        if (b == ASHMEM_UNPIN) {
+            assert(c==(long)&ashmem_range&&mock.pin_stage==0);mock.pin_stage=1;
+            return mock.fault==ASHMEM_UNPIN_FAILED?-22:0;
+        }
+        if (b == ASHMEM_PIN) {
+            if(c==(long)&ashmem_bad_range) {
+                assert(ashmem_bad_range.offset==4096&&ashmem_bad_range.len==4096);
+                return mock.fault==ASHMEM_BAD_RANGE_ADMITTED?0:-22;
+            }
+            assert(c==(long)&ashmem_range&&mock.pin_stage==1);mock.pin_stage=2;
+            if(mock.fault==ASHMEM_REPIN_FAILED)return -22;
+            if(mock.fault==ASHMEM_PURGED){memset(private_page,0,sizeof(private_page));return ASHMEM_WAS_PURGED;}
+            if(mock.fault==ASHMEM_CORRUPT)private_page[2]^=1;
+            return ASHMEM_NOT_PURGED;
+        }
+        if (b == ASHMEM_SET_PROT_MASK) {
+            if(c==1){mock.prot_restricted=1;return mock.fault==ASHMEM_PROT_SET_FAILED?-22:0;}
+            assert(c==3&&mock.prot_restricted);return mock.fault==ASHMEM_PROT_ESCALATION?0:-22;
+        }
+        assert(b==ASHMEM_GET_PROT_MASK&&c==0&&mock.prot_restricted);
+        return mock.fault==ASHMEM_PROT_GET_FAILED?3:1;
     case 4:
         if (a == 90 || a == 91) ++mock.block_writes;
         assert(a == 1 || a == 11); /* Never a block fd, even if open admitted. */
@@ -173,6 +212,12 @@ static long call6(long n, long a, long b, long c, long d, long e, long f)
     }
     case 192:
         assert(a == 0 && b == 4096 && c == 3 && d == 1 && e == 12 && f == 0);
+        ++mock.ashmem_maps;
+        if(mock.ashmem_maps>1) {
+            assert(mock.prot_restricted);
+            return mock.fault==ASHMEM_WRITE_MAP_ADMITTED?(long)private_page:
+                   mock.fault==ASHMEM_WRITE_MAP_WRONG_ERRNO?-13:-1;
+        }
         return mock.fault == ASHMEM_MAP_FAILED ? -12 : (long)private_page;
     case 91:
         assert(a == (long)private_page && b == 4096);
@@ -235,9 +280,15 @@ int main(void)
     run(ASHMEM_OPEN_FAILED, 0, 4);
     for (enum fault f = ASHMEM_NAME_FAILED; f <= ASHMEM_GET_FAILED; ++f) run(f, 0, 5);
     run(ASHMEM_MAP_FAILED, 0, 6);
+    run(ASHMEM_BAD_NAME,0,16);
+    for(enum fault f=ASHMEM_BAD_INITIAL_PIN;f<=ASHMEM_BAD_UNPIN_STATUS;++f)run(f,0,17);
+    run(ASHMEM_REPIN_FAILED,0,18);run(ASHMEM_BAD_REPIN_STATUS,0,18);
+    run(ASHMEM_PURGED,0,0);run(ASHMEM_CORRUPT,0,19);
+    for(enum fault f=ASHMEM_PROT_SET_FAILED;f<=ASHMEM_PROT_ESCALATION;++f)run(f,0,20);
+    run(ASHMEM_WRITE_MAP_ADMITTED,0,21);run(ASHMEM_WRITE_MAP_WRONG_ERRNO,0,21);
     run(UNIX_FAILED, 0, 8);
     run(UEVENT_FAILED, 0, 9);
-    printf("PASS actual Android4.4 ABI probe: success and %u fault cases; all 11 unsafe write-open admissions closed then rejected; raw MMC and BLKROSET checks use only NULL payloads; no block writes.\n", cases-1);
+    printf("PASS actual Android4.4 ABI probe: success and %u additional scenarios; all 11 unsafe write-open admissions closed then rejected; raw MMC and BLKROSET checks use only NULL payloads; no block writes.\n", cases-1);
 }
 '''
 
