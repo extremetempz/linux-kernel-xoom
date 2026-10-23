@@ -1,0 +1,111 @@
+From cf8fee2c4e171b2d4743988d538d5274805e51e5 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:29:42 +1100
+Subject: [PATCH] nvhost: add opt-in Wingray six-word write header translation
+
+---
+ drivers/staging/tegra/video/Kconfig           | 11 +++++
+ drivers/staging/tegra/video/host/bus_client.c | 48 +++++++++++++++++--
+ 2 files changed, 54 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index 52ad805c..e9a7d13f 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -8,6 +8,17 @@ config TEGRA_GRHOST
+ 	help
+ 	  Driver for the Tegra graphics host hardware.
+ 
++config TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT
++	bool "Motorola Wingray six-word nvhost write header"
++	depends on TEGRA_GRHOST && ARCH_TEGRA_2x_SOC && OF
++	default n
++	help
++	  Select the original Wingray 24-byte write-submission header instead
++	  of the donor 16-byte format, only on motorola,wingray machines.
++	  This is an explicit ABI choice; the stream cannot be auto-detected.
++	  Extended ioctl submissions are unchanged. This does not enable GPU
++	  hardware or establish compatibility of the remaining NVIDIA ABI.
++
+ config TEGRA_GRHOST_USE_NVMAP
+ 	bool "Use nvmap as graphics memory manager"
+ 	default y
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 4eb99fc4..bdf061b1 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -26,6 +26,7 @@
+ #include <linux/file.h>
+ #include <linux/clk.h>
+ #include <linux/hrtimer.h>
++#include <linux/of.h>
+ 
+ #include <trace/events/nvhost.h>
+ 
+@@ -223,6 +224,45 @@ static void reset_submit(struct nvhost_channel_userctx *ctx)
+ 	}
+ }
+ 
++/* The Motorola stream adds wait checks after the four common words.
++ * It is ambiguous with command data: never infer the ABI from write length.
++ * Keep the donor UAPI and extended ioctl header unchanged.
++ */
++struct nvhost_submit_hdr_wingray {
++	u32 syncpt_id;
++	u32 syncpt_incrs;
++	u32 num_cmdbufs;
++	u32 num_relocs;
++	u32 num_waitchks;
++	u32 waitchk_mask;
++};
++
++static size_t nvhost_write_header_size(void)
++{
++#ifdef CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT
++	if (of_machine_is_compatible("motorola,wingray"))
++		return sizeof(struct nvhost_submit_hdr_wingray);
++#endif
++	return sizeof(struct nvhost_submit_hdr);
++}
++
++static int nvhost_read_submit_header(struct nvhost_submit_hdr_ext *hdr,
++		const char __user *buf, size_t size)
++{
++	struct nvhost_submit_hdr_wingray wire = { 0 };
++
++	if (copy_from_user(&wire, buf, size))
++		return -EFAULT;
++	memset(hdr, 0, sizeof(*hdr));
++	memcpy(hdr, &wire, sizeof(struct nvhost_submit_hdr));
++	if (size == sizeof(wire)) {
++		hdr->num_waitchks = wire.num_waitchks;
++		hdr->waitchk_mask = wire.waitchk_mask;
++	}
++	hdr->submit_version = NVHOST_SUBMIT_VERSION_V0;
++	return 0;
++}
++
+ static ssize_t nvhost_channelwrite(struct file *filp, const char __user *buf,
+ 				size_t count, loff_t *offp)
+ {
+@@ -242,14 +282,12 @@ static ssize_t nvhost_channelwrite(struct file *filp, const char __user *buf,
+ 		    !priv->num_relocshifts &&
+ 		    !hdr->num_cmdbufs &&
+ 		    !hdr->num_waitchks) {
+-			consumed = sizeof(struct nvhost_submit_hdr);
++			consumed = nvhost_write_header_size();
+ 			if (remaining < consumed)
+ 				break;
+-			if (copy_from_user(hdr, buf, consumed)) {
+-				err = -EFAULT;
++			err = nvhost_read_submit_header(hdr, buf, consumed);
++			if (err)
+ 				break;
+-			}
+-			hdr->submit_version = NVHOST_SUBMIT_VERSION_V0;
+ 			err = set_submit(priv);
+ 			if (err)
+ 				break;
+-- 
+2.43.0
+

@@ -1,0 +1,106 @@
+From ac2faf2a51a7c17055b60c07f46fc20ff4b92290 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:36:02 +1100
+Subject: [PATCH] tegra: propagate shared EMC vote failures and restore failed
+ votes
+
+---
+ drivers/staging/tegra/clk.c | 38 ++++++++++++++++++++++++++++---------
+ 1 file changed, 29 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/staging/tegra/clk.c b/drivers/staging/tegra/clk.c
+index 1b48715a..21d4c9d1 100644
+--- a/drivers/staging/tegra/clk.c
++++ b/drivers/staging/tegra/clk.c
+@@ -42,11 +42,11 @@ static struct shared_emc_clk {
+ 	int enabled;
+ } virtual_emc_clks[SHARED_CLK_NB];
+ 
+-static void update_emc_clk_rate(void)
++static int update_emc_clk_rate(void)
+ {
+ 	struct shared_emc_clk *vclk;
+ 	unsigned long rate = 0;
+-	int max, i;
++	int max = 0, i, ret;
+ 
+ 	for (i = 0; i < SHARED_CLK_NB; i++) {
+ 		vclk = &virtual_emc_clks[i];
+@@ -57,7 +57,7 @@ static void update_emc_clk_rate(void)
+ 		}
+ 	}
+ 
+-	clk_set_rate(emc_clk, rate);
++	ret = clk_set_rate(emc_clk, rate);
+ 
+ #ifdef DEBUG
+ 	if (rate != 0) {
+@@ -65,17 +65,26 @@ static void update_emc_clk_rate(void)
+ 		pr_debug("emc_rate: %lu %s\n", rate, __clk_get_name(hw->clk));
+ 	}
+ #endif
++	return ret;
+ }
+ 
+ static int shared_emc_clk_prepare(struct clk_hw *hw)
+ {
+ 	struct shared_emc_clk *vclk =
+ 				container_of(hw, struct shared_emc_clk, hw);
++	int ret;
++
+ 	vclk->enabled = 1;
++	ret = update_emc_clk_rate();
++	if (ret) {
++		vclk->enabled = 0;
++		if (update_emc_clk_rate())
++			pr_err("EMC vote rollback failed after prepare error\n");
++	}
+ 
+ 	pr_debug("%s: %s\n", __func__, __clk_get_name(hw->clk));
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static void shared_emc_clk_unprepare(struct clk_hw *hw)
+@@ -83,6 +92,9 @@ static void shared_emc_clk_unprepare(struct clk_hw *hw)
+ 	struct shared_emc_clk *vclk =
+ 				container_of(hw, struct shared_emc_clk, hw);
+ 	vclk->enabled = 0;
++	/* unprepare cannot return an error; retain the remaining votes. */
++	if (update_emc_clk_rate())
++		pr_err("Failed to update EMC after removing a clock vote\n");
+ 
+ 	pr_debug("%s: %s\n", __func__, __clk_get_name(hw->clk));
+ }
+@@ -113,14 +125,22 @@ static int shared_emc_clk_set_rate(struct clk_hw *hw, unsigned long rate,
+ {
+ 	struct shared_emc_clk *vclk =
+ 				container_of(hw, struct shared_emc_clk, hw);
++	unsigned long old_rate = vclk->rate;
++	int ret;
++
+ 	vclk->rate = rate;
++	if (!vclk->enabled)
++		return 0;
++
++	ret = update_emc_clk_rate();
++	if (ret) {
++		vclk->rate = old_rate;
++		if (update_emc_clk_rate())
++			pr_err("EMC vote rollback failed after rate error\n");
++	}
+ 
+ 	pr_debug("%s: %s %lu\n", __func__, __clk_get_name(hw->clk), rate);
+-
+-	if (vclk->enabled)
+-		update_emc_clk_rate();
+-
+-	return 0;
++	return ret;
+ }
+ 
+ static const struct clk_ops shared_emc_clk_ops = {
+-- 
+2.43.0
+

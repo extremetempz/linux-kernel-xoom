@@ -1,0 +1,79 @@
+From f8e236d56ae27725f89d5a451ab03958b9e462e1 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:36:02 +1100
+Subject: [PATCH] cpufreq: retain PLL errors and cap Wingray advertised
+ frequencies
+
+---
+ drivers/cpufreq/tegra20-cpufreq.c | 27 +++++++++++++++++++++++----
+ 1 file changed, 23 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/cpufreq/tegra20-cpufreq.c b/drivers/cpufreq/tegra20-cpufreq.c
+index 93761066..99959f43 100644
+--- a/drivers/cpufreq/tegra20-cpufreq.c
++++ b/drivers/cpufreq/tegra20-cpufreq.c
+@@ -26,6 +26,7 @@
+ #include <linux/err.h>
+ #include <linux/clk.h>
+ #include <linux/io.h>
++#include <linux/of.h>
+ 
+ static struct cpufreq_frequency_table freq_table[] = {
+ 	{ .frequency = 216000 },
+@@ -99,7 +100,7 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+ {
+ 	unsigned long rate = freq_table[index].frequency;
+ 	unsigned int ifreq = clk_get_rate(pll_p_clk) / 1000;
+-	int ret = 0;
++	int ret = 0, parent_ret;
+ 
+ 	/*
+ 	 * Vote on memory bus frequency based on cpu frequency
+@@ -126,9 +127,11 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+ 	if (ret)
+ 		pr_err("Failed to change pll_x to %lu\n", rate);
+ 
+-	ret = clk_set_parent(cpu_clk, pll_x_clk);
+-	/* This shouldn't fail while changing or restoring */
+-	WARN_ON(ret);
++	parent_ret = clk_set_parent(cpu_clk, pll_x_clk);
++	/* Preserve a PLL programming failure even if parent restoration works. */
++	WARN_ON(parent_ret);
++	if (!ret)
++		ret = parent_ret;
+ 
+ 	/*
+ 	 * Drop count to pll_x clock only if we switched to intermediate freq
+@@ -142,6 +145,21 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+ 	return ret;
+ }
+ 
++/* A policy maximum is user-adjustable, not a cap on the advertised table.
++ * Do not expose the donor's overclock entries on stock Wingray hardware.
++ * Voltage and EMC sequencing still require separate board validation.
++ */
++static void tegra_limit_wingray_frequencies(void)
++{
++	unsigned int i;
++
++	if (!of_machine_is_compatible("motorola,wingray"))
++		return;
++	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
++		if (freq_table[i].frequency > 1000000)
++			freq_table[i].frequency = CPUFREQ_ENTRY_INVALID;
++}
++
+ static int tegra_cpu_init(struct cpufreq_policy *policy)
+ {
+ 	int ret;
+@@ -156,6 +174,7 @@ static int tegra_cpu_init(struct cpufreq_policy *policy)
+ 	if (ret)
+ 		goto disable_emc;
+ 
++	tegra_limit_wingray_frequencies();
+ 	/* FIXME: what's the actual transition time? */
+ 	ret = cpufreq_generic_init(policy, freq_table, 300 * 1000);
+ 	if (ret)
+-- 
+2.43.0
+

@@ -1,0 +1,25 @@
+From 952b0d347e253e7fcd7015113f852d50f7cf3cec Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:27:03 +1100
+Subject: [PATCH] nvhost: follow replacement job when parsing write submissions
+
+---
+ drivers/staging/tegra/video/host/bus_client.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 130facda..4eb99fc4 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -253,6 +253,8 @@ static ssize_t nvhost_channelwrite(struct file *filp, const char __user *buf,
+ 			err = set_submit(priv);
+ 			if (err)
+ 				break;
++			/* set_submit replaces and drops the previous job. */
++			job = priv->job;
+ 			trace_nvhost_channel_write_submit(chname,
+ 			  count, hdr->num_cmdbufs, hdr->num_relocs,
+ 			  hdr->syncpt_id, hdr->syncpt_incrs);
+-- 
+2.43.0
+

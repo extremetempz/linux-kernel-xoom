@@ -1,0 +1,26 @@
+From ca20c30c9dcd4b1d9bb4e465030ef8d73972f92f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:36:02 +1100
+Subject: [PATCH] tegra: keep DVFS voltage table limits in millivolts
+
+---
+ drivers/staging/tegra/tegra20-dvfs.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/tegra20-dvfs.c b/drivers/staging/tegra/tegra20-dvfs.c
+index 77133a90..0200bcd4 100644
+--- a/drivers/staging/tegra/tegra20-dvfs.c
++++ b/drivers/staging/tegra/tegra20-dvfs.c
+@@ -81,7 +81,8 @@ static const int cpu_millivolts_process1[MAX_DVFS_FREQS] =
+ 
+ /* core domain defines */
+ // #define CORE_MAX_VDD    1300
+-#define CORE_MAX_VDD (CPU_MAX_VDD+_100uV)
++/* Voltage-table entries are millivolts; _100uV is a microvolt delta. */
++#define CORE_MAX_VDD (CPU_MAX_VDD + _100uV / 1000)
+ static const int core_millivolts[7] = {950, 1000, 1100, 1200, 1225, 1275, CORE_MAX_VDD,};
+ 
+ 
+-- 
+2.43.0
+

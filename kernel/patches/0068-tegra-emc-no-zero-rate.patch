@@ -1,0 +1,26 @@
+From 723689366ab1a464859ccf580f8d9a9a61c38a6f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:37:26 +1100
+Subject: [PATCH] tegra: retain EMC rate when no minimum vote is active
+
+---
+ drivers/staging/tegra/clk.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/staging/tegra/clk.c b/drivers/staging/tegra/clk.c
+index 21d4c9d1..f2f51911 100644
+--- a/drivers/staging/tegra/clk.c
++++ b/drivers/staging/tegra/clk.c
+@@ -57,6 +57,9 @@ static int update_emc_clk_rate(void)
+ 		}
+ 	}
+ 
++	/* No active minimum is not a request to clock DRAM at zero Hz. */
++	if (!rate)
++		return 0;
+ 	ret = clk_set_rate(emc_clk, rate);
+ 
+ #ifdef DEBUG
+-- 
+2.43.0
+
