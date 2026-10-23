@@ -1,18 +1,19 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
-**Latest physical result, 23 October 2026:** Image 33 confirms Android 4.4.4
-boot completion on Linux 4.4.147, single/two-contact touch, USB and matching
-full-capacity/all-ten BigPart storage. The startup touch interrupt burst was not
-observed after the masked-request correction. Image 32 had operator-confirmed
-Welcome and touch. Both complete original images match after restoration.
-A lockscreen, full calibration and suspend remain unverified; wallpaper crashes
-and Play services ANRs remain unresolved.
+**Latest physical result, 24 October 2026:** Image 37 boots Android 4.4.4 on
+Linux 4.4.147 with both Tegra 2 CPUs online and PL310 enabled. Two fresh reports,
+a bounded two-core memory/affinity check, advancing local timers/reschedule IPIs
+and retained CPU1 startup checkpoints confirm initial SMP execution. Both
+original image hashes match after restoration. Earlier images demonstrated
+Welcome and touch, USB and full-capacity/all-ten BigPart storage.
 
 See the [six-component completion status](STATUS.md),
-[image-33 physical evidence](docs/trace-boot-attempt-33.md),
-[CPU/cache build controls](docs/decatf-implementation-progress.md) and
-[power/graphics/Android ABI development](docs/power-graphics-abi-stage.md).
-CPU1, PL310, DVFS and NVIDIA GPU acceleration are not hardware-validated.
+[image-37 hardware evidence](docs/trace-boot-attempt-37.md) and
+[diagnostic implementation](docs/smp-startup-trace-37.md).
+Non-trace SMP repeatability and broader cache/stress testing are still pending;
+the cause of image 36's failure remains unknown. DVFS and accelerated NVIDIA
+graphics remain disabled. This remains an experimental RAM-data/software-
+graphics boot; a lockscreen, suspend and full ROM functionality are unverified.
 
 The [Decatf reuse audit and staged patch plan](docs/decatf-reuse-plan.md) compares SMP, PL310, DVFS, NVIDIA graphics and Android IPC against the original working stack. It preserves the hardware-tested configurations.
 
