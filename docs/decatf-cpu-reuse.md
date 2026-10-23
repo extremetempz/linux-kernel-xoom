@@ -189,3 +189,10 @@ No source rewrite is proposed for the already present SoC SMP or PL310 driver.
 No tested profile should be widened to collect all six user-requested components
 in one hardware test. Progress is accepted by fresh observable behavior and
 retained working features, not merely a successful compile.
+
+## Subsequent development checkpoint
+
+See [power, graphics and ABI implementation](power-graphics-abi-stage.md) for
+separate nvhost, EMC, voltage-unit, frequency-policy and composer corrections,
+expanded ashmem checks, ARM build evidence and remaining hardware gates.
+The earlier audit describes its pinned review snapshot.

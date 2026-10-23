@@ -230,3 +230,10 @@ restoration and complete boot/recovery readback verification. No recovery,
 partition layout, original userdata/cache or proprietary ROM publication is
 part of this audit. An accelerated screenshot or a successful library load
 alone is insufficient to pass rendering, synchronization or stability gates.
+
+## Subsequent development checkpoint
+
+See [power, graphics and ABI implementation](power-graphics-abi-stage.md) for
+separate nvhost, EMC, voltage-unit, frequency-policy and composer corrections,
+expanded ashmem checks, ARM build evidence and remaining hardware gates.
+The earlier audit describes its pinned review snapshot.

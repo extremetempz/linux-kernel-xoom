@@ -120,3 +120,10 @@ heap, zram or carveout values without measurements.
 No IPC or VM rewrite is needed to explain the current Welcome screen: it already
 works with the reused donor core. Stabilize the observed touch startup issue and
 prove a lockscreen on the RAM-data control before expanding the hardware scope.
+
+## Subsequent development checkpoint
+
+See [power, graphics and ABI implementation](power-graphics-abi-stage.md) for
+separate nvhost, EMC, voltage-unit, frequency-policy and composer corrections,
+expanded ashmem checks, ARM build evidence and remaining hardware gates.
+The earlier audit describes its pinned review snapshot.

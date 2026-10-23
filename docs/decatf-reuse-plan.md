@@ -18,7 +18,7 @@ software-graphics/RAM-data control. A reproducible newer ROM is a later stage.
 | Tegra 2 SMP/CPU bring-up | **Directly reusable SoC code** | Already present unchanged. Separate two-CPU profile and tracing changes required; UP boot does not prove CPU1. |
 | PL310 L2 | **Directly reusable SoC code** | Existing implementation and DT latencies match the original source's latency registers. Controller state/errata still need a separate hardware gate. |
 | CPU frequency/voltage | **Reusable with Motorola-specific modifications** | Retain the 4.4 clock/cpufreq framework, integrate Motorola MAX8649/CPCAP relationships and installed-DRAM EMC data. Do not enable unchanged donor frequency tables. |
-| nvhost/nvmap | **Reusable with Motorola-specific modifications** | Existing staging code is the starting point. nvmap encodings match, but original nvhost write headers are 24 bytes and donor headers 16 bytes; installed blob dialect remains unknown. |
+| nvhost/nvmap | **Reusable with Motorola-specific modifications** | Existing staging code is the starting point. nvmap encodings match, but original nvhost write headers are 24 bytes and donor headers 16 bytes; static inspection of the installed Motorola submission path also writes 24 bytes; runtime use and complete ABI remain unvalidated. |
 | EGL/gralloc/HWC | **Reusable wrappers with Motorola-specific modifications; proprietary p4wifi set incompatible as a drop-in** | Diff the existing Wingray/Decatf wrappers and use a measured matching dependency set. Current DRM/GEM is incompatible with direct legacy NVIDIA userspace calls. Keep software graphics as control. |
 | Android 4.4 Binder/ashmem/logger/VM | **Directly reusable core, already integrated; legacy transport requires its existing adaptation** | Binder/ashmem/LMK remain donor code. KitKat logger is already adapted in patch 0054. Oreo logging is incompatible as a direct KitKat replacement; match Binder bitness to the actual userspace build. |
 
@@ -38,7 +38,7 @@ boot-only experiment. Stop advancing when a gate fails.
 
 | Order | Patch boundary | Build/source gate | Physical acceptance |
 |---|---|---|---|
-| 0 | Touch startup IRQ request, patch 0059 | **Done:** negative-control preemption test and full candidate-33 kernel build pass; unchanged tested config/DT | Pending: confirm startup RT-throttling/burst disappears while touch, USB and Android remain working. Candidate 33 was not flashed. |
+| 0 | Touch startup IRQ request, patch 0059 | **Done:** negative-control preemption test and full candidate-33 kernel build pass; unchanged tested config/DT | **Image 33 passes this boot:** startup count is low, captured boot logs have no RT-throttling warning, and Android/touch/USB/storage remain working. See trace-boot-attempt-33.md; endurance remains pending. |
 | 1 | Touch calibration and RAM-only setup/lockscreen | Keep existing boot/RO/ABI guards; no fake boot-completion properties or original userdata mount | Edge alignment, two-finger release, real setup progression and actual visible lockscreen; retain logs |
 | 2 | Bounded CPU/cache/graphics/memory inventory | Read-only metadata, exact identities and output limits; reproduce ARM32 ABI measurements with `scripts/audit-tegra-graphics-abi.py` | Resolve CPU/cache revision, installed RAM and missing blob protocol facts using supported observation |
 | 3 | UP + PL310 profile | Separate config; preserve memory map/CMA and errata review; full ARM link/DT/image audit | Cache logs, bounded RAM checksums, Android/touch/USB/read-only storage; repeat |
@@ -64,3 +64,10 @@ The physical touch milestone is complete within its documented scope. Broad
 CPU/cache/graphics implementation has not been merged by this audit. Current
 source includes the separately tested-at-host-only IRQ correction; hardware
 confidence still belongs to the preserved image-32 source and image hashes.
+
+## Subsequent implementation
+
+See [separate implementation progress](decatf-implementation-progress.md) for
+UP/PL310 and SMP control builds, cpufreq resource-error corrections, HWC buffer
+bounds, and the bounded metadata observer. These supersede the audit-only
+implementation status above; CPU/cache/GPU hardware validation remains pending.
