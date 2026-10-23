@@ -2,7 +2,10 @@
 
 24 October 2026. The separate `legacy-resources` profile is implemented and
 builds successfully. **It enables the existing Decatf nvmap carveout allocator,
-not accelerated graphics or Android startup.** No candidate was flashed.
+not accelerated graphics or Android startup.** At this preparation checkpoint no
+candidate had been flashed. [Attempt 39 subsequently passed the initial uncached
+allocator smoke test](nvmap-allocator-hardware-test.md), followed by verified
+original-image restoration.
 
 ## Direct original-device observations
 
