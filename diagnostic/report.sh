@@ -73,6 +73,9 @@ fi
 if [ -x /bin/touch-report ]; then
  /bin/busybox sh /bin/touch-report
 fi
+if [ -x /bin/soc-report ]; then
+ /bin/busybox sh /bin/soc-report
+fi
 /bin/busybox printf 'XOOM_DMESG_BEGIN\n'
 /bin/busybox dmesg | /bin/busybox tail -c 262144
 /bin/busybox printf 'XOOM_DMESG_END\nXOOM_FRESH_REPORT_DONE %s\n' "$nonce"

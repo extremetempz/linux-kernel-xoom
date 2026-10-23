@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0
  * Pre-init Android4.4 ABI gate: RAM logger/ashmem, sockets and fixed block
  * protection probes. No Binder transactions, mounts, block writes or valid
- * raw MMC commands. Device execution remains untested. */
+ * raw MMC commands. New checks require separate physical validation. */
 #define BINDER_IPC_32BIT 1
 #ifndef XOOM_ABI_RELEASE
 #define XOOM_ABI_RELEASE "4.4.147-wingray-android44"
@@ -53,6 +53,9 @@ static int equal(const char *a,const char *b)
 static char uts[6][65];
 static struct binder_version version;
 static char ashmem_name[ASHMEM_NAME_LEN]="xoom-android44-abi-only";
+static char ashmem_read_name[ASHMEM_NAME_LEN];
+static struct ashmem_pin ashmem_range = { 0, 4096 };
+static struct ashmem_pin ashmem_bad_range = { 4096, 4096 };
 static char log_buffer[128];
 static int log_version=2;
 static const char log_message[]="\x04XoomABI\0RAM-only ABI gate\0";
@@ -78,7 +81,7 @@ static int logger_roundtrip(long fd,unsigned int header)
 void _start(void) __attribute__((noreturn));
 void _start(void)
 {
-    long fd, address;
+    long fd, address, pin_result, denied_map;
     volatile unsigned int *memory;
     unsigned int i;
     if(call6(122,(long)uts,0,0,0,0,0)<0 ||
@@ -126,8 +129,31 @@ void _start(void)
     memory=(volatile unsigned int *)address;
     for(i=0;i<1024;++i)memory[i]=i^0x584d0030U;
     for(i=0;i<1024;++i)if(memory[i]!=(i^0x584d0030U))end(7);
+    if(call6(54,fd,ASHMEM_GET_NAME,(long)ashmem_read_name,0,0,0)<0 ||
+       !equal(ashmem_name,ashmem_read_name))end(16);
+    if(call6(54,fd,ASHMEM_GET_PIN_STATUS,(long)&ashmem_range,0,0,0)!=ASHMEM_IS_PINNED ||
+       call6(54,fd,ASHMEM_PIN,(long)&ashmem_bad_range,0,0,0)!=-22 ||
+       call6(54,fd,ASHMEM_UNPIN,(long)&ashmem_range,0,0,0)!=0 ||
+       call6(54,fd,ASHMEM_GET_PIN_STATUS,(long)&ashmem_range,0,0,0)!=ASHMEM_IS_UNPINNED)end(17);
+    pin_result=call6(54,fd,ASHMEM_PIN,(long)&ashmem_range,0,0,0);
+    if((pin_result!=ASHMEM_NOT_PURGED && pin_result!=ASHMEM_WAS_PURGED) ||
+       call6(54,fd,ASHMEM_GET_PIN_STATUS,(long)&ashmem_range,0,0,0)!=ASHMEM_IS_PINNED)end(18);
+    /* Reclaim while unpinned is allowed; never treat purge as corruption. */
+    for(i=0;i<1024;++i) {
+        if(memory[i]!=(pin_result==ASHMEM_WAS_PURGED ? 0U : i^0x584d0030U))end(19);
+        memory[i]=i^0x584d0030U;
+    }
+    if(call6(54,fd,ASHMEM_SET_PROT_MASK,1,0,0,0)<0 ||
+       call6(54,fd,ASHMEM_GET_PROT_MASK,0,0,0,0)!=1 ||
+       call6(54,fd,ASHMEM_SET_PROT_MASK,3,0,0,0)!=-22)end(20);
+    denied_map=call6(192,0,4096,3,1,fd,0);
+    if(denied_map!=-1) /* ashmem_mmap rejects disallowed protection with EPERM */ {
+        if((unsigned long)denied_map<(unsigned long)-4095)
+            call6(91,denied_map,4096,0,0,0,0);
+        end(21);
+    }
     call6(91,address,4096,0,0,0,0);call6(6,fd,0,0,0,0,0);
-    line("XOOM_ANDROID44_ASHMEM_PRIVATE_PAGE_OK\n");
+    line("XOOM_ANDROID44_ASHMEM_PRIVATE_PAGE_OK\nXOOM_ANDROID44_ASHMEM_PIN_PROTECTION_OK\n");
     fd=call6(281,1,1,0,0,0,0); /* AF_UNIX, SOCK_STREAM */
     if(fd<0)end(8);
     call6(6,fd,0,0,0,0,0);
