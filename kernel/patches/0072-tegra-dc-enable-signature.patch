@@ -1,0 +1,47 @@
+From 5e83e15b2b17ca4193dd36526e972b18fe152f62 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 00:49:57 +1100
+Subject: [PATCH] video: tegra: keep controller enable call signature
+ consistent
+
+---
+ drivers/staging/tegra/video/dc/dc.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/dc/dc.c b/drivers/staging/tegra/video/dc/dc.c
+index 8faec4bd..c1273a87 100644
+--- a/drivers/staging/tegra/video/dc/dc.c
++++ b/drivers/staging/tegra/video/dc/dc.c
+@@ -1477,11 +1477,7 @@ void tegra_dc_panel_disable_common(struct tegra_dc *dc)
+ 	dc->out->panel_enabled = false;
+ }
+ 
+-#ifdef CONFIG_MACH_SAMSUNG_VARIATION_TEGRA
+ static bool _tegra_dc_controller_enable(struct tegra_dc *dc, bool no_reset)
+-#else
+-static bool _tegra_dc_controller_enable(struct tegra_dc *dc)
+-#endif
+ {
+ 	int failed_init = 0;
+ 
+@@ -1493,15 +1489,11 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc)
+ 	tegra_dc_setup_clk(dc, dc->clk);
+ 	tegra_dc_clk_enable(dc);
+ 
+-#ifdef CONFIG_MACH_SAMSUNG_VARIATION_TEGRA
+-	if (!no_reset) {
++	/* Only the existing Samsung handoff path may skip reset assertion. */
++	if (!IS_ENABLED(CONFIG_MACH_SAMSUNG_VARIATION_TEGRA) || !no_reset) {
+ 		reset_control_assert(dc->ndev->rst);
+ 		usleep_range(1000, 2000);
+ 	}
+-#else
+-	reset_control_assert(dc->ndev->rst);
+-	usleep_range(1000, 2000);
+-#endif
+ 	reset_control_deassert(dc->ndev->rst);
+ 
+ 	/* do not accept interrupts during initialization */
+-- 
+2.43.0
+

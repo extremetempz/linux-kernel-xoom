@@ -1,0 +1,24 @@
+From a41e846e3e31328f3b6d9b64be400f9ea4633269 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 06:17:19 +1100
+Subject: [PATCH] staging: tegra: enforce modern memory-controller exclusion
+
+---
+ drivers/staging/tegra/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/Kconfig b/drivers/staging/tegra/Kconfig
+index 2cfa1bc3..3e175e6e 100644
+--- a/drivers/staging/tegra/Kconfig
++++ b/drivers/staging/tegra/Kconfig
+@@ -1,6 +1,6 @@
+ config TEGRA_DOWNSTREAM
+ 	bool "Downstream NVIDIA Tegra drivers"
+-	depends on ARCH_TEGRA && !CONFIG_TEGRA20_MC
++	depends on ARCH_TEGRA && !TEGRA20_MC
+ 	default n
+ 	help
+ 	  Say Y to build downstream NVIDIA Tegra 2/3 drivers.
+-- 
+2.43.0
+

@@ -1,0 +1,141 @@
+From 8ff6887558cf3bc3f6b20c0c4b3005c9578c10ad Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 06:50:08 +1100
+Subject: [PATCH] video: tegra: retain legacy fb objects until the last open
+ file closes
+
+---
+ drivers/staging/tegra/video/fb.c        | 34 +++++++++++++++++++++----
+ drivers/staging/tegra/video/fb_legacy.h |  9 +++++--
+ 2 files changed, 36 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/fb.c b/drivers/staging/tegra/video/fb.c
+index 19d33f6c..a995b5b6 100644
+--- a/drivers/staging/tegra/video/fb.c
++++ b/drivers/staging/tegra/video/fb.c
+@@ -78,13 +78,15 @@ static int tegra_fb_check_var(struct fb_var_screeninfo *var,
+ 			      struct fb_info *info)
+ {
+ 	struct tegra_fb_info *tegra_fb = info->par;
+-	struct tegra_dc *dc = tegra_fb->win->dc;
+-	struct tegra_dc_out_ops *ops = dc->out_ops;
++	struct tegra_dc *dc;
++	struct tegra_dc_out_ops *ops;
+ 	struct fb_videomode mode;
+ 	if (tegra_fb_legacy_dead(tegra_fb))
+ 		return -ENODEV;
+ 	if (tegra_fb_legacy_busy(tegra_fb))
+ 		return -EBUSY;
++	dc = tegra_fb->win->dc;
++	ops = dc->out_ops;
+ 
+ 	if ((var->yres * var->xres * var->bits_per_pixel / 8 * 2) >
+ 	    info->screen_size)
+@@ -111,11 +113,12 @@ static int tegra_fb_set_par(struct fb_info *info)
+ {
+ 	struct tegra_fb_info *tegra_fb = info->par;
+ 	struct fb_var_screeninfo *var = &info->var;
+-	struct tegra_dc *dc = tegra_fb->win->dc;
++	struct tegra_dc *dc;
+ 	if (tegra_fb_legacy_dead(tegra_fb))
+ 		return -ENODEV;
+ 	if (tegra_fb_legacy_busy(tegra_fb))
+ 		return -EBUSY;
++	dc = tegra_fb->win->dc;
+ 
+ 	if (var->bits_per_pixel) {
+ 		/* we only support RGB ordering for now */
+@@ -295,9 +298,10 @@ static int tegra_fb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
+ static int tegra_fb_blank(int blank, struct fb_info *info)
+ {
+ 	struct tegra_fb_info *tegra_fb = info->par;
+-	struct tegra_dc *dc = tegra_fb->win->dc;
++	struct tegra_dc *dc;
+ 	if (tegra_fb_legacy_dead(tegra_fb))
+ 		return -ENODEV;
++	dc = tegra_fb->win->dc;
+ 
+ 	switch (blank) {
+ 	case FB_BLANK_UNBLANK:
+@@ -484,11 +488,23 @@ int tegra_fb_set_mode(struct tegra_dc *dc, int fps) {
+ 	return -EIO;
+ }
+ 
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++/* fbdev owns the final fb_info reference; existing open files may outlive
++ * unregister_framebuffer. Keep their screen mapping/par until last close. */
++static void tegra_fb_legacy_fb_destroy(struct fb_info *info)
++{
++	if (info->screen_base)
++		iounmap(info->screen_base);
++	framebuffer_release(info);
++}
++#endif
++
+ static struct fb_ops tegra_fb_ops = {
+ 	.owner = THIS_MODULE,
+ #ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
+ 	.fb_open = tegra_fb_legacy_open,
+ 	.fb_release = tegra_fb_legacy_release,
++	.fb_destroy = tegra_fb_legacy_fb_destroy,
+ #endif
+ 	.fb_check_var = tegra_fb_check_var,
+ 	.fb_set_par = tegra_fb_set_par,
+@@ -794,9 +810,17 @@ void tegra_fb_unregister(struct tegra_fb_info *fb_info)
+ {
+ 	struct fb_info *info = fb_info->info;
+ 
+-	unregister_framebuffer(info);
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++	/* Serialize against an ioctl already in progress, stop DC, then reject
++	 * future operations before the controller's devm objects disappear. */
++	mutex_lock(&info->lock);
+ 	tegra_fb_legacy_destroy(fb_info);
++	mutex_unlock(&info->lock);
++	unregister_framebuffer(info); /* final release through .fb_destroy */
++#else
++	unregister_framebuffer(info);
+ 
+ 	iounmap(info->screen_base);
+ 	framebuffer_release(info);
++#endif
+ }
+diff --git a/drivers/staging/tegra/video/fb_legacy.h b/drivers/staging/tegra/video/fb_legacy.h
+index c8f79e00..701dc3db 100644
+--- a/drivers/staging/tegra/video/fb_legacy.h
++++ b/drivers/staging/tegra/video/fb_legacy.h
+@@ -305,6 +305,8 @@ static int tegra_fb_legacy_open(struct fb_info *info, int user)
+ {
+ 	struct tegra_fb_info *fb = info->par;
+ 	int ret = 0;
++	if (fb->legacy_dead)
++		return -EIO;
+ 	if (!fb->legacy_enabled)
+ 		return 0;
+ 	mutex_lock(&fb->legacy_lock);
+@@ -355,10 +357,12 @@ static int tegra_fb_legacy_init(struct tegra_fb_info *fb)
+ static void tegra_fb_legacy_destroy(struct tegra_fb_info *fb)
+ {
+ 	int i;
+-	if (!fb->legacy_enabled)
+-		return;
+ 	mutex_lock(&fb->legacy_lock);
++	if (fb->legacy_dead)
++		goto out;
+ 	fb->legacy_dead = true;
++	if (!fb->legacy_enabled)
++		goto out;
+ 	tegra_dc_disable(fb->win->dc);
+ 	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++) {
+ 		struct tegra_dc_win *win = tegra_dc_get_window(fb->win->dc, i);
+@@ -376,6 +380,7 @@ static void tegra_fb_legacy_destroy(struct tegra_fb_info *fb)
+ 	}
+ 	nvmap_client_put(fb->fb_nvmap);
+ 	fb->fb_nvmap = NULL;
++out:
+ 	mutex_unlock(&fb->legacy_lock);
+ }
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,59 @@
+From c69418dd23ed032ae71cfea91328d302a7256118 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 00:49:57 +1100
+Subject: [PATCH] video: tegra: scope CMC623 hooks to the selected panel driver
+
+---
+ drivers/staging/tegra/video/dc/dc.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/video/dc/dc.c b/drivers/staging/tegra/video/dc/dc.c
+index 5788e0ed..8faec4bd 100644
+--- a/drivers/staging/tegra/video/dc/dc.c
++++ b/drivers/staging/tegra/video/dc/dc.c
+@@ -62,7 +62,7 @@
+ #include "overlay.h"
+ #include "nvsd.h"
+ 
+-#ifdef CONFIG_MACH_SAMSUNG_VARIATION_TEGRA
++#ifdef CONFIG_FB_TEGRA_CMC623
+ #include "../cmc623.h"
+ 
+ extern int cmc623_current_type;
+@@ -103,11 +103,13 @@ void tegra_dc_clk_enable(struct tegra_dc *dc)
+ 		clk_prepare_enable(dc->clk);
+ 		// tegra_dvfs_set_rate(dc->clk, dc->mode.pclk);
+ 
++#ifdef CONFIG_FB_TEGRA_CMC623
+ 		if (cmc623_current_type == cmc623_type_lsi) {
+ 			tegra_dvfs_set_rate(dc->clk, CMC623_CLK_RATE);
+ 		} else if (cmc623_current_type == cmc623_type_fujitsu) {
+ 			tegra_dvfs_set_rate(dc->clk, CMC623F_CLK_RATE);
+ 		}
++#endif
+ 	}
+ }
+ 
+@@ -1396,7 +1398,9 @@ void tegra_enable_backlight(struct tegra_dc *dc)
+ 	if (dc->out->type != TEGRA_DC_OUT_RGB)
+ 		return;
+ 
++#ifdef CONFIG_FB_TEGRA_CMC623
+ 	cmc623_resume();
++#endif
+ 
+ 	if (!IS_ERR_OR_NULL(dc->out->bl_vdd))
+ 		WARN_ON(regulator_enable(dc->out->bl_vdd) != 0);
+@@ -1437,7 +1441,9 @@ void tegra_disable_backlight(struct tegra_dc *dc)
+ 	if (dc->out->type != TEGRA_DC_OUT_RGB)
+ 		return;
+ 
++#ifdef CONFIG_FB_TEGRA_CMC623
+ 	cmc623_suspend();
++#endif
+ 
+ 	if (!IS_ERR_OR_NULL(dc->out->bl_vdd))
+ 		regulator_disable(dc->out->bl_vdd);
+-- 
+2.43.0
+

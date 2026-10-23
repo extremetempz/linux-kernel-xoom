@@ -1,0 +1,26 @@
+From 8467dab8900b85c46084a47205a87ece93df0d91 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 00:50:40 +1100
+Subject: [PATCH] video: tegra: restrict default CMC623 selection to Samsung
+ boards
+
+---
+ drivers/staging/tegra/video/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index e9a7d13f..d240b96e 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -210,7 +210,7 @@ config TEGRA_HDMI_74MHZ_LIMIT
+ 
+ config FB_TEGRA_CMC623
+ 	bool "Samsung CMC623"
+-	depends on FB_TEGRA 
++	depends on FB_TEGRA && MACH_SAMSUNG_VARIATION_TEGRA
+ 	default y
+ 	help
+ 	  This enables support for Samsung CMC623 image converter
+-- 
+2.43.0
+

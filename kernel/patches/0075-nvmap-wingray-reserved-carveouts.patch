@@ -1,0 +1,191 @@
+From 8d5b9e05b1d0f549d5dfa510c0e302566e0d8ecf Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 06:39:37 +1100
+Subject: [PATCH] staging: nvmap: validate carveouts before use and require
+ Wingray reservations
+
+---
+ drivers/staging/tegra/video/nvmap/nvmap_dev.c | 138 ++++++++++++++----
+ 1 file changed, 112 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/nvmap/nvmap_dev.c b/drivers/staging/tegra/video/nvmap/nvmap_dev.c
+index 7d47aac8..3c7056a6 100644
+--- a/drivers/staging/tegra/video/nvmap/nvmap_dev.c
++++ b/drivers/staging/tegra/video/nvmap/nvmap_dev.c
+@@ -1213,54 +1213,138 @@ static const struct file_operations debug_iovmm_allocations_fops = {
+ 	.release = single_release,
+ };
+ 
++/* Wingray must use memory excluded by the early reserved-memory scan.
++ * Removing a region at driver probe is too late to make ordinary RAM safe
++ * for a carveout. Other boards may opt into the same binding explicitly.
++ */
++static int nvmap_dt_reserved(struct device_node *child,
++			     struct resource *mem, bool required)
++{
++	struct device_node *region, *parent;
++	struct resource reserved;
++	const void *property;
++	int length, ret = -EINVAL;
++
++	property = of_get_property(child, "memory-region", &length);
++	if (!property)
++		return required ? -EINVAL : 0;
++	if (length != sizeof(__be32))
++		return -EINVAL;
++	region = of_parse_phandle(child, "memory-region", 0);
++	if (!region)
++		return -EINVAL;
++	parent = of_get_parent(region);
++	if (parent && !strcmp(parent->full_name, "/reserved-memory") &&
++	    of_device_is_available(parent) &&
++	    of_device_is_available(region) &&
++	    of_property_read_bool(region, "no-map") &&
++	    !of_property_read_bool(region, "reusable") &&
++	    !of_address_to_resource(region, 0, &reserved) &&
++	    reserved.start <= reserved.end && resource_contains(&reserved, mem))
++		ret = 1;
++	of_node_put(parent);
++	of_node_put(region);
++	return ret;
++}
++
+ static struct nvmap_platform_data *nvmap_parse_dt(struct platform_device *pdev)
+ {
+ 	struct nvmap_platform_data *pdata;
+ 	struct device_node *child, *np = pdev->dev.of_node;
+ 	struct nvmap_platform_carveout *carveout;
+ 	struct resource mem;
+-	int i = 0, val;
++	unsigned long reserved_mask = 0;
++	u32 val;
++	bool wingray = of_machine_is_compatible("motorola,wingray");
++	unsigned int i = 0, j;
++	int ret = -EINVAL;
+ 
+ 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+ 	if (!pdata)
+-		return NULL;
+-
++		return ERR_PTR(-ENOMEM);
+ 
+ 	np = of_get_child_by_name(np, "carveouts");
+ 	if (!np)
+-		return NULL;
+-
+-	pdata->nr_carveouts = of_get_child_count(np);
++		return ERR_PTR(-EINVAL);
+ 
+-	if (!pdata->nr_carveouts)
+-		return NULL;
++	pdata->nr_carveouts = of_get_available_child_count(np);
+ 
+-	pdata->carveouts = devm_kzalloc(&pdev->dev,
+-					sizeof(*carveout) * pdata->nr_carveouts,
+-					GFP_KERNEL);
+-	if (!pdata->carveouts)
+-		return NULL;
+-
+-	for_each_child_of_node(np, child) {
+-			if (of_address_to_resource(child, 0, &mem))
+-				continue;
++	/* Bounds the reservation bitmap and rejects empty platform data. */
++	if (!pdata->nr_carveouts || pdata->nr_carveouts > BITS_PER_LONG)
++		goto out;
+ 
+-			carveout = &pdata->carveouts[i++];
++	pdata->carveouts = devm_kcalloc(&pdev->dev, pdata->nr_carveouts,
++				       sizeof(*carveout), GFP_KERNEL);
++	if (!pdata->carveouts) {
++		ret = -ENOMEM;
++		goto out;
++	}
+ 
+-			carveout->base = mem.start;
+-			carveout->size = resource_size(&mem);
+-			carveout->name = mem.name;
++	/* Validate the complete list before any memblock mutation or heap use. */
++	for_each_available_child_of_node(np, child) {
++		if (of_address_to_resource(child, 0, &mem) ||
++		    mem.start > mem.end || !resource_size(&mem) ||
++		    mem.start != (phys_addr_t)mem.start ||
++		    mem.end != (phys_addr_t)mem.end ||
++		    resource_size(&mem) != (size_t)resource_size(&mem))
++			goto invalid;
++
++		carveout = &pdata->carveouts[i];
++		carveout->base = mem.start;
++		carveout->size = resource_size(&mem);
++		carveout->name = mem.name;
++		if (of_property_read_u32(child, "usage-mask", &val) ||
++		    !val || (val & ~NVMAP_HEAP_CARVEOUT_MASK))
++			goto invalid;
++		carveout->usage_mask = val;
++
++		if (of_find_property(child, "buddy-size", NULL)) {
++			if (of_property_read_u32(child, "buddy-size", &val))
++				goto invalid;
++			if (val && (!is_power_of_2(val) || val > carveout->size ||
++				    (carveout->base & (val - 1)) ||
++				    (carveout->size & (val - 1))))
++				goto invalid;
++			carveout->buddy_size = val;
++		}
+ 
+-			memblock_remove(carveout->base, carveout->size);
++		for (j = 0; j < i; j++) {
++			struct nvmap_platform_carveout *other = &pdata->carveouts[j];
++			if (carveout->base <= other->base + other->size - 1 &&
++			    other->base <= mem.end)
++				goto invalid;
++		}
+ 
+-			if (!of_property_read_u32(child, "buddy-size", &val))
+-				carveout->buddy_size = val;
++		ret = nvmap_dt_reserved(child, &mem, wingray);
++		if (ret < 0)
++			goto invalid;
++		if (ret)
++			reserved_mask |= BIT(i);
++		i++;
++	}
+ 
+-			if (!of_property_read_u32(child, "usage-mask", &val))
+-				carveout->usage_mask = val;
++	/* Retain the existing non-Wingray binding, but only after validation.
++	 * Explicit reserved-memory users never rely on this late removal. */
++	for (i = 0; i < pdata->nr_carveouts; i++) {
++		carveout = &pdata->carveouts[i];
++		if (!(reserved_mask & BIT(i))) {
++			ret = memblock_remove(carveout->base, carveout->size);
++			if (ret)
++				goto out;
++		}
+ 	}
+ 
++	of_node_put(np);
+ 	return pdata;
++
++invalid:
++	dev_err(&pdev->dev, "invalid or unreserved nvmap carveout %s\n",
++		child->full_name);
++	of_node_put(child);
++	ret = -EINVAL;
++out:
++	of_node_put(np);
++	return ERR_PTR(ret);
+ }
+ 
+ static int nvmap_probe(struct platform_device *pdev)
+@@ -1273,6 +1357,8 @@ static int nvmap_probe(struct platform_device *pdev)
+ 
+ 	if (!plat && pdev->dev.of_node)
+ 		plat = nvmap_parse_dt(pdev);
++	if (IS_ERR(plat))
++		return PTR_ERR(plat);
+ 
+ 	if (!plat) {
+ 		dev_err(&pdev->dev, "no platform data?\n");
+-- 
+2.43.0
+

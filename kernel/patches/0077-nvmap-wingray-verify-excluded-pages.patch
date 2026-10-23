@@ -1,0 +1,44 @@
+From 78c4718f3bf333a42d73ba6dde9e4e993b36e24b Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 06:47:12 +1100
+Subject: [PATCH] staging: nvmap: verify Wingray carveouts are outside the RAM
+ page map
+
+---
+ drivers/staging/tegra/video/nvmap/nvmap_dev.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/staging/tegra/video/nvmap/nvmap_dev.c b/drivers/staging/tegra/video/nvmap/nvmap_dev.c
+index 3c7056a6..2059b55e 100644
+--- a/drivers/staging/tegra/video/nvmap/nvmap_dev.c
++++ b/drivers/staging/tegra/video/nvmap/nvmap_dev.c
+@@ -1223,6 +1223,7 @@ static int nvmap_dt_reserved(struct device_node *child,
+ 	struct device_node *region, *parent;
+ 	struct resource reserved;
+ 	const void *property;
++	unsigned long pfn, last_pfn;
+ 	int length, ret = -EINVAL;
+ 
+ 	property = of_get_property(child, "memory-region", &length);
+@@ -1244,6 +1245,18 @@ static int nvmap_dt_reserved(struct device_node *child,
+ 		ret = 1;
+ 	of_node_put(parent);
+ 	of_node_put(region);
++	/* On this ARM port pfn_valid() consults the retained memblock memory
++	 * map. A no-map declaration is insufficient if early removal failed:
++	 * check every covered page, not only the first and last addresses. */
++	if (ret == 1 && required) {
++		last_pfn = mem->end >> PAGE_SHIFT;
++		for (pfn = mem->start >> PAGE_SHIFT; pfn <= last_pfn; pfn++) {
++			if (pfn_valid(pfn)) {
++				ret = -EINVAL;
++				break;
++			}
++		}
++	}
+ 	return ret;
+ }
+ 
+-- 
+2.43.0
+

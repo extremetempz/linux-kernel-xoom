@@ -1,0 +1,88 @@
+From 1e5a96d2b99a9faa1732755a415264f504c2b804 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 07:08:57 +1100
+Subject: [PATCH] staging: tegra: isolate Wingray nvmap resource mode from
+ clocks and DVFS
+
+---
+ drivers/staging/tegra/Makefile                |  6 +++++-
+ drivers/staging/tegra/clk.c                   |  5 +++++
+ drivers/staging/tegra/video/Kconfig           | 14 ++++++++++++++
+ drivers/staging/tegra/video/nvmap/nvmap_dev.c |  3 +++
+ 4 files changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/Makefile b/drivers/staging/tegra/Makefile
+index e7d543a1..2efa7b64 100644
+--- a/drivers/staging/tegra/Makefile
++++ b/drivers/staging/tegra/Makefile
+@@ -8,6 +8,10 @@ obj-$(CONFIG_TEGRA_DOWNSTREAM) += clk.o
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += mc.o
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += pageattr.o
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += powergate.o
++# The isolated allocator experiment has neither DC nor voltage-management
++# consumers. Do not register DVFS or retain its legacy DC-probe dependency.
++ifneq ($(CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES),y)
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += tegra20-dvfs.o
++endif
+ obj-$(CONFIG_TEGRA_IOVMM) += iovmm.o
+-obj-$(CONFIG_TEGRA_IOVMM_GART) += iovmm-gart.o
+\ No newline at end of file
++obj-$(CONFIG_TEGRA_IOVMM_GART) += iovmm-gart.o
+diff --git a/drivers/staging/tegra/clk.c b/drivers/staging/tegra/clk.c
+index f2f51911..0ace2cf4 100644
+--- a/drivers/staging/tegra/clk.c
++++ b/drivers/staging/tegra/clk.c
+@@ -179,6 +179,11 @@ static void register_shared_emc_clk(struct shared_emc_clk *shrd_clk,
+ 
+ static int register_shared_emc_clks(void)
+ {
++	/* The carveout-only Wingray experiment must not replace even the USB
++	 * EMC clock lookups while validating allocator backing ownership. */
++	if (IS_ENABLED(CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES))
++		return 0;
++
+ 	emc_clk = clk_get_sys(NULL, "emc");
+ 	if (IS_ERR(emc_clk)) {
+ 		pr_err("Failed to get EMC clock\n");
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index de4df8aa..de199a55 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -98,6 +98,20 @@ config NVMAP_RECLAIM_UNPINNED_VM
+ 	  allow a larger virtual I/O VM space than would normally be
+ 	  supported by the hardware, at a slight cost in performance.
+ 
++config TEGRA_NVMAP_WINGRAY_RESOURCES
++	bool "Motorola Wingray carveout-only resource experiment"
++	depends on MACH_MOTOROLA_WINGRAY && ARCH_TEGRA_2x_SOC && TEGRA_NVMAP
++	depends on !TEGRA_GRHOST && !TEGRA_HOST1X && !TEGRA_DC
++	depends on !TEGRA_IOVMM && !TEGRA_IOVMM_GART && !IOMMU_API && !CPU_FREQ
++	depends on !TEGRA_RPC && !TEGRA_AVP && !TEGRA_MEDIASERVER
++	default n
++	help
++	  Isolate the existing nvmap carveout allocator before enabling engines,
++	  GART or legacy display ownership. Skip downstream shared-EMC clock
++	  shim registration, which would otherwise also affect USB lookups.
++	  This does not enable graphics acceleration. Use only with the separate
++	  Wingray legacy-resources DT and its original reserved-memory map.
++
+ config NVMAP_ALLOW_SYSMEM
+ 	bool "Allow physical system memory to be used by nvmap"
+ 	depends on TEGRA_NVMAP
+diff --git a/drivers/staging/tegra/video/nvmap/nvmap_dev.c b/drivers/staging/tegra/video/nvmap/nvmap_dev.c
+index 2059b55e..20ce1c2a 100644
+--- a/drivers/staging/tegra/video/nvmap/nvmap_dev.c
++++ b/drivers/staging/tegra/video/nvmap/nvmap_dev.c
+@@ -1367,6 +1367,9 @@ static int nvmap_probe(struct platform_device *pdev)
+ 	struct dentry *nvmap_debug_root;
+ 	unsigned int i;
+ 	int e;
++	if (IS_ENABLED(CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES) &&
++	    !of_machine_is_compatible("motorola,wingray"))
++		return -ENODEV;
+ 
+ 	if (!plat && pdev->dev.of_node)
+ 		plat = nvmap_parse_dt(pdev);
+-- 
+2.43.0
+

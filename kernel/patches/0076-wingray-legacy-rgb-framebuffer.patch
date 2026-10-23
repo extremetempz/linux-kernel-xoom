@@ -1,0 +1,665 @@
+From 4c553a045ef7b603f58b907b7822e6cd2cd7873b Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 06:45:37 +1100
+Subject: [PATCH] video: tegra: add opt-in Wingray linear RGB framebuffer
+ compatibility
+
+---
+ drivers/staging/tegra/include/video/tegrafb.h |  66 +++
+ drivers/staging/tegra/video/Kconfig           |  14 +
+ drivers/staging/tegra/video/dc/dc.c           |   9 +
+ drivers/staging/tegra/video/fb.c              |  38 ++
+ drivers/staging/tegra/video/fb_legacy.h       | 387 ++++++++++++++++++
+ 5 files changed, 514 insertions(+)
+ create mode 100644 drivers/staging/tegra/video/fb_legacy.h
+
+diff --git a/drivers/staging/tegra/include/video/tegrafb.h b/drivers/staging/tegra/include/video/tegrafb.h
+index 919661b1..3320d43b 100644
+--- a/drivers/staging/tegra/include/video/tegrafb.h
++++ b/drivers/staging/tegra/include/video/tegrafb.h
+@@ -22,11 +22,77 @@
+ #include <linux/types.h>
+ #include <linux/ioctl.h>
+ 
++#define TEGRA_FB_WIN_FMT_P1		0
++#define TEGRA_FB_WIN_FMT_P2		1
++#define TEGRA_FB_WIN_FMT_P4		2
++#define TEGRA_FB_WIN_FMT_P8		3
++#define TEGRA_FB_WIN_FMT_B4G4R4A4	4
++#define TEGRA_FB_WIN_FMT_B5G5R5A	5
++#define TEGRA_FB_WIN_FMT_B5G6R5		6
++#define TEGRA_FB_WIN_FMT_AB5G5R5	7
++#define TEGRA_FB_WIN_FMT_B8G8R8A8	12
++#define TEGRA_FB_WIN_FMT_R8G8B8A8	13
++#define TEGRA_FB_WIN_FMT_B6x2G6x2R6x2A8	14
++#define TEGRA_FB_WIN_FMT_R6x2G6x2B6x2A8	15
++#define TEGRA_FB_WIN_FMT_YCbCr422	16
++#define TEGRA_FB_WIN_FMT_YUV422		17
++#define TEGRA_FB_WIN_FMT_YCbCr420P	18
++#define TEGRA_FB_WIN_FMT_YUV420P	19
++#define TEGRA_FB_WIN_FMT_YCbCr422P	20
++#define TEGRA_FB_WIN_FMT_YUV422P	21
++#define TEGRA_FB_WIN_FMT_YCbCr422R	22
++#define TEGRA_FB_WIN_FMT_YUV422R	23
++#define TEGRA_FB_WIN_FMT_YCbCr422RA	24
++#define TEGRA_FB_WIN_FMT_YUV422RA	25
++
++#define TEGRA_FB_WIN_BLEND_NONE		0
++#define TEGRA_FB_WIN_BLEND_PREMULT	1
++#define TEGRA_FB_WIN_BLEND_COVERAGE	2
++
++#define TEGRA_FB_WIN_FLAG_INVERT_H	(1 << 0)
++#define TEGRA_FB_WIN_FLAG_INVERT_V	(1 << 1)
++#define TEGRA_FB_WIN_FLAG_TILED		(1 << 2)
++
++/* set index to -1 to ignore window data */
++struct tegra_fb_windowattr {
++	__s32	index;
++	__u32	buff_id;
++	__u32	flags;
++	__u32	blend;
++	__u32	offset;
++	__u32	offset_u;
++	__u32	offset_v;
++	__u32	stride;
++	__u32	stride_uv;
++	__u32	pixformat;
++	__u32	x;
++	__u32	y;
++	__u32	w;
++	__u32	h;
++	__u32	out_x;
++	__u32	out_y;
++	__u32	out_w;
++	__u32	out_h;
++	__u32	z;
++	__u32	pre_syncpt_id;
++	__u32	pre_syncpt_val;
++};
++
++#define TEGRA_FB_FLIP_N_WINDOWS		3
++
++struct tegra_fb_flip_args {
++	struct tegra_fb_windowattr win[TEGRA_FB_FLIP_N_WINDOWS];
++	__u32 post_syncpt_id;
++	__u32 post_syncpt_val;
++};
++
+ struct tegra_fb_modedb {
+ 	struct fb_var_screeninfo *modedb;
+ 	__u32 modedb_len;
+ };
+ 
++#define FBIO_TEGRA_SET_NVMAP_FD	_IOW('F', 0x40, __u32)
++#define FBIO_TEGRA_FLIP		_IOW('F', 0x41, struct tegra_fb_flip_args)
+ #define FBIO_TEGRA_GET_MODEDB	_IOWR('F', 0x42, struct tegra_fb_modedb)
+ 
+ #endif
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index d240b96e..de4df8aa 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -66,6 +66,20 @@ config TEGRA_DC_EXTENSIONS
+ 	  This exposes support for extended capabilities of the Tegra display
+ 	  controller to userspace drivers.
+ 
++config FB_TEGRA_WINGRAY_LEGACY
++	bool "Experimental Motorola framebuffer posting ABI"
++	depends on FB_TEGRA = y && TEGRA_DC = y && TEGRA_GRHOST = y
++	depends on TEGRA_NVMAP && ARCH_TEGRA_2x_SOC && OF
++	depends on !TEGRA_OVERLAY && !TEGRA_DC_EXTENSIONS && !FRAMEBUFFER_CONSOLE
++	default n
++	help
++	  Reuse the original Motorola framebuffer/nvmap posting interface with
++	  Decatf's display and allocation APIs, on motorola,wingray only. This
++	  first implementation is synchronous and supports linear packed RGB
++	  windows. Unsupported tiled or YUV requests fail rather than guess.
++	  The display resources and matched userspace still need validation.
++	  Leave disabled in the hardware-tested software-graphics profiles.
++
+ config TEGRA_NVMAP
+ 	bool "Tegra GPU memory management driver (nvmap)"
+ 	depends on !TEGRA_HOST1X
+diff --git a/drivers/staging/tegra/video/dc/dc.c b/drivers/staging/tegra/video/dc/dc.c
+index c1273a87..5609f17b 100644
+--- a/drivers/staging/tegra/video/dc/dc.c
++++ b/drivers/staging/tegra/video/dc/dc.c
+@@ -35,6 +35,9 @@
+ #include <linux/backlight.h>
+ #include <linux/gpio.h>
+ #include <linux/nvhost.h>
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++#include <linux/nvmap.h>
++#endif
+ #include <video/tegrafb.h>
+ #include <drm/drm_fixed.h>
+ #ifdef CONFIG_SWITCH
+@@ -2080,6 +2083,12 @@ static int tegra_dc_probe(struct nvhost_device *ndev,
+ 	int irq;
+ 	int i;
+ 	struct sched_param param = { .sched_priority = 3 };
++	/* Check the compatibility path's allocator dependency before powering
++	 * DC. A defer returned only by fb_register is swallowed below. */
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++	if (of_machine_is_compatible("motorola,wingray") && !nvmap_dev)
++		return -EPROBE_DEFER;
++#endif
+ 
+ 	if (!ndev->dev.platform_data && ndev->dev.of_node)
+ 		ndev->dev.platform_data = tegra_dc_parse_dt(ndev);
+diff --git a/drivers/staging/tegra/video/fb.c b/drivers/staging/tegra/video/fb.c
+index d7ddbfc1..19d33f6c 100644
+--- a/drivers/staging/tegra/video/fb.c
++++ b/drivers/staging/tegra/video/fb.c
+@@ -31,6 +31,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/memblock.h>
+ #include <linux/delay.h>
++#include <linux/of.h>
+ 
+ #include <asm/atomic.h>
+ 
+@@ -59,8 +60,17 @@ struct tegra_fb_info {
+ 
+ 	int			xres;
+ 	int			yres;
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++	struct mutex legacy_lock;
++	bool legacy_enabled, legacy_dead, legacy_open, legacy_poisoned;
++	struct nvmap_client *user_nvmap, *fb_nvmap;
++	struct nvmap_handle_ref *legacy_front[TEGRA_FB_FLIP_N_WINDOWS];
++	struct nvmap_handle_ref *legacy_pending[TEGRA_FB_FLIP_N_WINDOWS];
++#endif
+ };
+ 
++#include "fb_legacy.h"
++
+ /* palette array used by the fbcon */
+ static u32 pseudo_palette[16];
+ 
+@@ -71,6 +81,10 @@ static int tegra_fb_check_var(struct fb_var_screeninfo *var,
+ 	struct tegra_dc *dc = tegra_fb->win->dc;
+ 	struct tegra_dc_out_ops *ops = dc->out_ops;
+ 	struct fb_videomode mode;
++	if (tegra_fb_legacy_dead(tegra_fb))
++		return -ENODEV;
++	if (tegra_fb_legacy_busy(tegra_fb))
++		return -EBUSY;
+ 
+ 	if ((var->yres * var->xres * var->bits_per_pixel / 8 * 2) >
+ 	    info->screen_size)
+@@ -98,6 +112,10 @@ static int tegra_fb_set_par(struct fb_info *info)
+ 	struct tegra_fb_info *tegra_fb = info->par;
+ 	struct fb_var_screeninfo *var = &info->var;
+ 	struct tegra_dc *dc = tegra_fb->win->dc;
++	if (tegra_fb_legacy_dead(tegra_fb))
++		return -ENODEV;
++	if (tegra_fb_legacy_busy(tegra_fb))
++		return -EBUSY;
+ 
+ 	if (var->bits_per_pixel) {
+ 		/* we only support RGB ordering for now */
+@@ -278,6 +296,8 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
+ {
+ 	struct tegra_fb_info *tegra_fb = info->par;
+ 	struct tegra_dc *dc = tegra_fb->win->dc;
++	if (tegra_fb_legacy_dead(tegra_fb))
++		return -ENODEV;
+ 
+ 	switch (blank) {
+ 	case FB_BLANK_UNBLANK:
+@@ -314,6 +334,8 @@ static int tegra_fb_pan_display(struct fb_var_screeninfo *var,
+ 	char __iomem *flush_start;
+ 	char __iomem *flush_end;
+ 	u32 addr;
++	if (tegra_fb_legacy_dead(tegra_fb))
++		return -ENODEV;
+ 
+ 	if (!tegra_fb->win->cur_handle) {
+ 		flush_start = info->screen_base + (var->yoffset * info->fix.line_length);
+@@ -361,8 +383,15 @@ static int tegra_fb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long
+ 	struct fb_modelist *modelist;
+ 	struct fb_vblank vblank = {};
+ 	int i;
++	if (tegra_fb_legacy_dead(tegra_fb))
++		return -ENODEV;
+ 
+ 	switch (cmd) {
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++	case FBIO_TEGRA_SET_NVMAP_FD:
++	case FBIO_TEGRA_FLIP:
++		return tegra_fb_legacy_ioctl(tegra_fb, cmd, arg);
++#endif
+ 	case FBIO_TEGRA_GET_MODEDB:
+ 		if (copy_from_user(&modedb, (void __user *)arg, sizeof(modedb)))
+ 			return -EFAULT;
+@@ -457,6 +486,10 @@ int tegra_fb_set_mode(struct tegra_dc *dc, int fps) {
+ 
+ static struct fb_ops tegra_fb_ops = {
+ 	.owner = THIS_MODULE,
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++	.fb_open = tegra_fb_legacy_open,
++	.fb_release = tegra_fb_legacy_release,
++#endif
+ 	.fb_check_var = tegra_fb_check_var,
+ 	.fb_set_par = tegra_fb_set_par,
+ 	.fb_setcmap = tegra_fb_setcmap,
+@@ -706,10 +739,14 @@ struct tegra_fb_info *tegra_fb_register(struct nvhost_device *ndev,
+ 
+ 	if (fb_mem)
+ 		tegra_fb_set_par(info);
++	ret = tegra_fb_legacy_init(tegra_fb);
++	if (ret)
++		goto err_iounmap_fb;
+ 
+ 	if (register_framebuffer(info)) {
+ 		dev_err(&ndev->dev, "failed to register framebuffer\n");
+ 		ret = -ENODEV;
++		tegra_fb_legacy_destroy(tegra_fb);
+ 		goto err_iounmap_fb;
+ 	}
+ 
+@@ -758,6 +795,7 @@ void tegra_fb_unregister(struct tegra_fb_info *fb_info)
+ 	struct fb_info *info = fb_info->info;
+ 
+ 	unregister_framebuffer(info);
++	tegra_fb_legacy_destroy(fb_info);
+ 
+ 	iounmap(info->screen_base);
+ 	framebuffer_release(info);
+diff --git a/drivers/staging/tegra/video/fb_legacy.h b/drivers/staging/tegra/video/fb_legacy.h
+new file mode 100644
+index 00000000..c8f79e00
+--- /dev/null
++++ b/drivers/staging/tegra/video/fb_legacy.h
+@@ -0,0 +1,387 @@
++/*
++ * Original Motorola framebuffer posting ABI adapted to Decatf's Tegra APIs.
++ * Based on drivers/video/tegra/fb.c in the Motorola 2.6.39 lineage:
++ * Copyright (C) 2010 Google, Inc.
++ * Copyright (c) 2010-2012 NVIDIA Corporation.
++ * GPL version 2; see fb.c for the original license and authors.
++ *
++ * Initial compatibility path: synchronous, linear packed RGB only. No board
++ * power, regulator, pinmux, timing or clock tables are supplied here.
++ */
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++
++static bool tegra_fb_legacy_dead(struct tegra_fb_info *fb)
++{
++	return fb->legacy_dead;
++}
++
++static bool tegra_fb_legacy_busy(struct tegra_fb_info *fb)
++{
++	int i;
++	if (!fb->legacy_enabled)
++		return false;
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++)
++		if (fb->legacy_front[i] || fb->legacy_pending[i])
++			return true;
++	return false;
++}
++
++static void tegra_fb_legacy_unpin(struct tegra_fb_info *fb,
++				struct nvmap_handle_ref *ref)
++{
++	if (ref) {
++		nvmap_unpin(fb->fb_nvmap, ref);
++		nvmap_free(fb->fb_nvmap, ref);
++	}
++}
++
++/* Bound every byte the linear RGB window may read, including crop/inversion.
++ * Reject formats/layouts whose complete access pattern is not validated yet.
++ */
++static int tegra_fb_legacy_validate(const struct tegra_fb_windowattr *a,
++				   u64 size, u64 address, u32 xres, u32 yres)
++{
++	u32 cpp;
++	u64 right, bottom, end;
++
++	if (!a->buff_id)
++		return 0; /* the original ABI disables this window */
++	if (a->flags & ~(TEGRA_FB_WIN_FLAG_INVERT_H | TEGRA_FB_WIN_FLAG_INVERT_V))
++		return -EOPNOTSUPP;
++	if (a->blend > TEGRA_FB_WIN_BLEND_COVERAGE || a->z >= DC_N_WINDOWS)
++		return -EINVAL;
++	if (a->w != a->out_w || a->h != a->out_h)
++		return -EOPNOTSUPP; /* filtering access patterns need a separate gate */
++	switch (a->pixformat) {
++	case TEGRA_FB_WIN_FMT_B4G4R4A4:
++	case TEGRA_FB_WIN_FMT_B5G5R5A:
++	case TEGRA_FB_WIN_FMT_B5G6R5:
++	case TEGRA_FB_WIN_FMT_AB5G5R5:
++		cpp = 2;
++		break;
++	case TEGRA_FB_WIN_FMT_B8G8R8A8:
++	case TEGRA_FB_WIN_FMT_R8G8B8A8:
++		cpp = 4;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++	right = (u64)a->x + a->w;
++	bottom = (u64)a->y + a->h;
++	if (!a->w || !a->h || right > 4096 || bottom > 4096 ||
++	    !a->out_w || !a->out_h || (u64)a->out_x + a->out_w > xres ||
++	    (u64)a->out_y + a->out_h > yres || a->offset_u || a->offset_v ||
++	    a->stride_uv || !a->stride || a->stride > 0xffff ||
++	    a->stride % cpp || a->offset % cpp || right * cpp > a->stride)
++		return -EINVAL;
++	end = (u64)a->offset + (bottom - 1) * a->stride + right * cpp;
++	if (end > size || address > 0xffffffffULL ||
++	    end - 1 > 0xffffffffULL - address)
++		return -EINVAL;
++	return 0;
++}
++
++/* Same authorization/duplicate/pin sequence as the original framebuffer;
++ * caller owns the duplicate only after a successful pin. */
++static int tegra_fb_legacy_pin(struct tegra_fb_info *fb,
++			       const struct tegra_fb_windowattr *a,
++			       struct nvmap_handle_ref **out, phys_addr_t *address)
++{
++	struct nvmap_handle *handle;
++	struct nvmap_handle_ref *ref;
++	int ret;
++
++	*out = NULL;
++	if (!a->buff_id)
++		return 0;
++	handle = nvmap_get_handle_id(fb->user_nvmap, a->buff_id);
++	if (!handle)
++		return -EPERM;
++	ref = nvmap_duplicate_handle_id(fb->fb_nvmap, a->buff_id);
++	nvmap_handle_put(handle);
++	if (IS_ERR(ref))
++		return PTR_ERR(ref);
++
++	mutex_lock(&ref->handle->lock);
++	ret = (!ref->handle->alloc || ref->handle->secure) ? -EPERM :
++		tegra_fb_legacy_validate(a, ref->handle->orig_size, 0,
++			fb->win->dc->mode.h_active, fb->win->dc->mode.v_active);
++	mutex_unlock(&ref->handle->lock);
++	if (ret)
++		goto free_ref;
++	*address = nvmap_pin(fb->fb_nvmap, ref);
++	if (IS_ERR_VALUE(*address)) {
++		ret = (long)*address;
++		goto free_ref;
++	}
++	ret = tegra_fb_legacy_validate(a, ref->handle->orig_size, *address,
++		fb->win->dc->mode.h_active, fb->win->dc->mode.v_active);
++	if (ret) {
++		nvmap_unpin(fb->fb_nvmap, ref);
++		goto free_ref;
++	}
++	*out = ref;
++	return 0;
++free_ref:
++	nvmap_free(fb->fb_nvmap, ref);
++	return ret;
++}
++
++static void tegra_fb_legacy_window(struct tegra_dc_win *win,
++				    const struct tegra_fb_windowattr *a,
++				    struct nvmap_handle_ref *ref, phys_addr_t address)
++{
++	win->flags = 0;
++	win->cur_handle = ref;
++	if (!ref)
++		return;
++	win->flags = TEGRA_WIN_FLAG_ENABLED;
++	if (a->blend == TEGRA_FB_WIN_BLEND_PREMULT)
++		win->flags |= TEGRA_WIN_FLAG_BLEND_PREMULT;
++	else if (a->blend == TEGRA_FB_WIN_BLEND_COVERAGE)
++		win->flags |= TEGRA_WIN_FLAG_BLEND_COVERAGE;
++	if (a->flags & TEGRA_FB_WIN_FLAG_INVERT_H)
++		win->flags |= TEGRA_WIN_FLAG_INVERT_H;
++	if (a->flags & TEGRA_FB_WIN_FLAG_INVERT_V)
++		win->flags |= TEGRA_WIN_FLAG_INVERT_V;
++	win->fmt = a->pixformat;
++	win->x.full = dfixed_const(a->x);
++	win->y.full = dfixed_const(a->y);
++	win->w.full = dfixed_const(a->w);
++	win->h.full = dfixed_const(a->h);
++	win->out_x = a->out_x;
++	win->out_y = a->out_y;
++	win->out_w = a->out_w;
++	win->out_h = a->out_h;
++	win->z = a->z;
++	win->global_alpha = 255;
++	win->virt_addr = NULL;
++	win->phys_addr = address + a->offset;
++	win->phys_addr_u = win->phys_addr_v = 0;
++	win->stride = a->stride;
++	win->stride_uv = 0;
++}
++
++static int tegra_fb_legacy_flip(struct tegra_fb_info *fb,
++				struct tegra_fb_flip_args *args)
++{
++	struct tegra_dc *dc = fb->win->dc;
++	struct nvhost_master *host = nvhost_get_host(fb->ndev);
++	struct tegra_dc_win *wins[TEGRA_FB_FLIP_N_WINDOWS];
++	struct tegra_dc_win *saved;
++	struct nvmap_handle_ref *refs[TEGRA_FB_FLIP_N_WINDOWS] = {};
++	phys_addr_t addresses[TEGRA_FB_FLIP_N_WINDOWS] = {};
++	unsigned int seen = 0;
++	int i, n = 0, ret;
++
++	if (!fb->user_nvmap || !host || fb->legacy_poisoned)
++		return -EIO;
++	/* Validate the entire request and all syncpoint IDs before pinning. */
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++) {
++		struct tegra_fb_windowattr *a = &args->win[i];
++		if (a->index == -1)
++			continue;
++		if (a->index < 0 || a->index >= DC_N_WINDOWS ||
++		    (seen & BIT(a->index)) || !tegra_dc_get_window(dc, a->index))
++			return -EINVAL;
++		seen |= BIT(a->index);
++		if (a->buff_id && a->pre_syncpt_id != (u32)-1 &&
++		    !nvhost_syncpt_is_valid(&host->syncpt, a->pre_syncpt_id))
++			return -EINVAL;
++	}
++	if (!seen)
++		return -EINVAL;
++	saved = kcalloc(TEGRA_FB_FLIP_N_WINDOWS, sizeof(*saved), GFP_KERNEL);
++	if (!saved)
++		return -ENOMEM;
++
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++) {
++		struct tegra_fb_windowattr *a = &args->win[i];
++		if (a->index == -1)
++			continue;
++		ret = tegra_fb_legacy_pin(fb, a, &refs[i], &addresses[i]);
++		if (ret)
++			goto unpin;
++		if (a->buff_id && a->pre_syncpt_id != (u32)-1) {
++			ret = nvhost_syncpt_wait_timeout_ext(fb->ndev,
++				a->pre_syncpt_id, a->pre_syncpt_val,
++				msecs_to_jiffies(500), NULL);
++			if (ret)
++				goto unpin;
++		}
++	}
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++) {
++		struct tegra_fb_windowattr *a = &args->win[i];
++		if (a->index == -1)
++			continue;
++		wins[n] = tegra_dc_get_window(dc, a->index);
++		saved[n] = *wins[n];
++		tegra_fb_legacy_window(wins[n], a, refs[i], addresses[i]);
++		n++;
++	}
++	ret = tegra_dc_update_windows(wins, n);
++	if (ret < 0) {
++		/* This API rejects a disabled DC before programming windows. */
++		for (i = 0; i < n; i++)
++			*wins[i] = saved[i];
++		goto unpin;
++	}
++	ret = tegra_dc_sync_windows(wins, n);
++	if (ret <= 0) {
++		/* Scanout ownership is unknown: keep BOTH old and new pins, stop
++		 * accepting flips, and never report a completed post-syncpoint.
++		 * Teardown disables DC before releasing these references. */
++		fb->legacy_poisoned = true;
++		for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++)
++			fb->legacy_pending[i] = refs[i];
++		kfree(saved);
++		return ret < 0 ? ret : -ETIMEDOUT;
++	}
++	/* Unlike the original queued path, this compatibility ioctl blocks
++	 * until actual scanout completion. Publish completion only afterward. */
++	args->post_syncpt_val = tegra_dc_incr_syncpt_max(dc, 0);
++	args->post_syncpt_id = tegra_dc_get_syncpt_id(dc, 0);
++	tegra_dc_incr_syncpt_min(dc, 0, args->post_syncpt_val);
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++) {
++		int index = args->win[i].index;
++		if (index == -1)
++			continue;
++		tegra_fb_legacy_unpin(fb, fb->legacy_front[index]);
++		fb->legacy_front[index] = refs[i];
++	}
++	kfree(saved);
++	return 0;
++unpin:
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++)
++		tegra_fb_legacy_unpin(fb, refs[i]);
++	kfree(saved);
++	return ret;
++}
++
++static int tegra_fb_legacy_ioctl(struct tegra_fb_info *fb,
++				 unsigned int cmd, unsigned long arg)
++{
++	struct tegra_fb_flip_args args;
++	struct nvmap_client *client;
++	int fd, ret;
++
++	if (!fb->legacy_enabled)
++		return -ENOTTY;
++	mutex_lock(&fb->legacy_lock);
++	if (fb->legacy_dead || fb->legacy_poisoned || !fb->legacy_open) {
++		ret = -EIO;
++		goto out;
++	}
++	if (cmd == FBIO_TEGRA_SET_NVMAP_FD) {
++		ret = -EFAULT;
++		if (copy_from_user(&fd, (void __user *)arg, sizeof(fd)))
++			goto out;
++		ret = -EINVAL;
++		if (fd < 0)
++			goto out;
++		client = nvmap_client_get_file(fd);
++		if (IS_ERR(client)) {
++			ret = PTR_ERR(client);
++			goto out;
++		}
++		if (fb->user_nvmap)
++			nvmap_client_put(fb->user_nvmap);
++		fb->user_nvmap = client;
++		ret = 0;
++	} else {
++		ret = -EFAULT;
++		if (copy_from_user(&args, (void __user *)arg, sizeof(args)))
++			goto out;
++		ret = tegra_fb_legacy_flip(fb, &args);
++		if (!ret && copy_to_user((void __user *)arg, &args, sizeof(args)))
++			ret = -EFAULT; /* completed flip stays owned even on copy fault */
++	}
++out:
++	mutex_unlock(&fb->legacy_lock);
++	return ret;
++}
++
++static int tegra_fb_legacy_open(struct fb_info *info, int user)
++{
++	struct tegra_fb_info *fb = info->par;
++	int ret = 0;
++	if (!fb->legacy_enabled)
++		return 0;
++	mutex_lock(&fb->legacy_lock);
++	if (fb->legacy_dead || fb->legacy_poisoned)
++		ret = -EIO;
++	else if (fb->legacy_open)
++		ret = -EBUSY;
++	else
++		fb->legacy_open = true;
++	mutex_unlock(&fb->legacy_lock);
++	return ret;
++}
++
++static int tegra_fb_legacy_release(struct fb_info *info, int user)
++{
++	struct tegra_fb_info *fb = info->par;
++	if (!fb->legacy_enabled)
++		return 0;
++	mutex_lock(&fb->legacy_lock);
++	if (fb->user_nvmap) {
++		nvmap_client_put(fb->user_nvmap);
++		fb->user_nvmap = NULL;
++	}
++	/* Front buffers remain pinned while DC may still scan them. */
++	fb->legacy_open = false;
++	mutex_unlock(&fb->legacy_lock);
++	return 0;
++}
++
++static int tegra_fb_legacy_init(struct tegra_fb_info *fb)
++{
++	BUILD_BUG_ON(sizeof(struct tegra_fb_windowattr) != 84);
++	BUILD_BUG_ON(sizeof(struct tegra_fb_flip_args) != 260);
++	mutex_init(&fb->legacy_lock);
++	if (!of_machine_is_compatible("motorola,wingray"))
++		return 0;
++	if (!nvmap_dev)
++		return -EPROBE_DEFER;
++	fb->fb_nvmap = nvmap_create_client(nvmap_dev, "wingray-fb");
++	if (IS_ERR(fb->fb_nvmap))
++		return PTR_ERR(fb->fb_nvmap);
++	if (!fb->fb_nvmap)
++		return -ENOMEM;
++	fb->legacy_enabled = true;
++	return 0;
++}
++
++static void tegra_fb_legacy_destroy(struct tegra_fb_info *fb)
++{
++	int i;
++	if (!fb->legacy_enabled)
++		return;
++	mutex_lock(&fb->legacy_lock);
++	fb->legacy_dead = true;
++	tegra_dc_disable(fb->win->dc);
++	for (i = 0; i < TEGRA_FB_FLIP_N_WINDOWS; i++) {
++		struct tegra_dc_win *win = tegra_dc_get_window(fb->win->dc, i);
++		tegra_fb_legacy_unpin(fb, fb->legacy_front[i]);
++		tegra_fb_legacy_unpin(fb, fb->legacy_pending[i]);
++		fb->legacy_front[i] = fb->legacy_pending[i] = NULL;
++		if (win) {
++			win->cur_handle = NULL;
++			win->flags = 0;
++		}
++	}
++	if (fb->user_nvmap) {
++		nvmap_client_put(fb->user_nvmap);
++		fb->user_nvmap = NULL;
++	}
++	nvmap_client_put(fb->fb_nvmap);
++	fb->fb_nvmap = NULL;
++	mutex_unlock(&fb->legacy_lock);
++}
++
++#else
++static inline bool tegra_fb_legacy_dead(struct tegra_fb_info *fb) { return false; }
++static inline bool tegra_fb_legacy_busy(struct tegra_fb_info *fb) { return false; }
++static inline int tegra_fb_legacy_init(struct tegra_fb_info *fb) { return 0; }
++static inline void tegra_fb_legacy_destroy(struct tegra_fb_info *fb) { }
++#endif
+-- 
+2.43.0
+
