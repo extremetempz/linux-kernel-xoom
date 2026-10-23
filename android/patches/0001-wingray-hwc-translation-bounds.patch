@@ -1,0 +1,96 @@
+From c7b7b0554667ec77d88c271f06a451683c10767a Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Fri, 23 Oct 2026 16:01:07 +1100
+Subject: [PATCH] hwc: preserve translation buffers on allocation failure
+
+---
+ hwc/hwc_tegra2.cpp | 52 +++++++++++++++++++++++++++-------------------
+ 1 file changed, 31 insertions(+), 21 deletions(-)
+
+diff --git a/hwc/hwc_tegra2.cpp b/hwc/hwc_tegra2.cpp
+index 8301ccc..e25b7f5 100755
+--- a/hwc/hwc_tegra2.cpp
++++ b/hwc/hwc_tegra2.cpp
+@@ -23,6 +23,7 @@
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <math.h>
++#include <limits.h>
+ #include <poll.h>
+ #include <pthread.h>
+ #include <stdio.h>
+@@ -198,6 +199,28 @@ static void copy_layer_list_to_display_contents_1(hwc_display_contents_1_t* dst,
+     }
+ }
+ 
++/* Reuse the existing translation path without publishing a failed resize.
++ * Capacities remain int, so check the complete layer-list size before casting.
++ */
++static int ensure_xlatebuf(void **buffer, int *capacity, size_t layers)
++{
++    if (layers > ((size_t)INT_MAX - sizeof(hwc_layer_list_t)) /
++                 sizeof(hwc_layer_t))
++        return -EOVERFLOW;
++
++    size_t required = sizeof(hwc_layer_list_t) + sizeof(hwc_layer_t) * layers;
++    if (*buffer && *capacity >= 0 && (size_t)*capacity >= required)
++        return 0;
++
++    void *replacement = realloc(*buffer, required);
++    if (!replacement)
++        return -ENOMEM;
++
++    *buffer = replacement;
++    *capacity = (int)required;
++    return 0;
++}
++
+ static int tegra2_set(struct hwc_composer_device_1 *dev,
+         size_t numDisplays, hwc_display_contents_1_t** displays)
+ {
+@@ -217,17 +240,10 @@ static int tegra2_set(struct hwc_composer_device_1 *dev,
+     if (pdev->fbblanked)
+         return -ENODEV;
+ 
+-    int reqsz = sizeof (hwc_layer_list_t) + sizeof(hwc_layer_t) * contents->numHwLayers;
+-
+-    // Make sure we have enough space on the translation buffer
+-    if (pdev->set_xlatebufsz < reqsz) {
+-        if (!pdev->set_xlatebuf) {
+-            pdev->set_xlatebuf = malloc(reqsz);
+-        } else {
+-            pdev->set_xlatebuf = realloc(pdev->set_xlatebuf,reqsz);
+-        }
+-        pdev->set_xlatebufsz = reqsz;
+-    }
++    int error = ensure_xlatebuf(&pdev->set_xlatebuf,
++                               &pdev->set_xlatebufsz, contents->numHwLayers);
++    if (error)
++        return error;
+     hwc_layer_list_t* lst = (hwc_layer_list_t*) pdev->set_xlatebuf;
+ 
+     copy_display_contents_1_to_layer_list(lst,contents);
+@@ -269,16 +285,10 @@ static int tegra2_prepare(hwc_composer_device_1_t *dev,
+ 
+     ALOGV("preparing %u layers", contents->numHwLayers);
+ 
+-    int reqsz = sizeof (hwc_layer_list_t) + sizeof(hwc_layer_t) * contents->numHwLayers;
+-    // Make sure we have enough space on the translation buffer
+-    if (pdev->prepare_xlatebufsz < reqsz) {
+-        if (!pdev->prepare_xlatebuf) {
+-            pdev->prepare_xlatebuf = malloc(reqsz);
+-        } else {
+-            pdev->prepare_xlatebuf = realloc(pdev->prepare_xlatebuf,reqsz);
+-        }
+-        pdev->prepare_xlatebufsz = reqsz;
+-    }
++    int error = ensure_xlatebuf(&pdev->prepare_xlatebuf,
++                               &pdev->prepare_xlatebufsz, contents->numHwLayers);
++    if (error)
++        return error;
+     hwc_layer_list_t* lst = (hwc_layer_list_t*) pdev->prepare_xlatebuf;
+ 
+ #ifdef SAMSUNG_T20_HWCOMPOSER
+-- 
+2.43.0
+
