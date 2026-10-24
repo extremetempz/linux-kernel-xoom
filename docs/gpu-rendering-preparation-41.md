@@ -1,5 +1,9 @@
 # GPU rendering preparation — 24 October 2026
 
+Historical checkpoint: runtime/host validation and context cleanup have since
+advanced. See [current GPU client lifetime checkpoint](gpu-client-lifetime-47.md)
+for the updated source status and remaining reset/EMC gates.
+
 **No flash or reboot in this stage.** The preceding cached-sharing checkpoint
 was already committed and uploaded to private main. SMP/PL310, allocator-only
 and Android software-display configurations remain unchanged.
