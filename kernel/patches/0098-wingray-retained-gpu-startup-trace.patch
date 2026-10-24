@@ -1,0 +1,729 @@
+From 28b2e28ab41649008bac1ec795d92894d46c0389 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 17:28:54 +1100
+Subject: [PATCH] wingray: retain isolated GPU startup checkpoints before
+ rendering
+
+---
+ .../wingray_gpu_startup_trace_defconfig       | 177 ++++++++++++++++++
+ arch/arm/mach-tegra/Kconfig                   |  12 ++
+ arch/arm/mach-tegra/Makefile                  |   1 +
+ arch/arm/mach-tegra/wingray-gputrace.c        |  76 ++++++++
+ drivers/staging/tegra/video/host/bus_client.c |  16 +-
+ .../staging/tegra/video/host/host1x/host1x.c  |   7 +
+ drivers/staging/tegra/video/host/nvhost_acm.c |  16 ++
+ drivers/usb/gadget/legacy/serial.c            |  10 +
+ include/soc/tegra/wingray-gputrace.h          |  44 +++++
+ include/soc/tegra/wingray-smptrace.h          |   8 +-
+ init/main.c                                   |  20 ++
+ 11 files changed, 385 insertions(+), 2 deletions(-)
+ create mode 100644 arch/arm/configs/wingray_gpu_startup_trace_defconfig
+ create mode 100644 arch/arm/mach-tegra/wingray-gputrace.c
+ create mode 100644 include/soc/tegra/wingray-gputrace.h
+
+diff --git a/arch/arm/configs/wingray_gpu_startup_trace_defconfig b/arch/arm/configs/wingray_gpu_startup_trace_defconfig
+new file mode 100644
+index 00000000..f11b28b0
+--- /dev/null
++++ b/arch/arm/configs/wingray_gpu_startup_trace_defconfig
+@@ -0,0 +1,177 @@
++CONFIG_LOCALVERSION="-wingray-gpu-trace"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_SMP_ON_UP=y
++CONFIG_NR_CPUS=2
++# CONFIG_HOTPLUG_CPU is not set
++CONFIG_CACHE_L2X0=y
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++# CONFIG_SUSPEND is not set
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-gpu-test"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0 maxcpus=2"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_BLOCK=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_EXT4_FS=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_NET=y
++CONFIG_UNIX=y
++CONFIG_INET=y
++CONFIG_IPV6=y
++# CONFIG_NETDEVICES is not set
++# CONFIG_WIRELESS is not set
++# CONFIG_CFG80211 is not set
++# Only the factory-preserving P3 maXTouch input path is added.
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++# CONFIG_TOUCHSCREEN_MXT1386 is not set
++# CONFIG_SAMSUNG_INPUT is not set
++# CONFIG_INPUT_LEDS is not set
++# CONFIG_INPUT_MOUSEDEV is not set
++# CONFIG_INPUT_JOYDEV is not set
++# CONFIG_INPUT_KEYBOARD is not set
++# CONFIG_INPUT_MOUSE is not set
++# CONFIG_INPUT_JOYSTICK is not set
++# CONFIG_INPUT_TABLET is not set
++# CONFIG_INPUT_MISC is not set
++# CONFIG_SERIO is not set
++# CONFIG_GAMEPORT is not set
++# CONFIG_HID is not set
++# CONFIG_USB_HID is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_BACKLIGHT_LP855X=y
++
++# CONFIG_DRM is not set
++# CONFIG_DRM_TEGRA is not set
++# CONFIG_DRM_TEGRA_FBDEV is not set
++# CONFIG_DRM_PANEL_SIMPLE is not set
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=16
++
++# Installed Android 4.4 userspace ABI; separate from the future Oreo ABI.
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDER_DEVICES="binder"
++CONFIG_ANDROID_BINDER_IPC_32BIT=y
++CONFIG_STAGING=y
++CONFIG_ASHMEM=y
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++CONFIG_ANDROID_LOW_MEMORY_KILLER=y
++CONFIG_SYNC=y
++# CONFIG_SW_SYNC is not set
++CONFIG_CGROUPS=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_FAIR_GROUP_SCHED=y
++CONFIG_FUSE_FS=y
++CONFIG_INOTIFY_USER=y
++# CONFIG_MOTOROLA_XOOM_BOOT_TRACE is not set
++
++# Isolated Decatf nvmap backing-ownership experiment; no engine or DC access.
++CONFIG_MEMORY=y
++# CONFIG_TEGRA20_MC is not set
++# CONFIG_TEGRA_HOST1X is not set
++# CONFIG_IOMMU_SUPPORT is not set
++# CONFIG_IOMMU_API is not set
++# CONFIG_TEGRA_IOMMU_GART is not set
++CONFIG_TEGRA_DOWNSTREAM=y
++CONFIG_TEGRA_NVMAP=y
++# CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES is not set
++# CONFIG_TEGRA_RPC is not set
++# CONFIG_TEGRA_AVP is not set
++# CONFIG_TEGRA_AVP_KERNEL_ON_MMU is not set
++# CONFIG_TEGRA_MEDIASERVER is not set
++# CONFIG_TEGRA_IOVMM_GART is not set
++# CONFIG_TEGRA_IOVMM is not set
++CONFIG_TEGRA_GRHOST=y
++# CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST is not set
++CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y
++CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT=y
++CONFIG_TEGRA_SEMA_STANDALONE=y
++# CONFIG_TEGRA_DC is not set
++# CONFIG_FB_TEGRA is not set
++# CONFIG_TEGRA_DC_EXTENSIONS is not set
++# CONFIG_TEGRA_OVERLAY is not set
++# CONFIG_FB_TEGRA_WINGRAY_LEGACY is not set
++# CONFIG_FB_TEGRA_CMC623 is not set
++# CONFIG_NVMAP_ALLOW_SYSMEM is not set
++# CONFIG_NVMAP_RECLAIM_UNPINNED_VM is not set
++# CONFIG_NVMAP_HIGHMEM_ONLY is not set
++# CONFIG_NVMAP_CONVERT_CARVEOUT_TO_IOVMM is not set
++# CONFIG_NVMAP_CARVEOUT_KILLER is not set
++# CONFIG_NVMAP_CARVEOUT_COMPACTOR is not set
++# CONFIG_NVMAP_PAGE_POOLS is not set
++
++# Reserved-RAM startup localization only; no userspace GPU submission.
++CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0049
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index 280d37a0..69e1220a 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -70,6 +70,18 @@ config MACH_MOTOROLA_WINGRAY
+ 	  Experimental device-tree support for the Wi-Fi Xoom. Power,
+ 	  display and suspend support still require hardware validation.
+ 
++config MOTOROLA_XOOM_GPU_STARTUP_TRACE
++	bool "Wingray retained GPU startup checkpoints (no rendering test)"
++	depends on TEGRA_GRHOST_WINGRAY_GPU_TEST && SMP && !THUMB2_KERNEL
++	depends on !ARM_LPAE && VMSPLIT_3G && !CPU_BIG_ENDIAN
++	select MOTOROLA_XOOM_SMP_TRACE
++	default n
++	help
++	  Extend the existing reserved 128-byte SMP trace with initcall,
++	  engine, USB and RAM-runtime checkpoints. Use only the separate
++	  startup diagnostic ramdisk, which does not submit GPU commands.
++	  Changes timing; matching cookie and guarded readback are required.
++
+ config MOTOROLA_XOOM_SMP_TRACE
+ 	bool "Experimental Wingray SMP-only RAM checkpoints"
+ 	depends on MACH_MOTOROLA_WINGRAY && SMP && !THUMB2_KERNEL
+diff --git a/arch/arm/mach-tegra/Makefile b/arch/arm/mach-tegra/Makefile
+index 5a915183..6eacce0d 100644
+--- a/arch/arm/mach-tegra/Makefile
++++ b/arch/arm/mach-tegra/Makefile
+@@ -40,3 +40,4 @@ obj-$(CONFIG_MACH_SAMSUNG_P4WIFI)		+= board-p4wifi.o
+ obj-$(CONFIG_MACH_SAMSUNG_P4WIFI)		+= board-p4-gpio.o
+ 
+ obj-$(CONFIG_MACH_MOTOROLA_WINGRAY) += board-wingray.o
++obj-$(CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE) += wingray-gputrace.o
+diff --git a/arch/arm/mach-tegra/wingray-gputrace.c b/arch/arm/mach-tegra/wingray-gputrace.c
+new file mode 100644
+index 00000000..45172f23
+--- /dev/null
++++ b/arch/arm/mach-tegra/wingray-gputrace.c
+@@ -0,0 +1,76 @@
++/* Retained startup diagnostics only; GPL-2.0. No arbitrary memory interface. */
++#include <linux/capability.h>
++#include <linux/fs.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/miscdevice.h>
++#include <linux/module.h>
++#include <linux/notifier.h>
++#include <linux/uaccess.h>
++#include <soc/tegra/wingray-gputrace.h>
++
++static ssize_t wingray_trace_write(struct file *file, const char __user *buf,
++		size_t count, loff_t *pos)
++{
++	char code[2];
++	unsigned int offset, value;
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	if (count != 2)
++		return -EINVAL;
++	if (copy_from_user(code, buf, 2))
++		return -EFAULT;
++	if (code[1] != '\n')
++		return -EINVAL;
++	/* Digits belong only to the sequential bootstrap/service stream;
++	 * letters belong only to the sequential reporter/server stream. */
++	if (code[0] >= '1' && code[0] <= '5') {
++		offset = WG_USER;
++		value = code[0] - '0';
++	} else if (code[0] >= 'A' && code[0] <= 'C') {
++		offset = WG_REPORTER;
++		value = code[0] - 'A' + 1;
++	} else {
++		return -EINVAL;
++	}
++	if (!wingray_smptrace_ready)
++		return -ENODEV;
++	wingray_gputrace_mark(offset, value);
++	return count;
++}
++
++static const struct file_operations wingray_trace_fops = {
++	.owner = THIS_MODULE,
++	.write = wingray_trace_write,
++	.llseek = no_llseek,
++};
++static struct miscdevice wingray_trace_device = {
++	.minor = MISC_DYNAMIC_MINOR,
++	.name = "xoom-startup-trace",
++	.fops = &wingray_trace_fops,
++	.mode = 0200,
++};
++static int wingray_trace_panic(struct notifier_block *nb,
++		unsigned long event, void *data)
++{
++	wingray_gputrace_mark(WG_PANIC, 1);
++	return NOTIFY_DONE;
++}
++static struct notifier_block wingray_trace_notifier = {
++	.notifier_call = wingray_trace_panic,
++};
++static int __init wingray_trace_early(void)
++{
++	if (!wingray_smptrace_ready)
++		return -ENODEV;
++	return atomic_notifier_chain_register(&panic_notifier_list,
++			&wingray_trace_notifier);
++}
++early_initcall(wingray_trace_early);
++static int __init wingray_trace_device_init(void)
++{
++	if (!wingray_smptrace_ready)
++		return -ENODEV;
++	return misc_register(&wingray_trace_device);
++}
++device_initcall(wingray_trace_device_init);
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 493604e8..3c1dc963 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -18,6 +18,7 @@
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <soc/tegra/wingray-gputrace.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+ #include <linux/fs.h>
+@@ -616,12 +617,16 @@ int nvhost_client_device_init(struct nvhost_device *dev)
+ 	struct nvhost_master *nvhost_master = nvhost_get_host(dev);
+ 	struct nvhost_channel *ch;
+ 
++	wingray_gputrace_engine(dev->index, 10, 0);
+ 	/* Engine drivers can bind before deferred host/nvmap bring-up. */
+-	if (!nvhost_master || !nvhost_master->memmgr || !nvhost_master->nvhost_class)
++	if (!nvhost_master || !nvhost_master->memmgr || !nvhost_master->nvhost_class) {
++		wingray_gputrace_engine(dev->index, 11, -EPROBE_DEFER);
+ 		return -EPROBE_DEFER;
++	}
+ 
+ 	dev_info(&dev->dev, "initialize...\n");
+ 
++	wingray_gputrace_engine(dev->index, 20, 0);
+ 	ch = nvhost_alloc_channel(dev);
+ 	if (ch == NULL)
+ 		return -ENODEV;
+@@ -629,27 +634,36 @@ int nvhost_client_device_init(struct nvhost_device *dev)
+ 	/* store the pointer to this device for channel */
+ 	ch->dev = dev;
+ 
++	wingray_gputrace_engine(dev->index, 30, 0);
+ 	err = nvhost_channel_init(ch, nvhost_master, dev->index);
++	wingray_gputrace_engine(dev->index, 31, err);
+ 	if (err)
+ 		goto fail;
+ 
++	wingray_gputrace_engine(dev->index, 40, 0);
+ 	err = nvhost_module_init(dev);
++	wingray_gputrace_engine(dev->index, 41, err);
+ 	if (err)
+ 		goto fail_channel;
+ 
+ #ifdef CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	/* Checked reset while clocked, before any userspace open is possible. */
++	wingray_gputrace_engine(dev->index, 50, 0);
+ 	err = nvhost_module_prepare_client(dev);
++	wingray_gputrace_engine(dev->index, 51, err);
+ 	if (err)
+ 		goto fail_module;
+ #endif
+ 	/* An open must never observe uninitialized module power/clock state. */
++	wingray_gputrace_engine(dev->index, 60, 0);
+ 	err = nvhost_client_user_init(dev);
++	wingray_gputrace_engine(dev->index, 61, err);
+ 	if (err)
+ 		goto fail_module;
+ 
+ 	dev_info(&dev->dev, "initialized\n");
+ 
++	wingray_gputrace_engine(dev->index, 61, 0);
+ 	return 0;
+ 
+ fail_module:
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x.c b/drivers/staging/tegra/video/host/host1x/host1x.c
+index df0291c8..3a5fe036 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x.c
+@@ -18,6 +18,7 @@
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <soc/tegra/wingray-gputrace.h>
+ #include <linux/slab.h>
+ #include <linux/fs.h>
+ #include <linux/cdev.h>
+@@ -475,6 +476,7 @@ static int nvhost_probe(struct nvhost_device *dev,
+ 	bool intr_ready = false, clocks_on = false, user_ready = false;
+ 	int err;
+ 
++	wingray_gputrace_engine(10, 10, 0);
+ 	regs = nvhost_get_resource(dev, IORESOURCE_MEM, 0);
+ 	intr0 = nvhost_get_resource(dev, IORESOURCE_IRQ, 0);
+ 	intr1 = nvhost_get_resource(dev, IORESOURCE_IRQ, 1);
+@@ -505,6 +507,7 @@ static int nvhost_probe(struct nvhost_device *dev,
+ 		goto fail;
+ 	}
+ 	nvhost_set_drvdata(dev, host);
++	wingray_gputrace_engine(10, 40, 0);
+ 	err = nvhost_module_init(dev);
+ 	if (err)
+ 		goto fail;
+@@ -513,6 +516,7 @@ static int nvhost_probe(struct nvhost_device *dev,
+ 		err = -ENODEV;
+ 		goto fail;
+ 	}
++	wingray_gputrace_engine(10, 50, 0);
+ 	err = nvhost_probe_enable_clocks(dev);
+ 	if (err)
+ 		goto fail;
+@@ -546,6 +550,7 @@ static int nvhost_probe(struct nvhost_device *dev,
+ 	nvhost_probe_disable_clocks(dev);
+ 	clocks_on = false;
+ 	/* Publish userspace/global references only after successful bring-up. */
++	wingray_gputrace_engine(10, 60, 0);
+ 	err = nvhost_user_init(host);
+ 	if (err)
+ 		goto fail;
+@@ -555,6 +560,7 @@ static int nvhost_probe(struct nvhost_device *dev,
+ 		goto fail;
+ 	nvhost_debug_init(host);
+ 	dev_info(&dev->dev, "initialized\n");
++	wingray_gputrace_engine(10, 61, 0);
+ 	return 0;
+ fail:
+ 	if (user_ready)
+@@ -576,6 +582,7 @@ fail:
+ 	if (host->reg_mem)
+ 		release_mem_region(regs->start, resource_size(regs));
+ 	kfree(host);
++	wingray_gputrace_engine(10, 0xff, err);
+ 	return err;
+ }
+ 
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index 3a787dd4..b2a913d6 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -20,6 +20,7 @@
+ 
+ #include "nvhost_acm.h"
+ #include "dev.h"
++#include <soc/tegra/wingray-gputrace.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+ #include <linux/sched.h>
+@@ -320,18 +321,26 @@ int nvhost_module_prepare_client(struct nvhost_device *dev)
+ 	if ((dev->index != 1 && dev->index != 2) || !dev->rst ||
+ 	    drv->prepare_clockoff || dev->can_powergate)
+ 		return -EINVAL;
++	wingray_gputrace_engine(dev->index, 51, 0);
+ 	err = nvhost_module_busy_checked(dev);
++	wingray_gputrace_engine(dev->index, 52, err);
+ 	if (err)
+ 		return err;
+ 	mutex_lock_nested(&dev->lock, dev->index == 10);
++	wingray_gputrace_engine(dev->index, 53, 0);
+ 	err = reset_control_assert(dev->rst);
++	wingray_gputrace_engine(dev->index, 54, err);
+ 	if (!err) {
+ 		usleep_range(1000, 2000);
++		wingray_gputrace_engine(dev->index, 55, 0);
+ 		err = reset_control_deassert(dev->rst);
++		wingray_gputrace_engine(dev->index, 56, err);
+ 	}
+ 	/* There can be no other client: the character device is unpublished. */
+ 	dev->refcount--;
++	wingray_gputrace_engine(dev->index, 57, 0);
+ 	gate_err = to_state_clockgated_locked(dev);
++	wingray_gputrace_engine(dev->index, 58, gate_err);
+ 	mutex_unlock(&dev->lock);
+ 	wake_up(&dev->idle_wq);
+ 	if (drv->idle)
+@@ -771,7 +780,9 @@ int nvhost_module_init(struct nvhost_device *dev)
+ 	struct kobj_attribute *attr = NULL;
+ 
+ 	INIT_LIST_HEAD(&dev->client_list);
++	wingray_gputrace_engine(dev->index, 41, 0);
+ 	err = nvhost_module_init_clocks(dev);
++	wingray_gputrace_engine(dev->index, 42, err);
+ 	if (err)
+ 		return err;
+ 
+@@ -782,17 +793,22 @@ int nvhost_module_init(struct nvhost_device *dev)
+ 	dev->poweron_pending = false;
+ 	/* power gate units that we can power gate */
+ 	if (dev->can_powergate) {
++		wingray_gputrace_engine(dev->index, 43, 0);
+ 		err = do_powergate_locked(dev);
++		wingray_gputrace_engine(dev->index, 44, err);
+ 		if (err)
+ 			goto fail_clocks;
+ 		dev->powerstate = NVHOST_POWER_STATE_POWERGATED;
+ 	} else {
++		wingray_gputrace_engine(dev->index, 43, 0);
+ 		err = do_unpowergate_locked(dev);
++		wingray_gputrace_engine(dev->index, 44, err);
+ 		if (err)
+ 			goto fail_clocks;
+ 		dev->powerstate = NVHOST_POWER_STATE_CLOCKGATED;
+ 	}
+ 
++	wingray_gputrace_engine(dev->index, 45, 0);
+ 	/* Init the power sysfs attributes for this device */
+ 	dev->power_attrib = kzalloc(sizeof(struct nvhost_device_power_attr),
+ 		GFP_KERNEL);
+diff --git a/drivers/usb/gadget/legacy/serial.c b/drivers/usb/gadget/legacy/serial.c
+index e420862c..20c0a1c5 100644
+--- a/drivers/usb/gadget/legacy/serial.c
++++ b/drivers/usb/gadget/legacy/serial.c
+@@ -10,6 +10,7 @@
+  * either version 2 of that License or (at your option) any later version.
+  */
+ 
++#include <soc/tegra/wingray-gputrace.h>
+ #include <linux/kernel.h>
+ #include <linux/device.h>
+ #include <linux/module.h>
+@@ -165,6 +166,7 @@ static int gs_bind(struct usb_composite_dev *cdev)
+ {
+ 	int			status;
+ 
++	wingray_gputrace_mark(WG_USB, 3);
+ 	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_BIND, 3);
+ 	/* Allocate string descriptor numbers ... note that string
+ 	 * contents can be overridden by the composite_dev glue.
+@@ -196,6 +198,7 @@ static int gs_bind(struct usb_composite_dev *cdev)
+ 	}
+ 
+ 	/* register our configuration */
++	wingray_gputrace_mark(WG_USB, 4);
+ 	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_BIND, 4);
+ 	if (use_acm) {
+ 		status  = serial_register_ports(cdev, &serial_config_driver,
+@@ -214,12 +217,16 @@ static int gs_bind(struct usb_composite_dev *cdev)
+ 	usb_composite_overwrite_options(cdev, &coverwrite);
+ 	INFO(cdev, "%s\n", GS_VERSION_NAME);
+ 
++	wingray_gputrace_mark(WG_USB_RET, 0);
++	wingray_gputrace_mark(WG_USB, 5);
+ 	wingray_boottrace_usb_result(WINGRAY_TRACE_USB_BIND, 0);
+ 	return 0;
+ fail1:
+ 	kfree(otg_desc[0]);
+ 	otg_desc[0] = NULL;
+ fail:
++	wingray_gputrace_mark(WG_USB_RET, status);
++	wingray_gputrace_mark(WG_USB, 0xff);
+ 	wingray_boottrace_usb_result(WINGRAY_TRACE_USB_BIND, status);
+ 	return status;
+ }
+@@ -276,8 +283,11 @@ static int __init init(void)
+ 	}
+ 	strings_dev[STRING_DESCRIPTION_IDX].s = serial_config_driver.label;
+ 
++	wingray_gputrace_mark(WG_USB, 1);
+ 	wingray_boottrace_usb_mark(WINGRAY_TRACE_USB_BIND, 1);
+ 	ret = usb_composite_probe(&gserial_driver);
++	wingray_gputrace_mark(WG_USB_RET, ret);
++	wingray_gputrace_mark(WG_USB, ret < 0 ? 0xfe : 2);
+ 	if (ret < 0)
+ 		wingray_boottrace_usb_result(WINGRAY_TRACE_USB_BIND, ret);
+ 	return ret;
+diff --git a/include/soc/tegra/wingray-gputrace.h b/include/soc/tegra/wingray-gputrace.h
+new file mode 100644
+index 00000000..7327af16
+--- /dev/null
++++ b/include/soc/tegra/wingray-gputrace.h
+@@ -0,0 +1,44 @@
++/* Diagnostic only; offsets share the existing 128-byte SMP record. GPL-2.0 */
++#ifndef __SOC_TEGRA_WINGRAY_GPUTRACE_H
++#define __SOC_TEGRA_WINGRAY_GPUTRACE_H
++#define WG_INIT_FN 0x2c
++#define WG_INIT_RET 0x30
++#define WG_INIT_STATE 0x34
++#define WG_HOST 0x38
++#define WG_HOST_RET 0x3c
++#define WG_GR2D 0x40
++#define WG_GR2D_RET 0x44
++#define WG_GR3D 0x48
++#define WG_GR3D_RET 0x4c
++#define WG_KERNEL 0x50
++#define WG_EXEC_RET 0x54
++#define WG_REPORTER 0x58
++#define WG_USER 0x5c
++#define WG_USB 0x60
++#define WG_USB_RET 0x64
++#define WG_PANIC 0x68
++#ifdef CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE
++#include <soc/tegra/wingray-smptrace.h>
++#define wingray_gputrace_mark(o,v) wingray_smptrace_mark(o,v)
++static inline void wingray_gputrace_engine(unsigned int index,
++		unsigned int stage, int result)
++{
++	unsigned int offset;
++	if (index == 10)
++		offset = WG_HOST;
++	else if (index == 2)
++		offset = WG_GR2D;
++	else if (index == 1)
++		offset = WG_GR3D;
++	else
++		return;
++	/* A reset between stores leaves stage zero, not a mismatched pair. */
++	wingray_gputrace_mark(offset, 0);
++	wingray_gputrace_mark(offset + 4, result);
++	wingray_gputrace_mark(offset, stage);
++}
++#else
++#define wingray_gputrace_mark(o,v) do { } while (0)
++#define wingray_gputrace_engine(i,s,r) do { } while (0)
++#endif
++#endif
+diff --git a/include/soc/tegra/wingray-smptrace.h b/include/soc/tegra/wingray-smptrace.h
+index e20a503e..c9560f3b 100644
+--- a/include/soc/tegra/wingray-smptrace.h
++++ b/include/soc/tegra/wingray-smptrace.h
+@@ -19,7 +19,13 @@ extern bool wingray_smptrace_ready;
+ static inline void wingray_smptrace_mark(unsigned int offset, u32 value)
+ {
+  void __iomem *p = (void __iomem *)WINGRAY_SMPTRACE_VIRT;
+- if (!wingray_smptrace_ready || offset < 0x10 || offset > 0x28 || (offset & 3))
++ if (!wingray_smptrace_ready || offset < 0x10 ||
++#ifdef CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE
++     offset > 0x68 ||
++#else
++     offset > 0x28 ||
++#endif
++     (offset & 3))
+   return;
+  if (readl_relaxed(p) != WINGRAY_SMPTRACE_MAGIC ||
+      readl_relaxed(p + 4) != WINGRAY_SMPTRACE_VERSION ||
+diff --git a/init/main.c b/init/main.c
+index ba363e09..42d15747 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -11,6 +11,7 @@
+ 
+ #define DEBUG		/* Enable initcall_debug */
+ 
++#include <soc/tegra/wingray-gputrace.h>
+ #include <linux/types.h>
+ #include <soc/tegra/wingray-boottrace.h>
+ #include <linux/module.h>
+@@ -794,11 +795,22 @@ int __init_or_module do_one_initcall(initcall_t fn)
+ 	if (initcall_blacklisted(fn))
+ 		return -EPERM;
+ 
++	/* PID1 owns this stream; asynchronous probes have separate words. */
++	if (task_pid_nr(current) == 1) {
++		wingray_gputrace_mark(WG_INIT_STATE, 0);
++		wingray_gputrace_mark(WG_INIT_FN, (unsigned long)fn);
++		wingray_gputrace_mark(WG_INIT_RET, 0);
++		wingray_gputrace_mark(WG_INIT_STATE, 1);
++	}
+ 	if (initcall_debug)
+ 		ret = do_one_initcall_debug(fn);
+ 	else
+ 		ret = fn();
+ 
++	if (task_pid_nr(current) == 1) {
++		wingray_gputrace_mark(WG_INIT_RET, ret);
++		wingray_gputrace_mark(WG_INIT_STATE, 2);
++	}
+ 	msgbuf[0] = 0;
+ 
+ 	if (preempt_count() != count) {
+@@ -915,6 +927,7 @@ static int run_init_process(const char *init_filename)
+ {
+ 	int ret;
+ 
++	wingray_gputrace_mark(WG_KERNEL, 6);
+ 	argv_init[0] = init_filename;
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x420);
+ 	ret = do_execve(getname_kernel(init_filename),
+@@ -922,6 +935,8 @@ static int run_init_process(const char *init_filename)
+ 		(const char __user *const __user *)envp_init);
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE,
+ 		ret ? 0xc1000000U | ((unsigned int)-ret & 0xffff) : 0x421);
++	wingray_gputrace_mark(WG_EXEC_RET, ret);
++	wingray_gputrace_mark(WG_KERNEL, ret ? 8 : 7);
+ 	return ret;
+ }
+ 
+@@ -968,9 +983,11 @@ static int __ref kernel_init(void *unused)
+ 	int ret;
+ 
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x406);
++	wingray_gputrace_mark(WG_KERNEL, 1);
+ 	kernel_init_freeable();
+ 	/* need to finish all async __init code before freeing the memory */
+ 	async_synchronize_full();
++	wingray_gputrace_mark(WG_KERNEL, 5);
+ 	free_initmem();
+ 	mark_readonly();
+ 	system_state = SYSTEM_RUNNING;
+@@ -1035,13 +1052,16 @@ static noinline void __init kernel_init_freeable(void)
+ 	do_pre_smp_initcalls();
+ 	lockup_detector_init();
+ 
++	wingray_gputrace_mark(WG_KERNEL, 2);
+ 	smp_init();
++	wingray_gputrace_mark(WG_KERNEL, 3);
+ 	sched_init_smp();
+ 
+ 	page_alloc_init_late();
+ 
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x410);
+ 	wingray_boottrace_diagnostic_begin();
++	wingray_gputrace_mark(WG_KERNEL, 4);
+ 	do_basic_setup();
+ 	wingray_boottrace_static_mark(WINGRAY_TRACE_PHASE, 0x411);
+ 
+-- 
+2.43.0
+
