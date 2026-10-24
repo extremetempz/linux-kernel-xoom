@@ -5,9 +5,13 @@
  */
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
+#ifdef XOOM_EGL_KITKAT_ABI
+#include "kitkat-c-api.h"
+#else
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#endif
 
 static GLuint shader(GLenum type, const char *source)
 {
@@ -72,7 +76,9 @@ int main(void)
     /* Bounds ordinary userspace stalls; cannot guarantee interrupting a
      * driver stuck in an uninterruptible kernel wait. */
     alarm(20);
+#ifndef XOOM_EGL_KITKAT_ABI
     setvbuf(stdout, NULL, _IONBF, 0);
+#endif
     display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (display == EGL_NO_DISPLAY)
         goto out;
@@ -188,5 +194,8 @@ out:
     if (!result)
         puts("XOOM_EGL_OFFSCREEN_READBACK_PASS (not composition/fence validation)");
     alarm(0);
+#ifdef XOOM_EGL_KITKAT_ABI
+    fflush(NULL);
+#endif
     return result;
 }
