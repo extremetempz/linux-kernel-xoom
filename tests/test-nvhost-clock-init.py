@@ -51,3 +51,52 @@ with tempfile.TemporaryDirectory() as t:
 # Initialization must stop before power/sysfs work after clock errors.
 body=s[b:];assert body.index('if (err)\n\t\treturn err;')<body.index('mutex_init(&dev->lock)')
 assert 'fail_clocks:\n\tnvhost_module_release_clocks(dev);' in body
+
+# The host-only diagnostic must acquire exactly the named host clock without
+# invoking any rate, voltage or enable provider during initialization.
+diag_fixture = r'''
+int main(void) {struct nvhost_device d;
+ reset(&d);d.index=10;d.clocks[1].name=NULL;
+ assert(!nvhost_module_init_clocks(&d));assert(d.num_clks==1&&refs[0]==1);
+ assert(!sets&&!preps&&clocks[0].rate==100);nvhost_module_release_clocks(&d);clean(&d);
+ reset(&d);d.index=10;d.clocks[1].name=NULL;fail_get=0;
+ assert(nvhost_module_init_clocks(&d)==-EPROBE_DEFER);clean(&d);
+ reset(&d);d.index=1;d.clocks[1].name=NULL;
+ assert(nvhost_module_init_clocks(&d)==-EINVAL);clean(&d);
+ reset(&d);d.index=10;d.clocks[0].name="gr3d";d.clocks[1].name=NULL;
+ assert(nvhost_module_init_clocks(&d)==-EINVAL);clean(&d);
+ reset(&d);d.index=10;d.clocks[1].name=NULL;zero_old=0;
+ assert(nvhost_module_init_clocks(&d)==-EINVAL);clean(&d);
+ puts("PASS actual host-only clock initialization: firmware rate retained, no provider writes/enables, missing/invalid inputs rejected");
+}
+'''
+# Retain the reset/clean helper functions, replacing only this fixture's main.
+helpers=fixture[:fixture.index('int main(void)')]
+with tempfile.TemporaryDirectory() as t:
+ p=Path(t)/'test.c';p.write_text(prefix.replace('int dev,num_clks', 'int index,dev,num_clks')+functions+helpers+diag_fixture)
+ subprocess.run(['cc','-std=gnu11','-Wall','-Wextra','-Werror','-Wno-unused-function','-fsanitize=undefined','-DCONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST=1',str(p),'-o',t+'/test'],check=True)
+ subprocess.run([t+'/test'],check=True)
+
+# GPU diagnostic must lower dividers before any enable, retain host rate,
+# reject physical EMC fallback, and unwind setters without enabling clocks.
+gpu_prefix=prefix.replace('int dev,num_clks','int index,dev,num_clks').replace('assert(enabled[c->id]);sets++','assert(!enabled[c->id]);sets++').replace('rate==200UL+c->id','rate==200000000UL')
+gpu_prefix += r'''
+static int provider_bad;
+static const char *__clk_get_name(struct clk*c){(void)c;return provider_bad?"emc":"wingray_gr3d_emc";}
+'''
+gpu_main=r'''
+static void setup(struct nvhost_device*d){reset(d);d->index=1;d->clocks[0].name="gr3d";d->clocks[1].name="emc";d->clocks[2].name=NULL;clocks[0].rate=400000000;clocks[1].rate=400000000;provider_bad=0;}
+int main(void){struct nvhost_device d;
+ setup(&d);assert(!nvhost_module_init_clocks(&d));assert(!preps&&sets==2&&clocks[0].rate==200000000&&clocks[1].rate==400000000);nvhost_module_release_clocks(&d);clean(&d);
+ setup(&d);provider_bad=1;assert(nvhost_module_init_clocks(&d)==-ENODEV);assert(!sets&&!preps);clean(&d);
+ setup(&d);fail_set=0;assert(nvhost_module_init_clocks(&d)==-EIO);assert(!preps&&clocks[0].rate==400000000);clean(&d);
+ setup(&d);fail_round=1;assert(nvhost_module_init_clocks(&d)==-ERANGE);assert(!sets&&!preps);clean(&d);
+ setup(&d);zero_round=0;assert(nvhost_module_init_clocks(&d)==-EINVAL);assert(!sets&&!preps);clean(&d);
+ setup(&d);d.index=2;d.clocks[0].name="epp";d.clocks[1].name=NULL;assert(!nvhost_module_init_clocks(&d));assert(clocks[0].rate==100000000&&!preps);nvhost_module_release_clocks(&d);clean(&d);
+ setup(&d);d.index=10;d.clocks[0].name="host1x";d.clocks[1].name=NULL;assert(!nvhost_module_init_clocks(&d));assert(!sets&&!preps&&clocks[0].rate==400000000);nvhost_module_release_clocks(&d);clean(&d);
+ puts("PASS actual GPU clock initialization: gated dividers, fixed host, EMC fallback rejection and rollback (UBSan)");}
+'''
+with tempfile.TemporaryDirectory() as t:
+ p=Path(t)/'test.c';p.write_text(gpu_prefix+functions+helpers+gpu_main)
+ subprocess.run(['cc','-std=gnu11','-Wall','-Wextra','-Werror','-Wno-unused-function','-Wno-unused-variable','-fsanitize=undefined','-DCONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=1',str(p),'-o',t+'/test'],check=True)
+ subprocess.run([t+'/test'],check=True)

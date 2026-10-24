@@ -33,7 +33,7 @@ static void register_shared_emc_clk(struct shared_emc_clk *c,const char *a,const
 main = r'''
 int main(void) {
  assert(!register_shared_emc_clks());
-#if CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES
+#if CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES || CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST
  assert(!gets&&!adds);fail=1;assert(!register_shared_emc_clks());assert(!gets&&!adds);
 #else
  assert(gets==1&&adds>0);adds=gets=0;fail=1;assert(register_shared_emc_clks()==-ENOENT);assert(gets==1&&!adds);
@@ -44,10 +44,11 @@ int main(void) {
 with tempfile.TemporaryDirectory(prefix='xoom-resource-emc-') as temp:
     path = Path(temp)/'test.c'
     path.write_text(prelude+enum+body+main)
-    for enabled in [0, 1]:
-        binary = Path(temp)/('test'+str(enabled))
+    for enabled, host in [(0, 0), (1, 0), (0, 1)]:
+        binary = Path(temp)/('test'+str(enabled)+str(host))
         subprocess.run(['cc','-std=gnu99','-Wall','-Wextra','-Werror',
                         '-DCONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES='+str(enabled),
+                        '-DCONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST='+str(host),
                         str(path),'-o',str(binary)],check=True)
         subprocess.run([str(binary)],check=True)
 print('PASS actual EMC registration: resource-only mode makes no clock lookup or registration; ordinary mode and provider errors retained.')
