@@ -18,6 +18,7 @@ PREFIX=r'''
 #include <errno.h>
 #include <sys/types.h>
 #define __user
+#define wingray_gputrace_runtime(i,s,r) do {} while(0)
 typedef uint32_t u32;
 #ifdef CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT
 static int of_machine_is_compatible(const char *s) {assert(!strcmp(s,"motorola,wingray"));return TEST_BOARD_WINGRAY;}

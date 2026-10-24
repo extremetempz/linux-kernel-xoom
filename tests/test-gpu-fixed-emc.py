@@ -6,6 +6,9 @@ r=Path(__file__).resolve().parents[1]
 s=(r/'sources/kernel-donor/drivers/staging/tegra/clk.c').read_text()
 a=s.index('/* Diagnostic-only votes:');b=s.index('\n#endif',a)
 body=s[a:b]
+ccf=(r/'sources/kernel-donor/drivers/clk/clk.c').read_text()
+a=ccf.index('static unsigned long clk_core_get_rate_nolock(');b=ccf.index('\nunsigned long __clk_get_rate',a)
+getter=ccf[a:b]
 prefix=r'''
 #include <assert.h>
 #include <errno.h>
@@ -20,15 +23,19 @@ prefix=r'''
 #define pr_info(...) ((void)0)
 struct clk{int id;};struct clk_hw{const struct clk_init_data *init;};struct clk_lookup{int id;};
 struct clk_ops{int(*prepare)(struct clk_hw*);void(*unprepare)(struct clk_hw*);int(*is_enabled)(struct clk_hw*);unsigned long(*recalc_rate)(struct clk_hw*,unsigned long);long(*round_rate)(struct clk_hw*,unsigned long,unsigned long*);int(*set_rate)(struct clk_hw*,unsigned long,unsigned long);};
-struct clk_init_data{const char *name;const struct clk_ops *ops;};
+struct clk_init_data{const char *name;const struct clk_ops *ops;unsigned long flags;};
+#define CLK_IS_ROOT 16
+struct clk_core{unsigned long rate,flags;struct clk_core *parent;};
+static struct clk_core cores[2];
+static unsigned long clk_core_get_rate_nolock(struct clk_core*);
 struct shared_emc_clk{struct clk_hw hw;unsigned long rate;int enabled;struct clk*registered;struct clk_lookup*lookup;};
 enum{G3D,G2D,SHARED_CLK_NB};static struct shared_emc_clk virtual_emc_clks[SHARED_CLK_NB];static struct clk *emc_clk;
 static struct clk physical,registered[2];static struct clk_lookup lookups[2];
 static int compat=1,fault,step,refs,clks,aliases,put_count;static unsigned long physical_rate=600000000;
 static int of_machine_is_compatible(const char*s){assert(!strcmp(s,"motorola,wingray"));return compat;}
 static struct clk*clk_get_sys(void*d,const char*n){assert(!d&&!strcmp(n,"emc"));if(++step==fault)return(void*)(intptr_t)-EIO;refs++;return &physical;}
-static unsigned long clk_get_rate(struct clk*c){assert(c==&physical);return physical_rate;}
-static struct clk*clk_register(void*d,struct clk_hw*h){assert(!d&&h->init->ops);if(++step==fault)return(void*)(intptr_t)-ENOMEM;int i=clks++;assert(i<2);assert(!strcmp(h->init->name,i?"wingray_gr2d_emc":"wingray_gr3d_emc"));registered[i].id=i;return &registered[i];}
+static unsigned long clk_get_rate(struct clk*c){if(c==&physical)return physical_rate;assert(c>=registered&&c<registered+2);return clk_core_get_rate_nolock(&cores[c->id]);}
+static struct clk*clk_register(void*d,struct clk_hw*h){assert(!d&&h->init->ops);if(++step==fault)return(void*)(intptr_t)-ENOMEM;int i=clks++;assert(i<2);assert(!strcmp(h->init->name,i?"wingray_gr2d_emc":"wingray_gr3d_emc"));registered[i].id=i;cores[i]=(struct clk_core){.rate=h->init->ops->recalc_rate(h,0),.flags=h->init->flags};return &registered[i];}
 static struct clk_lookup*clkdev_create(struct clk*c,const char*n,const char*fmt,const char*client){assert(!strcmp(n,"emc")&&!strcmp(fmt,"%s"));assert(!strcmp(client,c->id?"gr2d":"gr3d"));if(++step==fault)return NULL;aliases++;lookups[c->id].id=c->id;return &lookups[c->id];}
 static void clkdev_drop(struct clk_lookup*l){assert(l&&aliases>0);aliases--;}
 static void clk_unregister(struct clk*c){assert(c&&clks>0);clks--;}
@@ -43,6 +50,8 @@ int main(void){
  reset();fault=0;physical_rate=399999999;assert(register_wingray_emc()==-ERANGE);assert(!refs&&!clks&&!aliases&&put_count==1);
  reset();compat=0;assert(register_wingray_emc()==-ENODEV);assert(!step);
  reset();assert(!register_wingray_emc());assert(refs==1&&clks==2&&aliases==2);
+ assert(clk_get_rate(&registered[0])==600000000&&clk_get_rate(&registered[1])==600000000);
+ cores[0].flags=0;assert(clk_get_rate(&registered[0])==0);cores[0].flags=CLK_IS_ROOT;
  struct shared_emc_clk*v=&virtual_emc_clks[G3D];unsigned long parent=0;
  assert(!wingray_emc_set(&v->hw,400000000,0));assert(v->rate==400000000&&!v->enabled);
  assert(!wingray_emc_prepare(&v->hw)&&v->enabled);assert(physical_rate==600000000);
@@ -54,6 +63,6 @@ int main(void){
  puts("PASS fixed EMC actual callbacks/registration: bounds, physical-rate drift, exact engine aliases and all acquisition rollbacks; no DRAM setters linked (UBSan)");}
 '''
 with tempfile.TemporaryDirectory() as t:
- p=Path(t)/'test.c';p.write_text(prefix+body+main)
+ p=Path(t)/'test.c';p.write_text(prefix+getter+body+main)
  subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-fsanitize=undefined',str(p),'-o',t+'/test'],check=True)
  subprocess.run([t+'/test'],check=True)
