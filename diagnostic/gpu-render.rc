@@ -1,0 +1,30 @@
+# No imported board services, persistent mounts, framework or display startup.
+on early-init
+    start ueventd
+
+on init
+    export PATH /bin:/system/bin
+    export LD_LIBRARY_PATH /system/lib
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+    mkdir /dev/socket 0755 root root
+    mkdir /dev/log 0755 root root
+    symlink /dev/log_main /dev/log/main
+    symlink /dev/log_radio /dev/log/radio
+    symlink /dev/log_events /dev/log/events
+    symlink /dev/log_system /dev/log/system
+    loglevel 7
+
+on boot
+    start gpu-probe
+
+service ueventd /sbin/ueventd
+    class core
+    user root
+    group root
+
+service gpu-probe /bin/busybox sh /bin/gpu-render-start
+    disabled
+    oneshot
+    user root
+    group root
