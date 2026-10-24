@@ -1,5 +1,13 @@
 # Component status — 24 October 2026
 
+**Startup localization:** [trace 50](docs/gpu-startup-trace-50-result.md) recovered
+a `VFS: Unable to mount` panic before RAM userspace. Both engines separately reject
+their diagnostic EMC vote clocks because the old reported rate is zero. The
+underlying initramfs/handoff issue and EMC reporting cause are still unverified;
+no causal link between these failures is established. CPU1 and host initialization
+completed. Rendering stayed off. Original boot/recovery are restored and both
+complete hashes match their backups.
+
 **Latest GPU attempt:** [test 48](docs/gpu-render-test-48-result.md) used a RAM-only
 NVIDIA offscreen diagnostic with checked reset, fixed low engine clocks and
 software-only EMC votes. Build/fault/image checks passed, but hardware produced
