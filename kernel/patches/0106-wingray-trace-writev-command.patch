@@ -1,0 +1,86 @@
+From deca89576b21a17644ed373b043823054bc824ef Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 06:20:22 +1100
+Subject: [PATCH] ARM: wingray: gather vectored progress writes as one bounded
+ command
+
+---
+ arch/arm/mach-tegra/wingray-gputrace.c | 44 +++++++++++++++++++-------
+ 1 file changed, 32 insertions(+), 12 deletions(-)
+
+diff --git a/arch/arm/mach-tegra/wingray-gputrace.c b/arch/arm/mach-tegra/wingray-gputrace.c
+index 3eb41241..127ab391 100644
+--- a/arch/arm/mach-tegra/wingray-gputrace.c
++++ b/arch/arm/mach-tegra/wingray-gputrace.c
+@@ -7,23 +7,15 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/uaccess.h>
++#include <linux/uio.h>
+ #include <soc/tegra/wingray-gputrace.h>
+ 
+-static ssize_t wingray_trace_write(struct file *file, const char __user *buf,
+-		size_t count, loff_t *pos)
++static ssize_t wingray_trace_publish(const char code[2])
+ {
+-	char code[2];
+ 	unsigned int offset, value;
+-	if (!capable(CAP_SYS_ADMIN))
+-		return -EPERM;
+-	if (count != 2)
+-		return -EINVAL;
+-	if (copy_from_user(code, buf, 2))
+-		return -EFAULT;
+ 	if (code[1] != '\n')
+ 		return -EINVAL;
+-	/* Digits belong only to the sequential bootstrap/service stream;
+-	 * letters belong only to the sequential reporter/server stream. */
++	/* Only fixed progress codes; no user-selected offset or address. */
+ 	if (code[0] >= '1' && code[0] <= '5') {
+ 		offset = WG_USER;
+ 		value = code[0] - '0';
+@@ -36,12 +28,40 @@ static ssize_t wingray_trace_write(struct file *file, const char __user *buf,
+ 	if (!wingray_smptrace_ready)
+ 		return -ENODEV;
+ 	wingray_gputrace_mark(offset, value);
+-	return count;
++	return 2;
++}
++
++static ssize_t wingray_trace_write(struct file *file, const char __user *buf,
++		size_t count, loff_t *pos)
++{
++	char code[2];
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	if (count != 2)
++		return -EINVAL;
++	if (copy_from_user(code, buf, 2))
++		return -EFAULT;
++	return wingray_trace_publish(code);
++}
++
++static ssize_t wingray_trace_write_iter(struct kiocb *iocb, struct iov_iter *from)
++{
++	char code[2];
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	if (iov_iter_count(from) != 2)
++		return -EINVAL;
++	/* musl printf uses writev({"1",1},{"\\n",1}); gather atomically.
++	 * The VFS scalar-write fallback otherwise rejects each one-byte iovec. */
++	if (copy_from_iter(code, 2, from) != 2)
++		return -EFAULT;
++	return wingray_trace_publish(code);
+ }
+ 
+ static const struct file_operations wingray_trace_fops = {
+ 	.owner = THIS_MODULE,
+ 	.write = wingray_trace_write,
++	.write_iter = wingray_trace_write_iter,
+ 	.llseek = no_llseek,
+ };
+ static struct miscdevice wingray_trace_device = {
+-- 
+2.43.0
+
