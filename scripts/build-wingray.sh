@@ -17,6 +17,7 @@ case "$profile" in
   gpu-test) defconfig=wingray_gpu_test_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-test";;
   gpu-startup-trace) defconfig=wingray_gpu_startup_trace_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-startup-trace";;
   gpu-deferred-render) defconfig=wingray_gpu_deferred_render_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-deferred-render";;
+  gpu-usb-reply) defconfig=wingray_gpu_usb_reply_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-usb-reply";;
   gpu-builtin-render) defconfig=wingray_gpu_builtin_render_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-builtin-render";;
   gpu-builtin-runtime) defconfig=wingray_gpu_builtin_runtime_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-builtin-runtime";;
   gpu-initrd-relocated) defconfig=wingray_gpu_initrd_relocated_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-initrd-relocated";;
@@ -30,7 +31,7 @@ case "$profile" in
   *) echo 'Unknown XOOM_PROFILE (supported: peripherals, early, trace, diagnostic, panelbus, display, android44, android44-touch, android44-l2, android44-smp, android44-smp2, android44-smptrace, legacy-resources, host-test, gpu-test, gpu-startup-trace, gpu-panic-trace).' >&2; exit 1;;
 esac
 dest="${XOOM_ARTIFACT_DIR:-$default_dest}"
-if { [ "$profile" = legacy-resources ] || [ "$profile" = host-test ] || [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; } && [ -e "$dest" ]; then
+if { [ "$profile" = legacy-resources ] || [ "$profile" = host-test ] || [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; } && [ -e "$dest" ]; then
  echo 'Use a new resource/host artifact directory; existing evidence is preserved.' >&2; exit 1
 fi
 toolchain="${XOOM_TOOLCHAIN_DIR:-$root/toolchains/android-gcc49}"
@@ -47,7 +48,7 @@ test -x "$toolchain/bin/arm-linux-androideabi-gcc" || {
 mkdir -p "$build/source" "$build/toolchain" "$build/out" "$dest"
 rsync -a --exclude=.git "$src/" "$build/source/"
 rsync -a "$toolchain/" "$build/toolchain/"
-if [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; then
+if [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; then
  mkdir -p "$build/out/usr"
  python3 - "$root" "$build/out/usr/wingray-gpu-runtime.cpio" "$profile" "$dest" <<'PYRAM'
 from pathlib import Path
@@ -55,11 +56,11 @@ import gzip,hashlib,importlib.util,sys
 root=Path(sys.argv[1]);data=(root/'artifacts/gpu-startup53-ready/ramdisk.cpio.gz').read_bytes()
 assert hashlib.sha256(data).hexdigest()=='54bc23da30e3b4e17a87f461aac2e80bcf85bdbdcd17fc43230864f5a2b65c7a'
 archive=gzip.decompress(data);assert len(archive)==7033808
-if sys.argv[3] in ('gpu-builtin-render','gpu-deferred-render'):
+if sys.argv[3] in ('gpu-builtin-render','gpu-deferred-render','gpu-usb-reply'):
  sys.path.insert(0,str(root/'scripts'))
  spec=importlib.util.spec_from_file_location('gpu_pack',root/'scripts/prepare-gpu-render-diagnostic.py')
  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
- archive=module.pack_newc(module.entries(module.runtime_files(),startup_trace=True,render_probe=True,deferred_probe=sys.argv[3]=='gpu-deferred-render'))
+ archive=module.pack_newc(module.entries(module.runtime_files(),startup_trace=True,render_probe=True,deferred_probe=sys.argv[3] in ('gpu-deferred-render','gpu-usb-reply'),usb_reply_trace=sys.argv[3]=='gpu-usb-reply'))
  (Path(sys.argv[4])/'runtime-source.cpio').write_bytes(archive)
 Path(sys.argv[2]).write_bytes(archive)
 PYRAM
@@ -73,21 +74,21 @@ args=(-C "$build/source" O="$build/out" ARCH=arm
   KCFLAGS='-fno-unwind-tables -fno-asynchronous-unwind-tables')
 make "${args[@]}" "$defconfig"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
-if [ "$profile" = legacy-resources ] || [ "$profile" = host-test ] || [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; then
+if [ "$profile" = legacy-resources ] || [ "$profile" = host-test ] || [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; then
  make "${args[@]}" tegra20-motorola-wingray-android44-smp2.dtb
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-smp2.dtb" "$dest/control-smp2.dtb"
 fi
-if [ "$profile" = host-test ] || [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; then
+if [ "$profile" = host-test ] || [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; then
  make "${args[@]}" tegra20-motorola-wingray-legacy-resources.dtb
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-legacy-resources.dtb" "$dest/control-resources.dtb"
 fi
-if [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; then
+if [ "$profile" = gpu-test ] || [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; then
  make "${args[@]}" tegra20-motorola-wingray-host-test.dtb
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-host-test.dtb" "$dest/control-host.dtb"
 fi
 cp "$build/out/arch/arm/boot/zImage" "$build/out/arch/arm/boot/zImage-dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/$dtname.dtb" "$dest/"
-if [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; then
+if [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; then
  cp "$build/out/usr/initramfs_data.cpio.gz" "$dest/builtin-initramfs.cpio.gz"
 fi
 cp "$build/out/.config" "$dest/kernel.config"
@@ -97,7 +98,7 @@ if [ "$profile" = legacy-resources ]; then
  python3 "$root/scripts/verify-legacy-resources.py" "$dest"
 elif [ "$profile" = host-test ]; then
  python3 "$root/scripts/verify-host-test.py" "$dest"
-elif [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ]; then
+elif [ "$profile" = gpu-startup-trace ] || [ "$profile" = gpu-panic-trace ] || [ "$profile" = gpu-initrd-trace ] || [ "$profile" = gpu-initrd-integrity ] || [ "$profile" = gpu-initrd-relocated ] || [ "$profile" = gpu-builtin-runtime ] || [ "$profile" = gpu-builtin-render ] || [ "$profile" = gpu-deferred-render ] || [ "$profile" = gpu-usb-reply ]; then
  python3 "$root/scripts/verify-gpu-test.py" "$dest" --startup-trace
 elif [ "$profile" = gpu-test ]; then
  python3 "$root/scripts/verify-gpu-test.py" "$dest"

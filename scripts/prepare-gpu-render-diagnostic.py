@@ -56,7 +56,8 @@ def runtime_files():
     assert not any('GLES_android' in n or 'swiftshader' in n.lower() for n in files)
     return files
 
-def entries(files, *, startup_trace=False, render_probe=False, deferred_probe=False):
+def entries(files, *, startup_trace=False, render_probe=False, deferred_probe=False, usb_reply_trace=False):
+    assert not usb_reply_trace or deferred_probe
     assert not deferred_probe or render_probe
     assert not render_probe or startup_trace
     original = original_entries((ROOT/'artifacts/hardware-private/backup-boot.img').read_bytes())
@@ -157,6 +158,13 @@ def entries(files, *, startup_trace=False, render_probe=False, deferred_probe=Fa
                      b'  continue\n'
                      b' fi\n')
             server=server.replace(anchor,command+anchor)
+        if usb_reply_trace:
+            # Do not claim delivery: printf success means only local write acceptance.
+            anchor = b'  /bin/busybox printf \'XOOM_READY_V2 %s\\n\' "$nonce"\n'
+            assert server.count(anchor) == 1
+            reply = (marker(b'D') + b' if /bin/busybox printf \'XOOM_READY_V2 %s\\n\' "$nonce"; then\n'
+                     + marker(b'E') + b' else\n' + marker(b'F') + b' fi\n')
+            server = server.replace(anchor, reply)
         alter('bin/diagnostic-server', server)
     e['default.prop'] = Entry('default.prop', stat.S_IFREG | 0o644,
         default_properties(original['default.prop'].data)+b'ro.board.platform=tegra\nro.product.device=wingray\n')
@@ -176,21 +184,21 @@ def main():
     p.add_argument('--output-dir', type=Path, required=True)
     p.add_argument('--startup-trace', action='store_true',
                    help='Require trace cookie 49 and replace rendering with startup-only checks')
-    p.add_argument('--trace-cookie',type=lambda v:int(v,0),choices=(0x584d0049,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056),default=0x584d0049)
-    p.add_argument('--deferred-probe', action='store_true', help='Only cookie 56: require explicit fixed GPU_RUN after a baseline USB report')
-    p.add_argument('--render-probe', action='store_true', help='Cookies 55/56: bounded child offscreen probe in built-in runtime')
+    p.add_argument('--trace-cookie',type=lambda v:int(v,0),choices=(0x584d0049,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057),default=0x584d0049)
+    p.add_argument('--deferred-probe', action='store_true', help='Cookies 56/57: require explicit fixed GPU_RUN after a baseline USB report')
+    p.add_argument('--render-probe', action='store_true', help='Cookies 55/56/57: bounded child offscreen probe in built-in runtime')
     p.add_argument('--ramdisk-address', type=lambda v:int(v,0), choices=(0x11000000,0x12000000), default=0x11000000)
     a = p.parse_args(); out = a.output_dir.resolve()
     assert a.startup_trace or a.trace_cookie==0x584d0049
-    assert not a.render_probe or a.startup_trace and a.trace_cookie in (0x584d0055,0x584d0056)
-    assert a.trace_cookie not in (0x584d0055,0x584d0056) or a.render_probe
-    assert a.deferred_probe == (a.trace_cookie==0x584d0056)
+    assert not a.render_probe or a.startup_trace and a.trace_cookie in (0x584d0055,0x584d0056,0x584d0057)
+    assert a.trace_cookie not in (0x584d0055,0x584d0056,0x584d0057) or a.render_probe
+    assert a.deferred_probe == (a.trace_cookie in (0x584d0056,0x584d0057))
     assert out.is_relative_to(ROOT/'artifacts') and not out.exists()
     validate_artifacts(a.kernel_dir, startup_trace=a.startup_trace, trace_cookie=a.trace_cookie)
     recovery = ROOT/'artifacts/hardware-private/backup-recovery.img'
     assert sha(recovery.read_bytes()) == RECOVERY_SHA
-    files = runtime_files(); archive = pack_newc(entries(files, startup_trace=a.startup_trace, render_probe=a.render_probe, deferred_probe=a.deferred_probe))
-    builtin_runtime = a.startup_trace and a.trace_cookie in (0x584d0054,0x584d0055,0x584d0056)
+    files = runtime_files(); archive = pack_newc(entries(files, startup_trace=a.startup_trace, render_probe=a.render_probe, deferred_probe=a.deferred_probe, usb_reply_trace=a.trace_cookie==0x584d0057))
+    builtin_runtime = a.startup_trace and a.trace_cookie in (0x584d0054,0x584d0055,0x584d0056,0x584d0057)
     runtime_archive_sha = sha(archive)
     if builtin_runtime:
         assert gzip.decompress((a.kernel_dir/'builtin-initramfs.cpio.gz').read_bytes()) == archive
@@ -214,6 +222,7 @@ def main():
         'ramdisk_load_address': hex(a.ramdisk_address),
         'startup_trace_only': a.startup_trace and not a.render_probe,
         'retained_startup_trace': a.startup_trace, 'rendering_enabled': a.render_probe or not a.startup_trace,
+        'usb_reply_trace': a.trace_cookie==0x584d0057,
         'deferred_probe': a.deferred_probe, 'builtin_runtime': builtin_runtime, 'runtime_archive_sha256': runtime_archive_sha,
         'trace_cookie': hex(a.trace_cookie) if a.startup_trace else None,
         'sha256': sha(image), 'size': len(image), 'kernel_sha256': sha(kernel),
