@@ -1,19 +1,15 @@
-# Component status — 24 October 2026
+# Component status — 25 October 2026
 
-**Startup localization:** [trace 50](docs/gpu-startup-trace-50-result.md) recovered
-a `VFS: Unable to mount` panic before RAM userspace. Both engines separately reject
-their diagnostic EMC vote clocks because the old reported rate is zero. The
-underlying initramfs/handoff issue and EMC reporting cause are still unverified;
-no causal link between these failures is established. CPU1 and host initialization
-completed. Rendering stayed off. Original boot/recovery are restored and both
-complete hashes match their backups.
-
-**Latest GPU attempt:** [test 48](docs/gpu-render-test-48-result.md) used a RAM-only
-NVIDIA offscreen diagnostic with checked reset, fixed low engine clocks and
-software-only EMC votes. Build/fault/image checks passed, but hardware produced
-no diagnostic USB report; its stopping point is unknown. The original ROM is
-restored and both complete original partition hashes match. Linux 4.4 rendering
-and accelerated Android composition remain unproven.
+**Latest GPU status:** [build 54](docs/gpu-startup-trace-54-result.md) confirmed
+live USB/RAM runtime and host/GR2D/GR3D initialization. The built-in runtime
+bypasses the unresolved external-initrd input problem, and the EMC registration
+correction passes hardware initialization. [Rendering attempt 55](docs/gpu-render-test-55-result.md)
+produced no USB/render report; its retained startup has no panic but cannot locate
+the rendering stop. Acceleration remains unproven. A reproduced writev bug in
+userspace markers is fixed separately; [test 56](docs/gpu-render-test-56-prepared.md)
+is prepared to establish USB first, then explicitly release one bounded probe
+with channel checkpoints. It is not yet hardware-tested. Original boot/recovery
+are restored and both complete hashes match.
 
 **Hardware-tested baseline:** Linux 4.4.147 boots the existing Android 4.4.4
 userspace. Image 32 displayed Welcome with working touch; image 33 confirms
