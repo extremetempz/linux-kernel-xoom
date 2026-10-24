@@ -1,0 +1,183 @@
+From f1f1a8f51262e6bc1545709cf2a429dfcec53b55 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 11:36:17 +1100
+Subject: [PATCH] nvhost: separate IRQ activation from software init and report
+ failures
+
+---
+ .../staging/tegra/video/host/chip_support.h   |  2 +-
+ .../staging/tegra/video/host/host1x/host1x.c  |  4 +-
+ .../tegra/video/host/host1x/host1x_intr.c     |  6 ++-
+ .../staging/tegra/video/host/nvhost_intr.c    | 37 +++++++++++++------
+ .../staging/tegra/video/host/nvhost_intr.h    |  3 +-
+ 5 files changed, 36 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/chip_support.h b/drivers/staging/tegra/video/host/chip_support.h
+index f33e9a2e..c3d66ca5 100644
+--- a/drivers/staging/tegra/video/host/chip_support.h
++++ b/drivers/staging/tegra/video/host/chip_support.h
+@@ -123,7 +123,7 @@ struct nvhost_syncpt_ops {
+ };
+ 
+ struct nvhost_intr_ops {
+-	void (*init_host_sync)(struct nvhost_intr *);
++	int  (*init_host_sync)(struct nvhost_intr *);
+ 	void (*set_host_clocks_per_usec)(
+ 		struct nvhost_intr *, u32 clocks);
+ 	void (*set_syncpt_threshold)(
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x.c b/drivers/staging/tegra/video/host/host1x/host1x.c
+index e940cb9e..1f2c7eed 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x.c
+@@ -347,7 +347,9 @@ static int power_off_host(struct nvhost_device *dev)
+ static void clock_on_host(struct nvhost_device *dev)
+ {
+ 	struct nvhost_master *host = nvhost_get_drvdata(dev);
+-	nvhost_intr_start(&host->intr, clk_get_rate(dev->clk[0]));
++	int err = nvhost_intr_start(&host->intr, clk_get_rate(dev->clk[0]));
++	if (err)
++		dev_err(&dev->dev, "Failed to start host interrupts: %d\n", err);
+ }
+ 
+ static int clock_off_host(struct nvhost_device *dev)
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x_intr.c b/drivers/staging/tegra/video/host/host1x/host1x_intr.c
+index d84dd431..534b521a 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x_intr.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x_intr.c
+@@ -63,7 +63,7 @@ static irqreturn_t t20_syncpt_thresh_cascade_isr(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static void t20_intr_init_host_sync(struct nvhost_intr *intr)
++static int t20_intr_init_host_sync(struct nvhost_intr *intr)
+ {
+ 	struct nvhost_master *dev = intr_to_dev(intr);
+ 	void __iomem *sync_regs = dev->sync_aperture;
+@@ -79,7 +79,8 @@ static void t20_intr_init_host_sync(struct nvhost_intr *intr)
+ 
+ 	err = request_irq(intr->syncpt_irq, t20_syncpt_thresh_cascade_isr,
+ 			  IRQF_SHARED, "host1x_syncpt", intr);
+-	WARN_ON(IS_ERR_VALUE(err));
++	if (err)
++		return err;
+ 
+ 	/* disable the ip_busy_timeout. this prevents write drops, etc.
+ 	 * there's no real way to recover from a hung client anyway.
+@@ -90,6 +91,7 @@ static void t20_intr_init_host_sync(struct nvhost_intr *intr)
+ 	 * otherwise on ap20.
+ 	 */
+ 	writel(0xff, sync_regs + host1x_sync_ctxsw_timeout_cfg_r());
++	return 0;
+ }
+ 
+ static void t20_intr_set_host_clocks_per_usec(struct nvhost_intr *intr, u32 cpm)
+diff --git a/drivers/staging/tegra/video/host/nvhost_intr.c b/drivers/staging/tegra/video/host/nvhost_intr.c
+index 7fab0161..2fc211b1 100644
+--- a/drivers/staging/tegra/video/host/nvhost_intr.c
++++ b/drivers/staging/tegra/video/host/nvhost_intr.c
+@@ -340,6 +340,7 @@ int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync)
+ 
+ 	mutex_init(&intr->mutex);
+ 	intr->syncpt_irq = irq_sync;
++	intr->started = false;
+ 
+ 	init_kthread_worker(&intr->worker);
+ 	intr->worker_thread = kthread_run(kthread_worker_fn,
+@@ -351,9 +352,8 @@ int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync)
+ 	}
+ 	sched_setscheduler(intr->worker_thread, SCHED_FIFO, &param);
+ 
+-	intr_op().init_host_sync(intr);
++	/* Software only: no register access or IRQ activation before clocks. */
+ 	intr->host_general_irq = irq_gen;
+-	intr_op().request_host_general_irq(intr);
+ 
+ 	for (id = 0, syncpt = intr->syncpt;
+ 	     id < nb_pts;
+@@ -370,24 +370,34 @@ int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync)
+ void nvhost_intr_deinit(struct nvhost_intr *intr)
+ {
+ 	nvhost_intr_stop(intr);
++	flush_kthread_worker(&intr->worker);
+ 	kthread_stop(intr->worker_thread);
+ }
+ 
+-void nvhost_intr_start(struct nvhost_intr *intr, u32 hz)
++int nvhost_intr_start(struct nvhost_intr *intr, u32 hz)
+ {
++	int err = 0;
+ 	BUG_ON(!(intr_op().init_host_sync &&
+-		 intr_op().set_host_clocks_per_usec &&
+-		 intr_op().request_host_general_irq));
++		intr_op().set_host_clocks_per_usec &&
++		intr_op().request_host_general_irq));
+ 
+ 	mutex_lock(&intr->mutex);
+-
+-	intr_op().init_host_sync(intr);
++	if (intr->started)
++		goto out;
++	err = intr_op().init_host_sync(intr);
++	if (err)
++		goto out;
++	err = intr_op().request_host_general_irq(intr);
++	if (err) {
++		intr_op().free_syncpt_irq(intr);
++		goto out;
++	}
+ 	intr_op().set_host_clocks_per_usec(intr,
+-					       (hz + 1000000 - 1)/1000000);
+-
+-	intr_op().request_host_general_irq(intr);
+-
++		(hz + 1000000 - 1) / 1000000);
++	intr->started = true;
++out:
+ 	mutex_unlock(&intr->mutex);
++	return err;
+ }
+ 
+ void nvhost_intr_stop(struct nvhost_intr *intr)
+@@ -401,6 +411,10 @@ void nvhost_intr_stop(struct nvhost_intr *intr)
+ 		 intr_op().free_syncpt_irq));
+ 
+ 	mutex_lock(&intr->mutex);
++	if (!intr->started) {
++		mutex_unlock(&intr->mutex);
++		return;
++	}
+ 
+ 	intr_op().disable_all_syncpt_intrs(intr);
+ 
+@@ -424,6 +438,7 @@ void nvhost_intr_stop(struct nvhost_intr *intr)
+ 
+ 	intr_op().free_host_general_irq(intr);
+ 	intr_op().free_syncpt_irq(intr);
++	intr->started = false;
+ 
+ 	mutex_unlock(&intr->mutex);
+ }
+diff --git a/drivers/staging/tegra/video/host/nvhost_intr.h b/drivers/staging/tegra/video/host/nvhost_intr.h
+index b6e69d00..58582e3d 100644
+--- a/drivers/staging/tegra/video/host/nvhost_intr.h
++++ b/drivers/staging/tegra/video/host/nvhost_intr.h
+@@ -71,6 +71,7 @@ struct nvhost_intr {
+ 	struct mutex mutex;
+ 	int host_general_irq;
+ 	int syncpt_irq;
++	bool started;
+ 	struct kthread_worker worker;
+ 	struct task_struct *worker_thread;
+ };
+@@ -108,7 +109,7 @@ void nvhost_intr_put_ref(struct nvhost_intr *intr, u32 id, void *ref);
+ 
+ int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync);
+ void nvhost_intr_deinit(struct nvhost_intr *intr);
+-void nvhost_intr_start(struct nvhost_intr *intr, u32 hz);
++int nvhost_intr_start(struct nvhost_intr *intr, u32 hz);
+ void nvhost_intr_stop(struct nvhost_intr *intr);
+ int nvhost_intr_release_time(void *ref, struct timespec *ts);
+ 
+-- 
+2.43.0
+

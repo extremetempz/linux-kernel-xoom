@@ -1,0 +1,161 @@
+From 225b9f80f55234ef052465791ff596aaea8c7c60 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 11:25:04 +1100
+Subject: [PATCH] nvhost: reject incomplete clock initialization and unwind
+ providers
+
+---
+ drivers/staging/tegra/video/host/nvhost_acm.c | 113 +++++++++++++-----
+ 1 file changed, 85 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index 2837b879..9c927913 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -514,42 +514,96 @@ static ssize_t clockgate_delay_show(struct kobject *kobj,
+ 	return ret;
+ }
+ 
+-int nvhost_module_init(struct nvhost_device *dev)
++/* Missing providers are probe failures, never sparse clock arrays. */
++static void nvhost_module_release_clocks(struct nvhost_device *dev)
+ {
+-	int i = 0, err = 0;
+-	struct kobj_attribute *attr = NULL;
++	while (dev->num_clks) {
++		unsigned int i = --dev->num_clks;
++		clk_put(dev->clk[i]);
++		dev->clk[i] = NULL;
++	}
++	dev->is_emc_client = false;
++	dev->emc_idx = 0;
++}
+ 
+-	/* initialize clocks to known state */
+-	INIT_LIST_HEAD(&dev->client_list);
+-	while (i < NVHOST_MODULE_MAX_CLOCKS && dev->clocks[i].name) {
+-		char devname[MAX_DEVID_LENGTH];
+-		long rate = dev->clocks[i].default_rate;
+-		struct clk *c;
+-
+-		snprintf(devname, MAX_DEVID_LENGTH, "tegra_%s", dev->name);
+-// 		c = clk_get_sys(devname, dev->clocks[i].name);
+-		c = clk_get(&dev->dev, dev->clocks[i].name);
++static int nvhost_module_init_clocks(struct nvhost_device *dev)
++{
++	long rates[NVHOST_MODULE_MAX_CLOCKS];
++	unsigned long previous[NVHOST_MODULE_MAX_CLOCKS];
++	bool changed[NVHOST_MODULE_MAX_CLOCKS] = { false };
++	int i, err;
++
++	dev->num_clks = 0;
++	dev->is_emc_client = false;
++	dev->emc_idx = 0;
++	/* Resolve and validate the complete list before changing a clock. */
++	for (i = 0; i < NVHOST_MODULE_MAX_CLOCKS && dev->clocks[i].name; i++) {
++		struct clk *c = clk_get(&dev->dev, dev->clocks[i].name);
+ 		if (IS_ERR(c)) {
+-			dev_err(&dev->dev, "Cannot get clock %s\n",
+-					dev->clocks[i].name);
+-			i++;
+-			continue;
++			err = PTR_ERR(c);
++			dev_err(&dev->dev, "Cannot get clock %s: %d\n",
++				dev->clocks[i].name, err);
++			goto fail;
++		}
++		if (!c) {
++			err = -ENODEV;
++			goto fail;
+ 		}
+-
+-		rate = clk_round_rate(c, rate);
+-		clk_prepare_enable(c);
+-		clk_set_rate(c, rate);
+-		clk_disable_unprepare(c);
+ 		dev->clk[i] = c;
+-
++		dev->num_clks++;
++		previous[i] = clk_get_rate(c);
++		rates[i] = clk_round_rate(c, dev->clocks[i].default_rate);
++		if (rates[i] <= 0 || !previous[i]) {
++			err = rates[i] < 0 ? (int)rates[i] : -EINVAL;
++			goto fail;
++		}
++	}
++	for (i = 0; i < dev->num_clks; i++) {
++		err = clk_prepare_enable(dev->clk[i]);
++		if (err)
++			goto fail;
++		/* A failed provider may already have changed its hardware rate. */
++		changed[i] = true;
++		err = clk_set_rate(dev->clk[i], rates[i]);
++		clk_disable_unprepare(dev->clk[i]);
++		if (err)
++			goto fail;
++	}
++	for (i = 0; i < dev->num_clks; i++) {
+ 		if (!strncmp(dev->clocks[i].name, "emc", 3)) {
+ 			dev->is_emc_client = true;
+ 			dev->emc_idx = i;
+ 		}
+-
+-		i++;
+ 	}
+-	dev->num_clks = i;
++	return 0;
++fail:
++	/* Restore only clocks that this transaction attempted to change. */
++	for (i = dev->num_clks - 1; i >= 0; i--) {
++		int restore;
++		if (!changed[i])
++			continue;
++		restore = clk_prepare_enable(dev->clk[i]);
++		if (!restore) {
++			restore = clk_set_rate(dev->clk[i], previous[i]);
++			clk_disable_unprepare(dev->clk[i]);
++		}
++		if (restore)
++			dev_err(&dev->dev, "Clock %s rollback failed: %d\n",
++				dev->clocks[i].name, restore);
++	}
++	nvhost_module_release_clocks(dev);
++	return err;
++}
++
++int nvhost_module_init(struct nvhost_device *dev)
++{
++	int i = 0, err = 0;
++	struct kobj_attribute *attr = NULL;
++
++	INIT_LIST_HEAD(&dev->client_list);
++	err = nvhost_module_init_clocks(dev);
++	if (err)
++		return err;
+ 
+ 	mutex_init(&dev->lock);
+ 	init_waitqueue_head(&dev->idle_wq);
+@@ -569,7 +623,8 @@ int nvhost_module_init(struct nvhost_device *dev)
+ 		GFP_KERNEL);
+ 	if (!dev->power_attrib) {
+ 		dev_err(&dev->dev, "Unable to allocate sysfs attributes\n");
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto fail_clocks;
+ 	}
+ 	dev->power_attrib->ndev = dev;
+ 
+@@ -630,7 +685,9 @@ fail_clockdelay:
+ 
+ fail_attrib_alloc:
+ 	kfree(dev->power_attrib);
+-
++	dev->power_attrib = NULL;
++fail_clocks:
++	nvhost_module_release_clocks(dev);
+ 	return err;
+ }
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,418 @@
+From 4e193b893b63fbe4dcf2337188ccd7ef215abb10 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 11:39:28 +1100
+Subject: [PATCH] nvhost: check clocks before MMIO and unwind failed host
+ publication
+
+---
+ .../staging/tegra/video/host/host1x/host1x.c  | 186 ++++++++++--------
+ drivers/staging/tegra/video/host/nvhost_acm.c |  31 ++-
+ drivers/staging/tegra/video/host/nvhost_acm.h |   1 +
+ .../staging/tegra/video/host/nvhost_syncpt.c  |  22 +++
+ .../staging/tegra/video/host/nvhost_syncpt.h  |   1 +
+ drivers/staging/tegra/video/host/nvmap.c      |   3 +
+ 6 files changed, 152 insertions(+), 92 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x.c b/drivers/staging/tegra/video/host/host1x/host1x.c
+index 1f2c7eed..25ee2162 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x.c
+@@ -359,41 +359,73 @@ static int clock_off_host(struct nvhost_device *dev)
+ 	return 0;
+ }
+ 
+-static int nvhost_user_init(struct nvhost_master *host)
++static void nvhost_user_deinit(struct nvhost_master *host)
+ {
+-	int err, devno;
++	device_destroy(host->nvhost_class, host->cdev.dev);
++	cdev_del(&host->cdev);
++	unregister_chrdev_region(host->cdev.dev, 1);
++	class_destroy(host->nvhost_class);
++	host->ctrl = NULL;
++	host->nvhost_class = NULL;
++}
+ 
++static int nvhost_user_init(struct nvhost_master *host)
++{
++	int err;
++	dev_t devno;
+ 	host->nvhost_class = class_create(THIS_MODULE, IFACE_NAME);
+ 	if (IS_ERR(host->nvhost_class)) {
+ 		err = PTR_ERR(host->nvhost_class);
+-		dev_err(&host->dev->dev, "failed to create class\n");
+-		goto fail;
++		host->nvhost_class = NULL;
++		return err;
+ 	}
+-
+ 	err = alloc_chrdev_region(&devno, 0, 1, IFACE_NAME);
+-	if (err < 0) {
+-		dev_err(&host->dev->dev, "failed to reserve chrdev region\n");
+-		goto fail;
+-	}
+-
++	if (err)
++		goto fail_class;
+ 	cdev_init(&host->cdev, &nvhost_ctrlops);
+ 	host->cdev.owner = THIS_MODULE;
+ 	err = cdev_add(&host->cdev, devno, 1);
+-	if (err < 0)
+-		goto fail;
++	if (err)
++		goto fail_region;
+ 	host->ctrl = device_create(host->nvhost_class, NULL, devno, NULL,
+-			IFACE_NAME "-ctrl");
++				IFACE_NAME "-ctrl");
+ 	if (IS_ERR(host->ctrl)) {
+ 		err = PTR_ERR(host->ctrl);
+-		dev_err(&host->dev->dev, "failed to create ctrl device\n");
+-		goto fail;
++		host->ctrl = NULL;
++		goto fail_cdev;
+ 	}
+-
+ 	return 0;
+-fail:
++fail_cdev:
++	cdev_del(&host->cdev);
++fail_region:
++	unregister_chrdev_region(devno, 1);
++fail_class:
++	class_destroy(host->nvhost_class);
++	host->nvhost_class = NULL;
+ 	return err;
+ }
+ 
++static int nvhost_probe_enable_clocks(struct nvhost_device *dev)
++{
++	int i, err;
++	for (i = 0; i < dev->num_clks; i++) {
++		err = clk_prepare_enable(dev->clk[i]);
++		if (err) {
++			while (i--)
++				clk_disable_unprepare(dev->clk[i]);
++			return err;
++		}
++	}
++	return 0;
++}
++
++static void nvhost_probe_disable_clocks(struct nvhost_device *dev)
++{
++	int i = dev->num_clks;
++	while (i--)
++		clk_disable_unprepare(dev->clk[i]);
++}
++
+ struct nvhost_channel *nvhost_alloc_channel(struct nvhost_device *dev)
+ {
+ 	BUG_ON(!host_device_op().alloc_nvhost_channel);
+@@ -437,116 +469,98 @@ static int nvhost_probe(struct nvhost_device *dev,
+ {
+ 	struct nvhost_master *host;
+ 	struct resource *regs, *intr0, *intr1;
+-	int i, err;
+-
+-	dev_info(&dev->dev, "probe\n");
++	bool module_ready = false, syncpt_ready = false;
++	bool intr_ready = false, clocks_on = false, user_ready = false;
++	int err;
+ 
+ 	regs = nvhost_get_resource(dev, IORESOURCE_MEM, 0);
+ 	intr0 = nvhost_get_resource(dev, IORESOURCE_IRQ, 0);
+ 	intr1 = nvhost_get_resource(dev, IORESOURCE_IRQ, 1);
+-
+-	if (!regs)
+-		dev_err(&dev->dev, "missing regs\n");
+-
+-	if (!intr0)
+-		dev_err(&dev->dev, "missing intr0\n");
+-
+-	if (!intr1)
+-		dev_err(&dev->dev, "missing intr1\n");
+-
+-	if (!regs || !intr0 || !intr1) {
+-		dev_err(&dev->dev, "missing required platform resources\n");
++	if (!regs || !intr0 || !intr1 || !dev->dev.platform_data)
+ 		return -ENXIO;
+-	}
+-
+ 	host = kzalloc(sizeof(*host), GFP_KERNEL);
+ 	if (!host)
+ 		return -ENOMEM;
+-
+-	/*  Register host1x device as bus master */
+ 	host->dev = dev;
+-
+-	/* Copy host1x parameters */
+-	memcpy(&host->info, dev->dev.platform_data,
+-			sizeof(struct host1x_device_info));
+-
+-	host->reg_mem = request_mem_region(regs->start,
+-					resource_size(regs), dev->name);
++	memcpy(&host->info, dev->dev.platform_data, sizeof(host->info));
++	host->reg_mem = request_mem_region(regs->start, resource_size(regs), dev->name);
+ 	if (!host->reg_mem) {
+-		dev_err(&dev->dev, "failed to get host register memory\n");
+ 		err = -ENXIO;
+ 		goto fail;
+ 	}
+-
+ 	host->aperture = ioremap(regs->start, resource_size(regs));
+ 	if (!host->aperture) {
+-		dev_err(&dev->dev, "failed to remap host registers\n");
+-		err = -ENXIO;
++		err = -ENOMEM;
+ 		goto fail;
+ 	}
+-
+ 	err = nvhost_alloc_resources(host);
+-	if (err) {
+-		dev_err(&dev->dev, "failed to init chip support\n");
++	if (err)
+ 		goto fail;
+-	}
+-
+ 	host->memmgr = mem_op().alloc_mgr();
+-	if (!host->memmgr) {
+-		dev_err(&dev->dev, "unable to create nvmap client\n");
+-		err = -EIO;
++	if (IS_ERR_OR_NULL(host->memmgr)) {
++		err = host->memmgr ? PTR_ERR(host->memmgr) : -EPROBE_DEFER;
++		host->memmgr = NULL;
+ 		goto fail;
+ 	}
+-
+-	/*  Register host1x device as bus master */
+-	host->dev = dev;
+-
+-	/*  Give pointer to host1x via driver */
+ 	nvhost_set_drvdata(dev, host);
+-
+-	dev_info(&dev->dev, "nvhost_bus_add_host\n");
+-
+-	nvhost_bus_add_host(host);
+-
++	err = nvhost_module_init(dev);
++	if (err)
++		goto fail;
++	module_ready = true;
++	if (!dev->num_clks) {
++		err = -ENODEV;
++		goto fail;
++	}
++	err = nvhost_probe_enable_clocks(dev);
++	if (err)
++		goto fail;
++	clocks_on = true;
+ 	err = nvhost_syncpt_init(dev, &host->syncpt);
+ 	if (err)
+ 		goto fail;
+-
+-	dev_info(&dev->dev, "nvhost_intr_init\n");
+-
++	syncpt_ready = true;
+ 	err = nvhost_intr_init(&host->intr, intr1->start, intr0->start);
+ 	if (err)
+ 		goto fail;
+-
+-	dev_info(&dev->dev, "nvhost_user_init\n");
+-
++	intr_ready = true;
++	/* All MMIO and IRQ activation are now inside a checked clock interval. */
++	nvhost_syncpt_reset(&host->syncpt);
++	err = nvhost_intr_start(&host->intr, clk_get_rate(dev->clk[0]));
++	if (err)
++		goto fail;
++	nvhost_intr_stop(&host->intr);
++	nvhost_probe_disable_clocks(dev);
++	clocks_on = false;
++	/* Publish userspace/global references only after successful bring-up. */
+ 	err = nvhost_user_init(host);
+ 	if (err)
+ 		goto fail;
+-
+-	dev_info(&dev->dev, "nvhost_module_init\n");
+-
+-	err = nvhost_module_init(dev);
++	user_ready = true;
++	err = nvhost_bus_add_host(host);
+ 	if (err)
+ 		goto fail;
+-
+-	for (i = 0; i < host->dev->num_clks; i++)
+-		clk_prepare_enable(host->dev->clk[i]);
+-	nvhost_syncpt_reset(&host->syncpt);
+-	for (i = 0; i < host->dev->num_clks; i++)
+-		clk_disable_unprepare(host->dev->clk[i]);
+-
+-	dev_info(&dev->dev, "nvhost_debug_init\n");
+-
+ 	nvhost_debug_init(host);
+-
+ 	dev_info(&dev->dev, "initialized\n");
+ 	return 0;
+-
+ fail:
++	if (user_ready)
++		nvhost_user_deinit(host);
++	if (intr_ready)
++		nvhost_intr_deinit(&host->intr);
++	if (clocks_on)
++		nvhost_probe_disable_clocks(dev);
++	if (module_ready)
++		nvhost_module_abort_init(dev);
++	if (syncpt_ready)
++		nvhost_syncpt_deinit(&host->syncpt);
++	nvhost_set_drvdata(dev, NULL);
+ 	nvhost_free_resources(host);
+ 	if (host->memmgr)
+ 		mem_op().put_mgr(host->memmgr);
++	if (host->aperture)
++		iounmap(host->aperture);
++	if (host->reg_mem)
++		release_mem_region(regs->start, resource_size(regs));
+ 	kfree(host);
+ 	return err;
+ }
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index 9c927913..b2f35176 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -725,18 +725,37 @@ int nvhost_module_suspend(struct nvhost_device *dev)
+ 	return 0;
+ }
+ 
+-void nvhost_module_deinit(struct nvhost_device *dev)
++static void nvhost_module_release_power_attrs(struct nvhost_device *dev)
+ {
+ 	int i;
+-	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
++	if (dev->power_kobj) {
++		for (i = 0; i < NVHOST_POWER_SYSFS_ATTRIB_MAX; i++)
++		sysfs_remove_file(dev->power_kobj,
++			&dev->power_attrib->power_attr[i].attr);
++		kobject_put(dev->power_kobj);
++		dev->power_kobj = NULL;
++	}
++	kfree(dev->power_attrib);
++	dev->power_attrib = NULL;
++}
+ 
++/* Failed unpublished host probe only: do not run power callbacks against
++	* partially initialized syncpoints/interrupts. Caller balanced probe clocks. */
++void nvhost_module_abort_init(struct nvhost_device *dev)
++{
++	cancel_delayed_work_sync(&dev->powerstate_down);
++	nvhost_module_release_power_attrs(dev);
++	nvhost_module_release_clocks(dev);
++	dev->powerstate = NVHOST_POWER_STATE_DEINIT;
++}
++
++void nvhost_module_deinit(struct nvhost_device *dev)
++{
++	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
+ 	if (drv->deinit)
+ 		drv->deinit(dev);
+-
+ 	nvhost_module_suspend(dev);
+-	for (i = 0; i < dev->num_clks; i++)
+-		clk_put(dev->clk[i]);
+-	dev->powerstate = NVHOST_POWER_STATE_DEINIT;
++	nvhost_module_abort_init(dev);
+ }
+ 
+ /* public host1x power management APIs */
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.h b/drivers/staging/tegra/video/host/nvhost_acm.h
+index a5894dcf..dac73cc7 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.h
++++ b/drivers/staging/tegra/video/host/nvhost_acm.h
+@@ -30,6 +30,7 @@
+ /* Sets clocks and powergating state for a module */
+ int nvhost_module_init(struct nvhost_device *ndev);
+ void nvhost_module_deinit(struct nvhost_device *dev);
++void nvhost_module_abort_init(struct nvhost_device *dev);
+ int nvhost_module_suspend(struct nvhost_device *dev);
+ 
+ void nvhost_module_reset(struct nvhost_device *dev);
+diff --git a/drivers/staging/tegra/video/host/nvhost_syncpt.c b/drivers/staging/tegra/video/host/nvhost_syncpt.c
+index 8022520f..e5b16971 100644
+--- a/drivers/staging/tegra/video/host/nvhost_syncpt.c
++++ b/drivers/staging/tegra/video/host/nvhost_syncpt.c
+@@ -414,6 +414,13 @@ int nvhost_syncpt_init(struct nvhost_device *dev,
+ 		goto fail;
+ 	}
+ 
++	sp->syncpt_kobjs = kcalloc(nvhost_syncpt_nb_pts(sp),
++				 sizeof(*sp->syncpt_kobjs), GFP_KERNEL);
++	if (!sp->syncpt_kobjs) {
++		err = -ENOMEM;
++		goto fail;
++	}
++
+ 	/* Fill in the attributes */
+ 	for (i = 0; i < nvhost_syncpt_nb_pts(sp); i++) {
+ 		char name[MAX_SYNCPT_LENGTH];
+@@ -429,6 +436,7 @@ int nvhost_syncpt_init(struct nvhost_device *dev,
+ 			goto fail;
+ 		}
+ 
++		sp->syncpt_kobjs[i] = kobj;
+ 		sysfs_attr_init(&min->attr.attr);
+ 		min->id = i;
+ 		min->host = host;
+@@ -461,7 +469,21 @@ fail:
+ 
+ void nvhost_syncpt_deinit(struct nvhost_syncpt *sp)
+ {
++	int i;
++	if (sp->syncpt_kobjs) {
++		for (i = 0; i < nvhost_syncpt_nb_pts(sp); i++) {
++			struct kobject *kobj = sp->syncpt_kobjs[i];
++			if (!kobj)
++				continue;
++			sysfs_remove_file(kobj, &sp->syncpt_attrs[i * 2].attr.attr);
++			sysfs_remove_file(kobj, &sp->syncpt_attrs[i * 2 + 1].attr.attr);
++			kobject_put(kobj);
++		}
++		kfree(sp->syncpt_kobjs);
++		sp->syncpt_kobjs = NULL;
++	}
+ 	kobject_put(sp->kobj);
++	sp->kobj = NULL;
+ 
+ 	kfree(sp->min_val);
+ 	sp->min_val = NULL;
+diff --git a/drivers/staging/tegra/video/host/nvhost_syncpt.h b/drivers/staging/tegra/video/host/nvhost_syncpt.h
+index 0ce4da98..9aa56d3f 100644
+--- a/drivers/staging/tegra/video/host/nvhost_syncpt.h
++++ b/drivers/staging/tegra/video/host/nvhost_syncpt.h
+@@ -44,6 +44,7 @@ struct nvhost_syncpt {
+ 	atomic_t *lock_counts;
+ 	const char **syncpt_names;
+ 	struct nvhost_syncpt_attr *syncpt_attrs;
++	struct kobject **syncpt_kobjs;
+ };
+ 
+ int nvhost_syncpt_init(struct nvhost_device *, struct nvhost_syncpt *);
+diff --git a/drivers/staging/tegra/video/host/nvmap.c b/drivers/staging/tegra/video/host/nvmap.c
+index fd82f40c..7b88d1bd 100644
+--- a/drivers/staging/tegra/video/host/nvmap.c
++++ b/drivers/staging/tegra/video/host/nvmap.c
+@@ -20,9 +20,12 @@
+ 
+ #include "chip_support.h"
+ #include <linux/nvmap.h>
++#include <linux/err.h>
+ 
+ struct mem_mgr *nvhost_nvmap_alloc_mgr(void)
+ {
++	if (!nvmap_dev)
++		return ERR_PTR(-EPROBE_DEFER);
+ 	return (struct mem_mgr *)nvmap_create_client(nvmap_dev, "nvhost");
+ }
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,30 @@
+From 2bb6dda59203edb01519c2e28dea4c7e7f347efa Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 11:40:27 +1100
+Subject: [PATCH] nvhost: guard partially initialized syncpoint sysfs
+ attributes on cleanup
+
+---
+ drivers/staging/tegra/video/host/nvhost_syncpt.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/nvhost_syncpt.c b/drivers/staging/tegra/video/host/nvhost_syncpt.c
+index e5b16971..514e2afa 100644
+--- a/drivers/staging/tegra/video/host/nvhost_syncpt.c
++++ b/drivers/staging/tegra/video/host/nvhost_syncpt.c
+@@ -475,8 +475,10 @@ void nvhost_syncpt_deinit(struct nvhost_syncpt *sp)
+ 			struct kobject *kobj = sp->syncpt_kobjs[i];
+ 			if (!kobj)
+ 				continue;
+-			sysfs_remove_file(kobj, &sp->syncpt_attrs[i * 2].attr.attr);
+-			sysfs_remove_file(kobj, &sp->syncpt_attrs[i * 2 + 1].attr.attr);
++			if (sp->syncpt_attrs[i * 2].attr.attr.name)
++				sysfs_remove_file(kobj, &sp->syncpt_attrs[i * 2].attr.attr);
++			if (sp->syncpt_attrs[i * 2 + 1].attr.attr.name)
++				sysfs_remove_file(kobj, &sp->syncpt_attrs[i * 2 + 1].attr.attr);
+ 			kobject_put(kobj);
+ 		}
+ 		kfree(sp->syncpt_kobjs);
+-- 
+2.43.0
+
