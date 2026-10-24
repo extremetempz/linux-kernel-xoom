@@ -50,7 +50,7 @@ def runtime_files():
     assert not any('GLES_android' in n or 'swiftshader' in n.lower() for n in files)
     return files
 
-def entries(files):
+def entries(files, *, startup_trace=False):
     original = original_entries((ROOT/'artifacts/hardware-private/backup-boot.img').read_bytes())
     e = {}
     for name in ('.', 'ueventd.rc', 'ueventd.stingray.rc', 'file_contexts',
@@ -77,6 +77,35 @@ def entries(files):
     e['bin/diagnostic-report'] = Entry('bin/diagnostic-report', stat.S_IFREG | 0o755,
         report.replace(anchor, b'/bin/busybox sh /bin/gpu-render-report\n'+anchor))
     e['init.rc'] = Entry('init.rc', stat.S_IFREG | 0o644, (ROOT/'diagnostic/gpu-render.rc').read_bytes())
+    if startup_trace:
+        def alter(name, data):
+            e[name] = Entry(name, e[name].mode, data)
+        def marker(value):
+            return (b'[ ! -c /dev/xoom-startup-trace ] || /bin/busybox printf "'+value+
+                    b'\\n" > /dev/xoom-startup-trace\n')
+        init = e['init'].data
+        anchor = b'/bin/busybox mount -t devtmpfs devtmpfs /dev || fail dev\n'
+        assert init.count(anchor) == 1
+        init = init.replace(anchor, anchor+marker(b'1'))
+        init = init.replace(b'exec /init.android', marker(b'2')+b'exec /init.android')
+        alter('init', init)
+        rc = e['init.rc'].data.replace(b'gpu-probe', b'gpu-startup').replace(
+            b'/bin/gpu-render-start', b'/bin/gpu-startup-check')
+        alter('init.rc', rc)
+        e.pop('bin/gpu-render-start')
+        e['bin/gpu-startup-check'] = Entry('bin/gpu-startup-check', stat.S_IFREG | 0o755,
+            (ROOT/'diagnostic/gpu-startup-check.sh').read_bytes())
+        loop = e['bin/usb-report-loop'].data
+        loop = loop.replace(b'echo -1000', marker(b'A')+b'xoom_trace_usb_seen=0\necho -1000', 1)
+        loop = loop.replace(b' if [ -c /dev/ttyGS0 ]; then\n',
+                            b' if [ -c /dev/ttyGS0 ]; then\n'
+                            b'  if [ "$xoom_trace_usb_seen" -eq 0 ]; then\n'+marker(b'B')+
+                            b'   xoom_trace_usb_seen=1\n  fi\n', 1)
+        alter('bin/usb-report-loop', loop)
+        server = e['bin/diagnostic-server'].data
+        server = server.replace(b' if [ "$verb" = PING ]; then', marker(b'C')+
+                                b' if [ "$verb" = PING ]; then', 1)
+        alter('bin/diagnostic-server', server)
     e['default.prop'] = Entry('default.prop', stat.S_IFREG | 0o644,
         default_properties(original['default.prop'].data)+b'ro.board.platform=tegra\nro.product.device=wingray\n')
     e['system/build.prop'] = Entry('system/build.prop', stat.S_IFREG | 0o644,
@@ -93,12 +122,16 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--kernel-dir', type=Path, required=True)
     p.add_argument('--output-dir', type=Path, required=True)
+    p.add_argument('--startup-trace', action='store_true',
+                   help='Require trace cookie 49 and replace rendering with startup-only checks')
+    p.add_argument('--trace-cookie',type=lambda v:int(v,0),choices=(0x584d0049,0x584d0050),default=0x584d0049)
     a = p.parse_args(); out = a.output_dir.resolve()
+    assert a.startup_trace or a.trace_cookie==0x584d0049
     assert out.is_relative_to(ROOT/'artifacts') and not out.exists()
-    validate_artifacts(a.kernel_dir)
+    validate_artifacts(a.kernel_dir, startup_trace=a.startup_trace, trace_cookie=a.trace_cookie)
     recovery = ROOT/'artifacts/hardware-private/backup-recovery.img'
     assert sha(recovery.read_bytes()) == RECOVERY_SHA
-    files = runtime_files(); archive = pack_newc(entries(files))
+    files = runtime_files(); archive = pack_newc(entries(files, startup_trace=a.startup_trace))
     assert len(archive) < 16*1024*1024
     ramdisk = gzip.compress(archive, mtime=0)
     kernel = (a.kernel_dir/'zImage-dtb').read_bytes()
@@ -106,16 +139,20 @@ def main():
     assert len(image) < 8*1024*1024
     manifest = {'purpose': 'fixed-clock NVIDIA offscreen two-frame readback, not Android composition',
         'hardware_executed': False, 'acceleration_proven': False,
+        'startup_trace_only': a.startup_trace,
+        'trace_cookie': hex(a.trace_cookie) if a.startup_trace else None,
         'sha256': sha(image), 'size': len(image), 'kernel_sha256': sha(kernel),
         'ramdisk_sha256': sha(ramdisk), 'ramdisk_uncompressed_size': len(archive),
         'runtime_sha256': {n: sha(p.read_bytes()) for n, p in sorted(files.items())},
-        'storage_mounts': [], 'services': ['ueventd', 'gpu-probe'],
-        'probe_timeout_seconds': 35, 'trace_sha256': TRACE_SHA,
+        'storage_mounts': [], 'services': ['ueventd', 'gpu-startup' if a.startup_trace else 'gpu-probe'],
+        'probe_timeout_seconds': None if a.startup_trace else 35, 'trace_sha256': TRACE_SHA,
         'source_sha256': {str(p.relative_to(ROOT)): sha(p.read_bytes()) for p in
             [Path(__file__).resolve(), ROOT/'scripts/gpu_test.py', ROOT/'scripts/android44_image.py',
-             *[ROOT/'diagnostic'/n for n in ['gpu-render-init.sh', 'gpu-render-start.sh',
+             *[ROOT/'diagnostic'/n for n in ['gpu-render-init.sh', 'gpu-render-start.sh', 'gpu-startup-check.sh',
                 'gpu-render-report.sh', 'gpu-render.rc', 'server.sh', 'usb-report-loop.sh', 'report.sh']]]}}
     out.mkdir()
+    if a.startup_trace:
+        manifest['purpose'] = 'retained startup checkpoints only; GPU rendering is disabled'
     (out/'ramdisk.cpio.gz').write_bytes(ramdisk)
     (out/'wingray-gpu-render-diagnostic.img').write_bytes(image)
     (out/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')

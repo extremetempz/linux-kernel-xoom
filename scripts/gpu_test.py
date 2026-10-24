@@ -7,7 +7,14 @@ from legacy_resources import parse_dtb, cells
 NAME = 'tegra20-motorola-wingray-gpu-test'
 HOST = '/host1x@50000000'
 
-def validate_artifacts(directory):
+def startup_cookie(directory):
+    import re
+    text = (Path(directory)/'kernel.config').read_text()
+    match = re.search(r'^CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=(0x[0-9a-f]+)$',text,re.M)
+    assert match and int(match[1],16) in (0x584d0049,0x584d0050)
+    return int(match[1],16)
+
+def validate_artifacts(directory, *, startup_trace=False, trace_cookie=0x584d0049):
     p = Path(directory)
     host = parse_dtb((p/'control-host.dtb').read_bytes())
     host_tree(host, parse_dtb((p/'control-resources.dtb').read_bytes()),
@@ -24,6 +31,18 @@ def validate_artifacts(directory):
         'clock-names': b'gr3d\0', 'status': b'okay\0'})
     assert nodes == expected, 'Unexpected board/resource changes'
     text = (p/'kernel.config').read_text()
+    if startup_trace:
+        assert trace_cookie in (0x584d0049,0x584d0050)
+        for line in ('CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y',
+                     'CONFIG_MOTOROLA_XOOM_SMP_TRACE=y',
+                     f'CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE={trace_cookie:#x}',
+                     'CONFIG_LOCALVERSION="-wingray-gpu-trace"'):
+            assert text.count(line+'\n') == 1, line
+        text = text.replace('CONFIG_MOTOROLA_XOOM_SMP_TRACE=y\n',
+                            '# CONFIG_MOTOROLA_XOOM_SMP_TRACE is not set\n')
+        text = text.replace('-wingray-gpu-trace', '-wingray-gpu-test')
+    else:
+        assert 'CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y' not in text
     # Reuse every host-profile requirement after accounting for the four
     # deliberately changed switches and the diagnostic identity.
     replacements = {
