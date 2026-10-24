@@ -1,0 +1,25 @@
+From dfb9cd637c47c6569c7bb4afc3c0b86461651bed Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 05:23:44 +1100
+Subject: [PATCH] clk: mark Wingray diagnostic EMC votes as root clocks
+
+---
+ drivers/staging/tegra/clk.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/staging/tegra/clk.c b/drivers/staging/tegra/clk.c
+index 38064e42..cf067097 100644
+--- a/drivers/staging/tegra/clk.c
++++ b/drivers/staging/tegra/clk.c
+@@ -261,6 +261,8 @@ static int register_wingray_emc(void)
+ 		struct shared_emc_clk *v = &virtual_emc_clks[ids[i]];
+ 		struct clk_init_data init = {
+ 			.name = names[i], .ops = &wingray_emc_ops,
++			/* Parentless software vote; CCF otherwise reports rate zero. */
++			.flags = CLK_IS_ROOT,
+ 		};
+ 		v->rate = wingray_emc_rate;
+ 		v->hw.init = &init;
+-- 
+2.43.0
+
