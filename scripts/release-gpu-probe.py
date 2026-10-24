@@ -2,28 +2,25 @@
 """Release one preconfigured bounded RAM-only GPU child after verified USB baseline."""
 from pathlib import Path
 import argparse,array,datetime,fcntl,hashlib,json,os,re,secrets,select,termios,time,tty
-from diagnostic_protocol import handshake,_read
+from diagnostic_protocol import handshake,_read,write_request,receive_report
+from gpu_release_policy import validate_release_evidence,validate_waiting_payload
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--attempt-dir',type=Path,required=True)
 p.add_argument('--baseline-dir',type=Path,required=True)
 p.add_argument('--output-dir',type=Path,required=True)
+p.add_argument('--candidate-manifest',type=Path,required=True)
 p.add_argument('--port',type=Path,default=Path('/dev/ttyACM0'))
 a=p.parse_args()
 for directory in (a.attempt_dir,a.baseline_dir):
  assert directory.resolve().is_relative_to(ROOT/'artifacts') and directory.is_dir()
 out=a.output_dir.resolve();assert out.is_relative_to(ROOT/'artifacts') and not out.exists()
 state=json.loads((a.attempt_dir/'test-state-private.json').read_text())
-manifest=json.loads((ROOT/'artifacts/gpu-render56-ready/manifest.json').read_text())
-assert state['original_restoration_pending'] and state['rendering_enabled'] and state['stage']=='candidate-observation'
-assert state['candidate_sha256']==manifest['sha256'] and manifest['deferred_probe'] and manifest['trace_cookie']=='0x584d0056'
+manifest_path=a.candidate_manifest.resolve()
+assert manifest_path in {ROOT/'artifacts/gpu-render56-ready/manifest.json',ROOT/'artifacts/gpu-render57-ready/manifest.json'}
+manifest=json.loads(manifest_path.read_text())
 status=json.loads((a.baseline_dir/'capture-status.json').read_text());payload=(a.baseline_dir/'report-private.txt').read_bytes()
-assert status['state']=='verified' and status['report_integrity']=='verified'
-assert hashlib.sha256(payload).hexdigest()==status['sha256']
-for token in (b'XOOM_GPU_RENDER_WAIT_USB_GATE',b'XOOM_GPU_RENDER_DEVICES_READY',b'XOOM_GPU_PROPERTY_WORKSPACE_PRESENT'):
- assert token in payload,token
-assert b'XOOM_GPU_RENDER_EXIT ' not in payload and b'XOOM_GPU_RENDER_GATE_TIMEOUT' not in payload
-assert b'XOOM_GPU_RENDER_PASS' not in payload
+validate_release_evidence(state,manifest,status,payload,(manifest_path.parent/'wingray-gpu-render-diagnostic.img').read_bytes())
 current=(Path('/sys/class/tty')/a.port.name/'device').resolve()
 assert re.fullmatch(r'ttyACM[0-9]+',a.port.name) and a.port==Path('/dev')/a.port.name
 for node in (current,*current.parents):
@@ -38,8 +35,15 @@ try:
  fcntl.ioctl(fd,termios.TIOCMBIS,array.array('i',[termios.TIOCM_DTR|termios.TIOCM_RTS]))
  with (out/'wire-private.bin').open('xb') as wire:
   handshake(fd,nonce,record=wire.write)
+  # Recheck on the currently connected boot; an old saved baseline cannot arm it.
+  write_request(fd,'REPORT',nonce)
+  current_payload=receive_report(fd,nonce,timeout=45,record=wire.write)
+  (out/'current-baseline-private.txt').write_bytes(current_payload)
+  validate_waiting_payload(current_payload)
   request=('GPU_RUN '+nonce+'\n').encode();deadline=time.monotonic()+2
   record['release_may_have_occurred']=True
+  state.update(gpu_release_pending=True,gpu_probe_released_by_agent=True,stage='gpu-release-sent-or-pending')
+  (a.attempt_dir/'test-state-private.json').write_text(json.dumps(state,indent=2)+'\n')
   (out/'release-status.json').write_text(json.dumps(record,indent=2)+'\n')
   while request:
    remaining=deadline-time.monotonic();assert remaining>0 and select.select([],[fd],[],remaining)[1]
