@@ -3,8 +3,8 @@
 from pathlib import Path
 import argparse,gzip,struct
 r=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--attempt',type=int,choices=(54,55,56),default=56);a=p.parse_args()
-k=r/('artifacts/gpu-startup54-kernel' if a.attempt==54 else f'artifacts/gpu-render{a.attempt}-kernel');out=a.build/'out'
+p=argparse.ArgumentParser();p.add_argument('--build',type=Path,required=True);p.add_argument('--attempt',type=int,choices=(54,55,56,57),default=56);a=p.parse_args()
+k=r/('artifacts/wingray-gpu-usb-reply57' if a.attempt==57 else 'artifacts/gpu-startup54-kernel' if a.attempt==54 else f'artifacts/gpu-render{a.attempt}-kernel');out=a.build/'out'
 symbols={v[2]:int(v[0],16) for line in (k/'System.map').read_text().splitlines() if len(v:=line.split())==3}
 elf=(out/'vmlinux').read_bytes();assert elf[:7]==b'\x7fELF\x01\x01\x01'
 shoff=struct.unpack_from('<I',elf,32)[0];entsize,n=struct.unpack_from('<HH',elf,46)

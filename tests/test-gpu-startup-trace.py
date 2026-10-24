@@ -54,14 +54,17 @@ int main(void){loff_t pos=0;valid();
 #else
  assert(!writes);
 #endif
- for(int c=0;c<128;c++){valid();char code[2]={c,'\n'};int result=wingray_trace_write(NULL,code,2,&pos);int ok=(c>='1'&&c<='5')||(c>='A'&&c<='C');assert(result==(ok?2:-EINVAL));assert(writes==(unsigned)ok);}
+ for(int c=0;c<128;c++){valid();char code[2]={c,'\n'};int result=wingray_trace_write(NULL,code,2,&pos);int ok=(c>='1'&&c<='5')||(c>='A'&&c<='C')||(CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE==0x584d0057&&c>='D'&&c<='F');assert(result==(ok?2:-EINVAL));assert(writes==(unsigned)ok);}
+#if CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0057
+ for(int c='D';c<='F';c++){valid();char code[2]={c,'\n'};assert(wingray_trace_write(NULL,code,2,&pos)==2);assert(words[WG_USB/4]==(unsigned)(c-'D'+3)&&words[WG_REPORTER/4]==0&&words[WG_USER/4]==0);}
+#endif
  valid();privileged=0;assert(wingray_trace_write(NULL,"1\n",2,&pos)==-EPERM&&!writes);privileged=1;
  assert(wingray_trace_write(NULL,"1",1,&pos)==-EINVAL&&!writes);assert(wingray_trace_write(NULL,"1x",2,&pos)==-EINVAL&&!writes);
  badcopy=1;assert(wingray_trace_write(NULL,"1\n",2,&pos)==-EFAULT&&!writes);
  valid();struct iov_iter v={"1","\n",1,1,2};assert(wingray_trace_write_iter(NULL,&v)==2&&words[WG_USER/4]==1&&writes==1);
  valid();v.limit=1;assert(wingray_trace_write_iter(NULL,&v)==-EFAULT&&!writes);v.limit=2;v.n2=0;assert(wingray_trace_write_iter(NULL,&v)==-EINVAL&&!writes);v.n2=2;assert(wingray_trace_write_iter(NULL,&v)==-EINVAL&&!writes);v.n2=1;
  privileged=0;assert(wingray_trace_write_iter(NULL,&v)==-EPERM&&!writes);privileged=1;
- for(int c=0;c<128;c++){valid();char one=c;v=(struct iov_iter){&one,"\n",1,1,2};int ok=(c>='1'&&c<='5')||(c>='A'&&c<='C');assert(wingray_trace_write_iter(NULL,&v)==(ok?2:-EINVAL));assert(writes==(unsigned)ok);}
+ for(int c=0;c<128;c++){valid();char one=c;v=(struct iov_iter){&one,"\n",1,1,2};int ok=(c>='1'&&c<='5')||(c>='A'&&c<='C')||(CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE==0x584d0057&&c>='D'&&c<='F');assert(wingray_trace_write_iter(NULL,&v)==(ok?2:-EINVAL));assert(writes==(unsigned)ok);}
  valid();assert(!wingray_trace_panic(NULL,0,"VFS: Unable to mount root fs"));assert(words[WG_PANIC/4]==1);
 #if CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0050 || CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0051
  assert(!memcmp((char*)words+0x6c,"VFS: Unable to mount ",20));
@@ -88,6 +91,8 @@ int main(void){loff_t pos=0;valid();
  subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-fsanitize=undefined','-I'+str(t),'-I'+str(r/'sources/kernel-donor/include'),str(c),'-o',str(t/'test55')],check=True);subprocess.run([str(t/'test55')],check=True)
  c.write_text((prefix+s[a:e]+s[pa:pe]+main).replace('0x584d0049','0x584d0056').replace('off<=0x68','off<=0x7c').replace('== 0x584d0051','== 0x584d0056'))
  subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-fsanitize=undefined','-I'+str(t),'-I'+str(r/'sources/kernel-donor/include'),str(c),'-o',str(t/'test56')],check=True);subprocess.run([str(t/'test56')],check=True)
+ c.write_text((prefix+s[a:e]+s[pa:pe]+main).replace('0x584d0049','0x584d0057').replace('off<=0x68','off<=0x7c').replace('== 0x584d0051','== 0x584d0057').replace('== 0x584d0056','== 0x584d0057'))
+ subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-fsanitize=undefined','-I'+str(t),'-I'+str(r/'sources/kernel-donor/include'),str(c),'-o',str(t/'test57')],check=True);subprocess.run([str(t/'test57')],check=True)
 spec=importlib.util.spec_from_file_location('decode',r/'scripts/decode-gpu-startup-trace.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 w=[0]*32;w[:3]=[0x58534d50,1,m.COOKIE];w[0x2c//4]=0xc0123450;w[0x34//4]=2;w[0x30//4]=0xffffffed
 assert m.decode(struct.pack('<32I',*w),'c0123450 t example_init\n')['initcall_result']==-19
@@ -121,3 +126,9 @@ d=m.decode(bytes(w56),'c0123450 t example_init\n',cookie=0x584d0056)
 assert d['gr3d_runtime']=={'operation':'ioctl entry','number':0x22}
 assert 'bounded userspace rendering probe is enabled' in d['limits']
 print('PASS cookie-56 runtime operation decoding')
+
+w57=bytearray(w56);struct.pack_into('<I',w57,8,0x584d0057)
+for stage,label in [(3,'before readiness printf'),(4,'readiness printf returned success'),(5,'readiness printf returned failure')]:
+ struct.pack_into('<I',w57,0x60,stage)
+ assert m.decode(bytes(w57),'c0123450 t example_init\n',cookie=0x584d0057)['usb_reply_checkpoint']==label
+print('PASS cookie57 independent reply checkpoint decoding')
