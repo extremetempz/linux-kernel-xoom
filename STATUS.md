@@ -2,14 +2,16 @@
 
 **Latest GPU status:** [build 54](docs/gpu-startup-trace-54-result.md) confirmed
 live USB/RAM runtime and host/GR2D/GR3D initialization. The built-in runtime
-bypasses the unresolved external-initrd input problem, and the EMC registration
-correction passes hardware initialization. [Rendering attempt 55](docs/gpu-render-test-55-result.md)
-produced no USB/render report; its retained startup has no panic but cannot locate
-the rendering stop. Acceleration remains unproven. A reproduced writev bug in
-userspace markers is fixed separately; [test 56](docs/gpu-render-test-56-prepared.md)
-is prepared to establish USB first, then explicitly release one bounded probe
-with channel checkpoints. It is not yet hardware-tested. Original boot/recovery
-are restored and both complete hashes match.
+bypasses the unresolved external-initrd input problem. [Build 56 readback](docs/gpu-render-test-56-result.md)
+confirms userspace service entry and a parsed diagnostic request; the writev
+marker correction now records userspace progress. Host readiness still timed out
+with zero reply bytes. No GPU release was sent and no runtime channel activity
+or panic was recorded. The reply/transmit/receive stopping point remains unknown;
+acceleration is unproven. The user restored the original boot image, and both
+complete original partition hashes are verified. No flash is pending or performed
+as part of this readback.
+
+**USB diagnosis prepared:** [image 57](docs/usb-reply-path-57.md) brackets the readiness reply with independent retained before/success/failure checkpoints. The kernel and linked-image checks pass; the GPU remains gated. This is diagnostic instrumentation, not a proven transport fix. No hardware test has been performed for 57.
 
 **Hardware-tested baseline:** Linux 4.4.147 boots the existing Android 4.4.4
 userspace. Image 32 displayed Welcome with working touch; image 33 confirms
