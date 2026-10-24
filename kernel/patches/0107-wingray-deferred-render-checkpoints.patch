@@ -1,0 +1,347 @@
+From c8656ad04b6c0da0169e436db2b697ff34ca94bf Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 06:23:25 +1100
+Subject: [PATCH] ARM: wingray: add deferred-render profile and bounded channel
+ checkpoints
+
+---
+ .../wingray_gpu_deferred_render_defconfig     | 180 ++++++++++++++++++
+ arch/arm/mach-tegra/wingray-gputrace.c        |   3 +-
+ drivers/staging/tegra/video/host/bus_client.c |  15 ++
+ include/soc/tegra/wingray-gputrace.h          |   6 +
+ include/soc/tegra/wingray-smptrace.h          |   3 +-
+ 5 files changed, 205 insertions(+), 2 deletions(-)
+ create mode 100644 arch/arm/configs/wingray_gpu_deferred_render_defconfig
+
+diff --git a/arch/arm/configs/wingray_gpu_deferred_render_defconfig b/arch/arm/configs/wingray_gpu_deferred_render_defconfig
+new file mode 100644
+index 00000000..cb1398cf
+--- /dev/null
++++ b/arch/arm/configs/wingray_gpu_deferred_render_defconfig
+@@ -0,0 +1,180 @@
++CONFIG_LOCALVERSION="-wingray-gpu-trace"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_SMP_ON_UP=y
++CONFIG_NR_CPUS=2
++# CONFIG_HOTPLUG_CPU is not set
++CONFIG_CACHE_L2X0=y
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++# CONFIG_SUSPEND is not set
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-gpu-test"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0 maxcpus=2"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_BLOCK=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_EXT4_FS=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_NET=y
++CONFIG_UNIX=y
++CONFIG_INET=y
++CONFIG_IPV6=y
++# CONFIG_NETDEVICES is not set
++# CONFIG_WIRELESS is not set
++# CONFIG_CFG80211 is not set
++# Only the factory-preserving P3 maXTouch input path is added.
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++# CONFIG_TOUCHSCREEN_MXT1386 is not set
++# CONFIG_SAMSUNG_INPUT is not set
++# CONFIG_INPUT_LEDS is not set
++# CONFIG_INPUT_MOUSEDEV is not set
++# CONFIG_INPUT_JOYDEV is not set
++# CONFIG_INPUT_KEYBOARD is not set
++# CONFIG_INPUT_MOUSE is not set
++# CONFIG_INPUT_JOYSTICK is not set
++# CONFIG_INPUT_TABLET is not set
++# CONFIG_INPUT_MISC is not set
++# CONFIG_SERIO is not set
++# CONFIG_GAMEPORT is not set
++# CONFIG_HID is not set
++# CONFIG_USB_HID is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_BACKLIGHT_LP855X=y
++
++# CONFIG_DRM is not set
++# CONFIG_DRM_TEGRA is not set
++# CONFIG_DRM_TEGRA_FBDEV is not set
++# CONFIG_DRM_PANEL_SIMPLE is not set
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=16
++
++# Installed Android 4.4 userspace ABI; separate from the future Oreo ABI.
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDER_DEVICES="binder"
++CONFIG_ANDROID_BINDER_IPC_32BIT=y
++CONFIG_STAGING=y
++CONFIG_ASHMEM=y
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++CONFIG_ANDROID_LOW_MEMORY_KILLER=y
++CONFIG_SYNC=y
++# CONFIG_SW_SYNC is not set
++CONFIG_CGROUPS=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_FAIR_GROUP_SCHED=y
++CONFIG_FUSE_FS=y
++CONFIG_INOTIFY_USER=y
++# CONFIG_MOTOROLA_XOOM_BOOT_TRACE is not set
++
++# Isolated Decatf nvmap backing-ownership experiment; no engine or DC access.
++CONFIG_MEMORY=y
++# CONFIG_TEGRA20_MC is not set
++# CONFIG_TEGRA_HOST1X is not set
++# CONFIG_IOMMU_SUPPORT is not set
++# CONFIG_IOMMU_API is not set
++# CONFIG_TEGRA_IOMMU_GART is not set
++CONFIG_TEGRA_DOWNSTREAM=y
++CONFIG_TEGRA_NVMAP=y
++# CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES is not set
++# CONFIG_TEGRA_RPC is not set
++# CONFIG_TEGRA_AVP is not set
++# CONFIG_TEGRA_AVP_KERNEL_ON_MMU is not set
++# CONFIG_TEGRA_MEDIASERVER is not set
++# CONFIG_TEGRA_IOVMM_GART is not set
++# CONFIG_TEGRA_IOVMM is not set
++CONFIG_TEGRA_GRHOST=y
++# CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST is not set
++CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y
++CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT=y
++CONFIG_TEGRA_SEMA_STANDALONE=y
++# CONFIG_TEGRA_DC is not set
++# CONFIG_FB_TEGRA is not set
++# CONFIG_TEGRA_DC_EXTENSIONS is not set
++# CONFIG_TEGRA_OVERLAY is not set
++# CONFIG_FB_TEGRA_WINGRAY_LEGACY is not set
++# CONFIG_FB_TEGRA_CMC623 is not set
++# CONFIG_NVMAP_ALLOW_SYSMEM is not set
++# CONFIG_NVMAP_RECLAIM_UNPINNED_VM is not set
++# CONFIG_NVMAP_HIGHMEM_ONLY is not set
++# CONFIG_NVMAP_CONVERT_CARVEOUT_TO_IOVMM is not set
++# CONFIG_NVMAP_CARVEOUT_KILLER is not set
++# CONFIG_NVMAP_CARVEOUT_COMPACTOR is not set
++# CONFIG_NVMAP_PAGE_POOLS is not set
++
++# Reserved-RAM startup localization only; no userspace GPU submission.
++CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0056
++
++# Bypass the externally loaded large initrd; RAM runtime stays private.
++CONFIG_INITRAMFS_SOURCE="usr/wingray-gpu-runtime.cpio"
+diff --git a/arch/arm/mach-tegra/wingray-gputrace.c b/arch/arm/mach-tegra/wingray-gputrace.c
+index 127ab391..b37c8101 100644
+--- a/arch/arm/mach-tegra/wingray-gputrace.c
++++ b/arch/arm/mach-tegra/wingray-gputrace.c
+@@ -78,7 +78,8 @@ static int wingray_trace_panic(struct notifier_block *nb,
+   (CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0052 || \
+   CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0053 || \
+   CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0054 || \
+-  CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0055)
++  CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0055 || \
++  CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0056)
+ 	/* panic() supplies its bounded, NUL-terminated formatted buffer.
+ 	 * Publish the panic flag only after the 20-byte prefix. */
+ 	const unsigned char *text = data;
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 68aa4119..181da70c 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -148,9 +148,11 @@ static int nvhost_channelopen(struct inode *inode, struct file *filp)
+ 	struct nvhost_channel *ch;
+ 
+ 	ch = container_of(inode->i_cdev, struct nvhost_channel, cdev);
++	wingray_gputrace_runtime(ch->dev->index, 0x400, 0);
+ 	ch = nvhost_getchannel(ch);
+ 	if (!ch)
+ 		return -ENOMEM;
++	wingray_gputrace_runtime(ch->dev->index, 0x401, 0);
+ 	trace_nvhost_channel_open(ch->dev->name);
+ 
+ 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+@@ -163,6 +165,7 @@ static int nvhost_channelopen(struct inode *inode, struct file *filp)
+ 	if(nvhost_module_add_client(ch->dev, priv))
+ 		goto fail;
+ 
++	wingray_gputrace_runtime(ch->dev->index, 0x402, 0);
+ 	if (ch->ctxhandler && ch->ctxhandler->alloc) {
+ 		priv->hwctx = ch->ctxhandler->alloc(ch->ctxhandler, ch);
+ 		if (!priv->hwctx)
+@@ -178,8 +181,10 @@ static int nvhost_channelopen(struct inode *inode, struct file *filp)
+ 	if (!priv->job)
+ 		goto fail;
+ 
++	wingray_gputrace_runtime(ch->dev->index, 0x403, 0);
+ 	return 0;
+ fail:
++	wingray_gputrace_runtime(ch->dev->index, 0x4ff, -ENOMEM);
+ 	nvhost_channelrelease(inode, filp);
+ 	return -ENOMEM;
+ }
+@@ -277,6 +282,7 @@ static ssize_t nvhost_channelwrite(struct file *filp, const char __user *buf,
+ 	struct nvhost_job *job = priv->job;
+ 	struct nvhost_submit_hdr_ext *hdr = &priv->hdr;
+ 	const char *chname = priv->ch->dev->name;
++	wingray_gputrace_runtime(priv->ch->dev->index, 0x410, 0);
+ 
+ 	if (!job)
+ 		return -EIO;
+@@ -294,6 +300,7 @@ static ssize_t nvhost_channelwrite(struct file *filp, const char __user *buf,
+ 			if (err)
+ 				break;
+ 			err = set_submit(priv);
++			wingray_gputrace_runtime(priv->ch->dev->index, 0x411, err);
+ 			if (err)
+ 				break;
+ 			/* set_submit replaces and drops the previous job. */
+@@ -367,10 +374,12 @@ static ssize_t nvhost_channelwrite(struct file *filp, const char __user *buf,
+ 
+ 	if (err < 0) {
+ 		dev_err(&priv->ch->dev->dev, "channel write error\n");
++		wingray_gputrace_runtime(priv->ch->dev->index, 0x41f, err);
+ 		reset_submit(priv);
+ 		return err;
+ 	}
+ 
++	wingray_gputrace_runtime(priv->ch->dev->index, 0x412, count - remaining);
+ 	return count - remaining;
+ }
+ 
+@@ -393,7 +402,9 @@ static int nvhost_ioctl_channel_flush(
+ 		return -EFAULT;
+ 	}
+ 
++	wingray_gputrace_runtime(ndev->index, 0x420, 0);
+ 	err = nvhost_job_pin(ctx->job);
++	wingray_gputrace_runtime(ndev->index, 0x421, err);
+ 	if (err) {
+ 		dev_warn(&ndev->dev, "nvhost_job_pin failed: %d\n", err);
+ 		return err;
+@@ -409,7 +420,9 @@ static int nvhost_ioctl_channel_flush(
+ 	}
+ 
+ 	/* context switch if needed, and submit user's gathers to the channel */
++	wingray_gputrace_runtime(ndev->index, 0x422, 0);
+ 	err = nvhost_channel_submit(ctx->job);
++	wingray_gputrace_runtime(ndev->index, 0x423, err);
+ 	args->value = ctx->job->syncpt_end;
+ 	if (err)
+ 		nvhost_job_unpin(ctx->job);
+@@ -431,6 +444,7 @@ static long nvhost_channelctl(struct file *filp,
+ 	struct nvhost_channel_userctx *priv = filp->private_data;
+ 	u8 buf[NVHOST_IOCTL_CHANNEL_MAX_ARG_SIZE];
+ 	int err = 0;
++	wingray_gputrace_runtime(priv->ch->dev->index, 0x500 + _IOC_NR(cmd), 0);
+ 
+ 	if ((_IOC_TYPE(cmd) != NVHOST_IOCTL_MAGIC) ||
+ 		(_IOC_NR(cmd) == 0) ||
+@@ -559,6 +573,7 @@ static long nvhost_channelctl(struct file *filp,
+ 	if ((err == 0) && (_IOC_DIR(cmd) & _IOC_READ))
+ 		err = copy_to_user((void __user *)arg, buf, _IOC_SIZE(cmd));
+ 
++	wingray_gputrace_runtime(priv->ch->dev->index, 0x600 + _IOC_NR(cmd), err);
+ 	return err;
+ }
+ 
+diff --git a/include/soc/tegra/wingray-gputrace.h b/include/soc/tegra/wingray-gputrace.h
+index 7327af16..c6ba0755 100644
+--- a/include/soc/tegra/wingray-gputrace.h
++++ b/include/soc/tegra/wingray-gputrace.h
+@@ -41,4 +41,10 @@ static inline void wingray_gputrace_engine(unsigned int index,
+ #define wingray_gputrace_mark(o,v) do { } while (0)
+ #define wingray_gputrace_engine(i,s,r) do { } while (0)
+ #endif
++#if defined(CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE) && \
++ CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0056
++#define wingray_gputrace_runtime(i,s,r) wingray_gputrace_engine(i,s,r)
++#else
++#define wingray_gputrace_runtime(i,s,r) do { } while (0)
++#endif
+ #endif
+diff --git a/include/soc/tegra/wingray-smptrace.h b/include/soc/tegra/wingray-smptrace.h
+index 181a7158..e273af90 100644
+--- a/include/soc/tegra/wingray-smptrace.h
++++ b/include/soc/tegra/wingray-smptrace.h
+@@ -26,7 +26,8 @@ static inline void wingray_smptrace_mark(unsigned int offset, u32 value)
+   (CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0052 || \
+   CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0053 || \
+   CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0054 || \
+-  CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0055))
++  CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0055 || \
++  CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE == 0x584d0056))
+      offset > 0x7c ||
+ #elif defined(CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE)
+      offset > 0x68 ||
+-- 
+2.43.0
+
