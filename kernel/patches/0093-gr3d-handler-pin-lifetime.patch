@@ -1,0 +1,103 @@
+From 4cbdc168b1fca61820b0aefdce10d615f5af3165 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 16:23:16 +1100
+Subject: [PATCH] Reject failed GR3D save-buffer pins and unwind handler
+ allocations
+
+---
+ .../staging/tegra/video/host/gr3d/gr3d_t20.c  | 21 ++++++++++++-------
+ .../staging/tegra/video/host/gr3d/gr3d_t30.c  | 20 +++++++++++-------
+ 2 files changed, 27 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c b/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c
+index 694b0052..7d441d63 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c
+@@ -372,22 +372,21 @@ struct nvhost_hwctx_handler *nvhost_gr3d_t20_ctxhandler_init(
+ 	p->save_buf = mem_op().alloc(memmgr, p->save_size * sizeof(u32), 32,
+ 				mem_mgr_flag_write_combine);
+ 	if (IS_ERR_OR_NULL(p->save_buf)) {
+-		p->save_buf = NULL;
+-		return NULL;
++		goto fail_handler;
+ 	}
+ 
+ 	p->save_slots = 1;
+ 
+ 	save_ptr = mem_op().mmap(p->save_buf);
+-	if (!save_ptr) {
+-		mem_op().put(memmgr, p->save_buf);
+-		p->save_buf = NULL;
+-		return NULL;
+-	}
++	if (!save_ptr)
++		goto fail_buffer;
+ 
+ 	p->save_phys = mem_op().pin(memmgr, p->save_buf);
++	if (IS_ERR_VALUE(p->save_phys))
++		goto fail_map;
+ 
+ 	setup_save(p, save_ptr);
++	mem_op().munmap(p->save_buf, save_ptr);
+ 
+ 	p->h.alloc = ctx3d_alloc_v0;
+ 	p->h.save_push = save_push_v0;
+@@ -396,4 +395,12 @@ struct nvhost_hwctx_handler *nvhost_gr3d_t20_ctxhandler_init(
+ 	p->h.put = nvhost_3dctx_put;
+ 
+ 	return &p->h;
++
++fail_map:
++	mem_op().munmap(p->save_buf, save_ptr);
++fail_buffer:
++	mem_op().put(memmgr, p->save_buf);
++fail_handler:
++	kfree(p);
++	return NULL;
+ }
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c b/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c
+index f4bf7f7a..0014516d 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c
+@@ -408,20 +408,18 @@ struct nvhost_hwctx_handler *nvhost_gr3d_t30_ctxhandler_init(
+ 	p->save_buf = mem_op().alloc(memmgr, p->save_size * 4, 32,
+ 				mem_mgr_flag_write_combine);
+ 	if (IS_ERR_OR_NULL(p->save_buf)) {
+-		p->save_buf = NULL;
+-		return NULL;
++		goto fail_handler;
+ 	}
+ 
+ 	p->save_slots = 8;
+ 
+ 	save_ptr = mem_op().mmap(p->save_buf);
+-	if (!save_ptr) {
+-		mem_op().put(memmgr, p->save_buf);
+-		p->save_buf = NULL;
+-		return NULL;
+-	}
++	if (!save_ptr)
++		goto fail_buffer;
+ 
+ 	p->save_phys = mem_op().pin(memmgr, p->save_buf);
++	if (IS_ERR_VALUE(p->save_phys))
++		goto fail_map;
+ 
+ 	setup_save(p, save_ptr);
+ 
+@@ -434,4 +432,12 @@ struct nvhost_hwctx_handler *nvhost_gr3d_t30_ctxhandler_init(
+ 	p->h.put = nvhost_3dctx_put;
+ 
+ 	return &p->h;
++
++fail_map:
++	mem_op().munmap(p->save_buf, save_ptr);
++fail_buffer:
++	mem_op().put(memmgr, p->save_buf);
++fail_handler:
++	kfree(p);
++	return NULL;
+ }
+-- 
+2.43.0
+

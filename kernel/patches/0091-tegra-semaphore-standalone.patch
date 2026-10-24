@@ -1,0 +1,58 @@
+From c574707c7ecea45d5ba11c0868fbf7bbcbb7f87e Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 13:49:12 +1100
+Subject: [PATCH] Reuse Tegra fd semaphores independently of RPC and AVP
+
+---
+ drivers/staging/tegra/media/avp/Kconfig     | 10 ++++++++++
+ drivers/staging/tegra/media/avp/Makefile    |  1 +
+ drivers/staging/tegra/media/avp/trpc_sema.c |  6 ++++++
+ 3 files changed, 17 insertions(+)
+
+diff --git a/drivers/staging/tegra/media/avp/Kconfig b/drivers/staging/tegra/media/avp/Kconfig
+index 3ce7c834..f11c1903 100644
+--- a/drivers/staging/tegra/media/avp/Kconfig
++++ b/drivers/staging/tegra/media/avp/Kconfig
+@@ -1,3 +1,13 @@
++config TEGRA_SEMA_STANDALONE
++	bool "Tegra fd semaphores without RPC/AVP"
++	depends on ARCH_TEGRA && !TEGRA_RPC
++	default n
++	help
++	  Reuse the existing tegra_sema implementation for legacy NVIDIA
++	  userspace without registering RPC or booting an AVP firmware image.
++	  Mutually exclusive with TEGRA_RPC, which already initializes semaphores.
++	  This alone does not enable GPU engines or graphics acceleration.
++
+ config TEGRA_RPC
+ 	bool "Enable support for Tegra RPC"
+ 	depends on ARCH_TEGRA
+diff --git a/drivers/staging/tegra/media/avp/Makefile b/drivers/staging/tegra/media/avp/Makefile
+index 37062e29..f2c2e965 100644
+--- a/drivers/staging/tegra/media/avp/Makefile
++++ b/drivers/staging/tegra/media/avp/Makefile
+@@ -4,6 +4,7 @@ EXTRA_CFLAGS += -Idrivers/staging/tegra/include
+ obj-$(CONFIG_TEGRA_RPC)		+= tegra_rpc.o
+ obj-$(CONFIG_TEGRA_RPC)		+= trpc_local.o
+ obj-$(CONFIG_TEGRA_RPC)		+= trpc_sema.o
++obj-$(CONFIG_TEGRA_SEMA_STANDALONE) += trpc_sema.o
+ obj-$(CONFIG_TEGRA_AVP)		+= avp.o
+ obj-$(CONFIG_TEGRA_AVP)		+= avp_svc.o
+ obj-$(CONFIG_TEGRA_AVP)		+= headavp.o
+diff --git a/drivers/staging/tegra/media/avp/trpc_sema.c b/drivers/staging/tegra/media/avp/trpc_sema.c
+index 9327482d..c0b8b136 100644
+--- a/drivers/staging/tegra/media/avp/trpc_sema.c
++++ b/drivers/staging/tegra/media/avp/trpc_sema.c
+@@ -248,3 +248,9 @@ int __init trpc_sema_init(void)
+ 
+ 	return 0;
+ }
++
++/* RPC retains its existing explicit initialization path. The standalone
++ * option is mutually exclusive and needs no AVP/RPC service or firmware. */
++#ifdef CONFIG_TEGRA_SEMA_STANDALONE
++module_init(trpc_sema_init);
++#endif
+-- 
+2.43.0
+

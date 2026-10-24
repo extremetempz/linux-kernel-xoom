@@ -1,0 +1,51 @@
+From a3a4235d970a46b24d82e54122f2031513f0a005 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 16:59:39 +1100
+Subject: [PATCH] tegra: propagate reset failures during PMC power-up
+
+---
+ drivers/soc/tegra/pmc.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/soc/tegra/pmc.c b/drivers/soc/tegra/pmc.c
+index a5c4b914..f15d359a 100644
+--- a/drivers/soc/tegra/pmc.c
++++ b/drivers/soc/tegra/pmc.c
+@@ -287,7 +287,9 @@ int tegra_powergate_sequence_power_up(int id, struct clk *clk,
+ {
+ 	int ret;
+ 
+-	reset_control_assert(rst);
++	ret = reset_control_assert(rst);
++	if (ret)
++		return ret;
+ 
+ 	ret = tegra_powergate_power_on(id);
+ 	if (ret)
+@@ -304,14 +306,21 @@ int tegra_powergate_sequence_power_up(int id, struct clk *clk,
+ 		goto err_clamp;
+ 
+ 	usleep_range(10, 20);
+-	reset_control_deassert(rst);
++	ret = reset_control_deassert(rst);
++	if (ret) {
++		/* No client is running yet; reassert before clock/power unwind. */
++		if (reset_control_assert(rst))
++			pr_err("Tegra: power-up reset rollback failed\n");
++		goto err_clamp;
++	}
+ 
+ 	return 0;
+ 
+ err_clamp:
+ 	clk_disable_unprepare(clk);
+ err_clk:
+-	tegra_powergate_power_off(id);
++	if (tegra_powergate_power_off(id))
++		pr_err("Tegra: power-up power-off rollback failed\n");
+ err_power:
+ 	return ret;
+ }
+-- 
+2.43.0
+

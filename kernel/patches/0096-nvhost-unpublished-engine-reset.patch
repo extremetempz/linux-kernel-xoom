@@ -1,0 +1,127 @@
+From 942bc445e11cd88e9d0375d5662edbabfcf1cc3e Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 16:59:39 +1100
+Subject: [PATCH] nvhost: reset unpublished test engines with balanced clock
+ ownership
+
+---
+ drivers/staging/tegra/video/host/bus_client.c |  6 ++++
+ drivers/staging/tegra/video/host/gr2d/gr2d.c  |  3 ++
+ drivers/staging/tegra/video/host/gr3d/gr3d.c  |  3 ++
+ drivers/staging/tegra/video/host/nvhost_acm.c | 29 +++++++++++++++++++
+ drivers/staging/tegra/video/host/nvhost_acm.h |  1 +
+ 5 files changed, 42 insertions(+)
+
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index de228798..493604e8 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -637,6 +637,12 @@ int nvhost_client_device_init(struct nvhost_device *dev)
+ 	if (err)
+ 		goto fail_channel;
+ 
++#ifdef CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST
++	/* Checked reset while clocked, before any userspace open is possible. */
++	err = nvhost_module_prepare_client(dev);
++	if (err)
++		goto fail_module;
++#endif
+ 	/* An open must never observe uninitialized module power/clock state. */
+ 	err = nvhost_client_user_init(dev);
+ 	if (err)
+diff --git a/drivers/staging/tegra/video/host/gr2d/gr2d.c b/drivers/staging/tegra/video/host/gr2d/gr2d.c
+index 9015e82d..deb2685a 100644
+--- a/drivers/staging/tegra/video/host/gr2d/gr2d.c
++++ b/drivers/staging/tegra/video/host/gr2d/gr2d.c
+@@ -37,6 +37,7 @@ static int gr2d_probe(struct nvhost_device *dev,
+ 	}
+ 
+ 	err = nvhost_client_device_init(dev);
++#ifndef CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	if (!err) {
+ 		dev_info(&dev->dev, "assert reset.\n");
+ 		err = reset_control_assert(dev->rst);
+@@ -52,6 +53,8 @@ static int gr2d_probe(struct nvhost_device *dev,
+ 		}
+ 	}
+ 
++#endif
++
+ 	return err;
+ }
+ 
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d.c b/drivers/staging/tegra/video/host/gr3d/gr3d.c
+index 4142ca35..307dee0c 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d.c
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d.c
+@@ -235,12 +235,15 @@ static int gr3d_probe(struct nvhost_device *dev,
+ 	}
+ 
+ 	err = nvhost_client_device_init(dev);
++#ifndef CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	if (!err) {
+ 		reset_control_assert(dev->rst);
+ 		usleep_range(1000, 2000);
+ 		reset_control_deassert(dev->rst);
+ 	}
+ 
++#endif
++
+ 	return err;
+ }
+ 
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index 273e6838..2d91591e 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -309,6 +309,35 @@ int nvhost_module_busy_checked(struct nvhost_device *dev)
+ 	return err;
+ }
+ 
++/* New unpublished T20 engine only. Gate its clocks before returning even if
++ * reset fails, so probe cleanup cannot release an active clock/parent vote. */
++int nvhost_module_prepare_client(struct nvhost_device *dev)
++{
++	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
++	int err, gate_err;
++
++	if ((dev->index != 1 && dev->index != 2) || !dev->rst ||
++	    drv->prepare_clockoff || dev->can_powergate)
++		return -EINVAL;
++	err = nvhost_module_busy_checked(dev);
++	if (err)
++		return err;
++	mutex_lock_nested(&dev->lock, dev->index == 10);
++	err = reset_control_assert(dev->rst);
++	if (!err) {
++		usleep_range(1000, 2000);
++		err = reset_control_deassert(dev->rst);
++	}
++	/* There can be no other client: the character device is unpublished. */
++	dev->refcount--;
++	gate_err = to_state_clockgated_locked(dev);
++	mutex_unlock(&dev->lock);
++	wake_up(&dev->idle_wq);
++	if (drv->idle)
++		drv->idle(dev);
++	return err ? err : gate_err;
++}
++
+ void nvhost_module_busy(struct nvhost_device *dev)
+ {
+ 	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.h b/drivers/staging/tegra/video/host/nvhost_acm.h
+index 63d0b732..6911b7d3 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.h
++++ b/drivers/staging/tegra/video/host/nvhost_acm.h
+@@ -34,6 +34,7 @@ void nvhost_module_abort_init(struct nvhost_device *dev);
+ int nvhost_module_suspend(struct nvhost_device *dev);
+ 
+ void nvhost_module_reset(struct nvhost_device *dev);
++int nvhost_module_prepare_client(struct nvhost_device *dev);
+ int nvhost_module_busy_checked(struct nvhost_device *dev);
+ void nvhost_module_busy(struct nvhost_device *dev);
+ void nvhost_module_idle_mult(struct nvhost_device *dev, int refs);
+-- 
+2.43.0
+

@@ -1,0 +1,27 @@
+From d7f397376e6017ce6b0eca65435da01f4459e91e Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 13:49:58 +1100
+Subject: [PATCH] Defer engine channel setup until host and allocator are ready
+
+---
+ drivers/staging/tegra/video/host/bus_client.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 7a7619a9..7c59e2d5 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -616,6 +616,10 @@ int nvhost_client_device_init(struct nvhost_device *dev)
+ 	struct nvhost_master *nvhost_master = nvhost_get_host(dev);
+ 	struct nvhost_channel *ch;
+ 
++	/* Engine drivers can bind before deferred host/nvmap bring-up. */
++	if (!nvhost_master || !nvhost_master->memmgr || !nvhost_master->nvhost_class)
++		return -EPROBE_DEFER;
++
+ 	dev_info(&dev->dev, "initialize...\n");
+ 
+ 	ch = nvhost_alloc_channel(dev);
+-- 
+2.43.0
+

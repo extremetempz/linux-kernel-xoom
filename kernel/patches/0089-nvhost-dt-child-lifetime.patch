@@ -1,0 +1,33 @@
+From c156c0f9fdcc1066c4ea599626dcb299cb939da1 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 13:26:29 +1100
+Subject: [PATCH] Balance child references while populating the nvhost DT bus
+
+---
+ drivers/of/platform.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/of/platform.c b/drivers/of/platform.c
+index b334ea59..e2e036f6 100644
+--- a/drivers/of/platform.c
++++ b/drivers/of/platform.c
+@@ -348,11 +348,14 @@ static int of_nvhost_bus_create(struct device_node *node,
+ 	for_each_child_of_node(node, child) {
+ 		pr_debug("   nvhost create child: %s\n", child->full_name);
+ 		rc = of_nvhost_bus_create(child, lookup);
+-		if (rc)
++		if (rc && rc != -ENODEV) {
+ 			of_node_put(child);
++			return rc;
++		}
++		/* The iterator releases the child; disabled children are skipped. */
+ 	}
+ 
+-	return rc;
++	return 0;
+ }
+ 
+ #endif /* CONFIG_TEGRA_GRHOST */
+-- 
+2.43.0
+

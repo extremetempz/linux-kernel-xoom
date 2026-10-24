@@ -1,0 +1,28 @@
+From 80f096504fe94f068b481173cb13f2adbcdff5f9 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 13:24:58 +1100
+Subject: [PATCH] Propagate module suspend power-transition failures
+
+---
+ drivers/staging/tegra/video/host/nvhost_acm.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index 45365c85..2cc00de1 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -789,8 +789,10 @@ int nvhost_module_suspend(struct nvhost_device *dev)
+ 
+ 	mutex_lock_nested(&dev->lock, dev->index == 10);
+ 	cancel_delayed_work(&dev->powerstate_down);
+-	to_state_powergated_locked(dev);
++	ret = to_state_powergated_locked(dev);
+ 	mutex_unlock(&dev->lock);
++	if (ret)
++		return ret;
+ 
+ 	if (drv->suspend_ndev)
+ 		drv->suspend_ndev(dev);
+-- 
+2.43.0
+

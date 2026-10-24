@@ -1,0 +1,522 @@
+From f9bcb77a5124d6a5bb78eb91b7d1db5622205a9f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 12:10:46 +1100
+Subject: [PATCH] Gate host submissions on checked runtime clock and EMC
+ activation
+
+---
+ drivers/staging/tegra/include/linux/nvhost.h  |   3 +-
+ drivers/staging/tegra/video/host/bus_client.c |   8 +-
+ .../staging/tegra/video/host/host1x/host1x.c  |   5 +-
+ .../tegra/video/host/host1x/host1x_channel.c  |  16 +-
+ drivers/staging/tegra/video/host/nvhost_acm.c | 193 ++++++++++++------
+ drivers/staging/tegra/video/host/nvhost_acm.h |   1 +
+ .../staging/tegra/video/host/nvhost_channel.c |  10 +-
+ .../staging/tegra/video/host/nvhost_syncpt.c  |  11 +-
+ 8 files changed, 169 insertions(+), 78 deletions(-)
+
+diff --git a/drivers/staging/tegra/include/linux/nvhost.h b/drivers/staging/tegra/include/linux/nvhost.h
+index 19e411cf..fc415842 100644
+--- a/drivers/staging/tegra/include/linux/nvhost.h
++++ b/drivers/staging/tegra/include/linux/nvhost.h
+@@ -114,6 +114,7 @@ struct nvhost_device {
+ 	struct clk	*clk[NVHOST_MODULE_MAX_CLOCKS];
+ 	struct mutex	lock;		/* Power management lock */
+ 	int		powerstate;	/* Current power state */
++	bool		poweron_pending; /* Context restore survives clock-on retries */
+ 	int		refcount;	/* Number of tasks active */
+ 	wait_queue_head_t idle_wq;	/* Work queue for idle */
+ 	struct list_head client_list;	/* List of clients and rate requests */
+@@ -181,7 +182,7 @@ struct nvhost_driver {
+ 
+ 	/* Clock gating callbacks */
+ 	int (*prepare_clockoff)(struct nvhost_device *dev);
+-	void (*finalize_clockon)(struct nvhost_device *dev);
++	int (*finalize_clockon)(struct nvhost_device *dev);
+ };
+ 
+ extern int nvhost_driver_register(struct nvhost_driver *);
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 193e7a0c..7a7619a9 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -70,7 +70,9 @@ int nvhost_read_module_regs(struct nvhost_device *ndev,
+ 	if (err)
+ 		return err;
+ 
+-	nvhost_module_busy(ndev);
++	err = nvhost_module_busy_checked(ndev);
++	if (err)
++		return err;
+ 	while (count--) {
+ 		*(values++) = readl(p);
+ 		p += 4;
+@@ -92,7 +94,9 @@ int nvhost_write_module_regs(struct nvhost_device *ndev,
+ 	if (err)
+ 		return err;
+ 
+-	nvhost_module_busy(ndev);
++	err = nvhost_module_busy_checked(ndev);
++	if (err)
++		return err;
+ 	while (count--) {
+ 		writel(*(values++), p);
+ 		p += 4;
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x.c b/drivers/staging/tegra/video/host/host1x/host1x.c
+index 25ee2162..0af1728d 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x.c
+@@ -163,7 +163,7 @@ static int nvhost_ioctl_ctrl_module_mutex(struct nvhost_ctrl_userctx *ctx,
+ 	trace_nvhost_ioctl_ctrl_module_mutex(args->lock, args->id);
+ 	if (args->lock && !ctx->mod_locks[args->id]) {
+ 		if (args->id == 0)
+-			nvhost_module_busy(ctx->dev->dev);
++			err = nvhost_module_busy_checked(ctx->dev->dev);
+ 		else
+ 			err = nvhost_mutex_try_lock(&ctx->dev->syncpt,
+ 					args->id);
+@@ -344,12 +344,13 @@ static int power_off_host(struct nvhost_device *dev)
+ 	return 0;
+ }
+ 
+-static void clock_on_host(struct nvhost_device *dev)
++static int clock_on_host(struct nvhost_device *dev)
+ {
+ 	struct nvhost_master *host = nvhost_get_drvdata(dev);
+ 	int err = nvhost_intr_start(&host->intr, clk_get_rate(dev->clk[0]));
+ 	if (err)
+ 		dev_err(&dev->dev, "Failed to start host interrupts: %d\n", err);
++	return err;
+ }
+ 
+ static int clock_off_host(struct nvhost_device *dev)
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x_channel.c b/drivers/staging/tegra/video/host/host1x/host1x_channel.c
+index 4f84f062..bbd955a0 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x_channel.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x_channel.c
+@@ -204,16 +204,15 @@ static int host1x_channel_submit(struct nvhost_job *job)
+ 	u32 syncval;
+ 	int err;
+ 	void *completed_waiter = NULL, *ctxsave_waiter = NULL;
+-	struct nvhost_driver *drv = to_nvhost_driver(ch->dev->dev.driver);
+ 
+ 	/* Bail out on timed out contexts */
+ 	if (job->hwctx && job->hwctx->has_timedout)
+ 		return -ETIMEDOUT;
+ 
+ 	/* Turn on the client module and host1x */
+-	nvhost_module_busy(ch->dev);
+-	if (drv->busy)
+-		drv->busy(ch->dev);
++	err = nvhost_module_busy_checked(ch->dev);
++	if (err)
++		return err;
+ 
+ 	/* before error checks, return current max */
+ 	prev_max = job->syncpt_end =
+@@ -366,13 +365,18 @@ static int host1x_channel_read_3d_reg(
+ 	}
+ 
+ 	/* keep module powered */
+-	nvhost_module_busy(channel->dev);
++	err = nvhost_module_busy_checked(channel->dev);
++	if (err) {
++		nvhost_job_put(job);
++		goto done;
++	}
+ 
+ 	/* get submit lock */
+ 	err = mutex_lock_interruptible(&channel->submitlock);
+ 	if (err) {
+ 		nvhost_module_idle(channel->dev);
+-		return err;
++		nvhost_job_put(job);
++		goto done;
+ 	}
+ 
+ 	/* context switch */
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index b2f35176..45365c85 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -45,28 +45,35 @@ struct nvhost_module_client {
+ 	void *priv;
+ };
+ 
+-static void do_powergate_locked(struct nvhost_device *dev)
++static int do_powergate_locked(struct nvhost_device *dev)
+ {
+ 	int id = dev->powergate_ids[0];
+ 
+ 	dev_info(&dev->dev, "%s id=%d\n", __func__, id);
+ 
+-	if (id != -1 && tegra_powergate_is_powered(id)) {
+-		clk_disable_unprepare(dev->clk[0]);
+-		WARN_ON(tegra_powergate_power_off(id));
+-	}
++	/* Callers have already gated module clocks. Do not disable twice. */
++	if (id != -1 && tegra_powergate_is_powered(id))
++		return tegra_powergate_power_off(id);
++	return 0;
+ }
+ 
+-static void do_unpowergate_locked(struct nvhost_device *dev)
++static int do_unpowergate_locked(struct nvhost_device *dev)
+ {
+ 	int id = dev->powergate_ids[0];
+ 
+ 	dev_info(&dev->dev, "%s id=%d\n", __func__, id);
+ 
+-	if (id != -1 && dev->rst) {
+-		WARN_ON(tegra_powergate_sequence_power_up(id, dev->clk[0], dev->rst));
++	if (id != -1) {
++		int err;
++		if (!dev->rst)
++			return -EINVAL;
++		err = tegra_powergate_sequence_power_up(id, dev->clk[0], dev->rst);
++		if (err)
++			return err;
++		/* The successful sequence leaves one clock enable reference. */
+ 		clk_disable_unprepare(dev->clk[0]);
+ 	}
++	return 0;
+ }
+ 
+ static void do_module_reset_locked(struct nvhost_device *dev)
+@@ -123,7 +130,7 @@ void nvhost_module_reset(struct nvhost_device *dev)
+ 		__func__, dev->name);
+ }
+ 
+-static void to_state_clockgated_locked(struct nvhost_device *dev)
++static int to_state_clockgated_locked(struct nvhost_device *dev)
+ {
+ 	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
+ 
+@@ -133,7 +140,7 @@ static void to_state_clockgated_locked(struct nvhost_device *dev)
+ 			err = drv->prepare_clockoff(dev);
+ 			if (err) {
+ 				dev_err(&dev->dev, "error clock gating");
+-				return;
++				return err;
+ 			}
+ 		}
+ 		for (i = 0; i < dev->num_clks; i++) {
+@@ -151,61 +158,86 @@ static void to_state_clockgated_locked(struct nvhost_device *dev)
+ 			nvhost_module_idle(to_nvhost_device(dev->dev.parent));
+ 	} else if (dev->powerstate == NVHOST_POWER_STATE_POWERGATED
+ 			&& dev->can_powergate) {
+-		do_unpowergate_locked(dev);
++		int err = do_unpowergate_locked(dev);
++		if (err)
++			return err;
+ 
+ 		if (dev->powerup_reset)
+ 			do_module_reset_locked(dev);
+ 	}
+ 	dev->powerstate = NVHOST_POWER_STATE_CLOCKGATED;
++	return 0;
+ }
+ 
+-static void to_state_running_locked(struct nvhost_device *dev)
++static int to_state_running_locked(struct nvhost_device *dev)
+ {
+ 	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
+-	int prev_state = dev->powerstate;
++	struct nvhost_device *parent = dev->dev.parent ?
++		to_nvhost_device(dev->dev.parent) : NULL;
++	int err, i = 0;
++	unsigned long old_emc_rate = 0;
++	bool emc_changed = false;
+ 
+-	if (dev->powerstate == NVHOST_POWER_STATE_POWERGATED)
+-		to_state_clockgated_locked(dev);
+-
+-	if (dev->powerstate == NVHOST_POWER_STATE_CLOCKGATED) {
+-		int i;
+-
+-		if (dev->dev.parent)
+-			nvhost_module_busy(to_nvhost_device(dev->dev.parent));
++	if (dev->powerstate == NVHOST_POWER_STATE_RUNNING)
++		return 0;
++	if (dev->powerstate == NVHOST_POWER_STATE_POWERGATED) {
++		err = to_state_clockgated_locked(dev);
++		if (err)
++			return err;
++		dev->poweron_pending = true;
++	}
++	if (dev->powerstate != NVHOST_POWER_STATE_CLOCKGATED)
++		return -EINVAL;
+ 
+-		for (i = 0; i < dev->num_clks; i++) {
+-			int err;
+-			if (dev->is_emc_client && i == dev->emc_idx) {
+-				unsigned long rate = 0;
+-				rate = clk_round_rate(dev->clk[i],
+-						dev->clocks[i].default_rate);
++	if (parent) {
++		err = nvhost_module_busy_checked(parent);
++		if (err)
++			return err;
++	}
+ 
+-				/*
+-				 * Android graphics blobs don't always set emc rate
+-				 * at transition to running state.
+-				 */
+-				clk_set_rate(dev->clk[i], rate);
+-			}
+-			err = clk_prepare_enable(dev->clk[i]);
+-			if (err) {
+-				dev_err(&dev->dev, "Cannot turn on clock %s",
+-					dev->clocks[i].name);
+-				return;
++	for (i = 0; i < dev->num_clks; i++) {
++		if (dev->is_emc_client && i == dev->emc_idx) {
++			long rate = clk_round_rate(dev->clk[i],
++					dev->clocks[i].default_rate);
++			if (rate <= 0) {
++				err = rate < 0 ? rate : -EINVAL;
++				goto fail;
+ 			}
++			old_emc_rate = clk_get_rate(dev->clk[i]);
++			/* A failed set may still have changed the provider. */
++			emc_changed = true;
++			err = clk_set_rate(dev->clk[i], rate);
++			if (err)
++				goto fail;
+ 		}
++		err = clk_prepare_enable(dev->clk[i]);
++		if (err)
++			goto fail;
++	}
+ 
+-		/* Invoke callback. This is used for re-enabling host1x
+-		 * interrupts. */
+-		if (drv->finalize_clockon)
+-			drv->finalize_clockon(dev);
+-
+-		/* Invoke callback after power un-gating. This is used for
+-		 * restoring context. */
+-		if (prev_state == NVHOST_POWER_STATE_POWERGATED
+-				&& drv->finalize_poweron)
+-			drv->finalize_poweron(dev);
++	/* IRQ activation must succeed before command submission is allowed. */
++	if (drv->finalize_clockon) {
++		err = drv->finalize_clockon(dev);
++		if (err)
++			goto fail;
+ 	}
++	if (dev->poweron_pending && drv->finalize_poweron)
++		drv->finalize_poweron(dev);
++	dev->poweron_pending = false;
+ 	dev->powerstate = NVHOST_POWER_STATE_RUNNING;
++	return 0;
++
++fail:
++	while (i-- > 0)
++		clk_disable_unprepare(dev->clk[i]);
++	if (emc_changed) {
++		int rollback = clk_set_rate(dev->clk[dev->emc_idx], old_emc_rate);
++		if (rollback)
++			dev_err(&dev->dev, "EMC rollback failed: %d\n", rollback);
++	}
++	if (parent)
++		nvhost_module_idle(parent);
++	return err;
+ }
+ 
+ /* This gets called from powergate_handler() and from module suspend.
+@@ -220,17 +252,25 @@ static int to_state_powergated_locked(struct nvhost_device *dev)
+ 	if (drv->prepare_poweroff
+ 			&& dev->powerstate != NVHOST_POWER_STATE_POWERGATED) {
+ 		/* Clock needs to be on in prepare_poweroff */
+-		to_state_running_locked(dev);
++		err = to_state_running_locked(dev);
++		if (err)
++			return err;
+ 		err = drv->prepare_poweroff(dev);
+ 		if (err)
+ 			return err;
+ 	}
+ 
+-	if (dev->powerstate == NVHOST_POWER_STATE_RUNNING)
+-		to_state_clockgated_locked(dev);
++	if (dev->powerstate == NVHOST_POWER_STATE_RUNNING) {
++		err = to_state_clockgated_locked(dev);
++		if (err)
++			return err;
++	}
+ 
+-	if (dev->can_powergate)
+-		do_powergate_locked(dev);
++	if (dev->can_powergate) {
++		err = do_powergate_locked(dev);
++		if (err)
++			return err;
++	}
+ 
+ 	dev->powerstate = NVHOST_POWER_STATE_POWERGATED;
+ 	return 0;
+@@ -249,6 +289,26 @@ static void schedule_clockgating_locked(struct nvhost_device *dev)
+ 			msecs_to_jiffies(dev->clockgate_delay));
+ }
+ 
++/* No reference is acquired on error; callers must not idle a failed busy. */
++int nvhost_module_busy_checked(struct nvhost_device *dev)
++{
++	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
++	int err;
++
++	mutex_lock_nested(&dev->lock, dev->index == 10);
++	cancel_delayed_work(&dev->powerstate_down);
++	err = to_state_running_locked(dev);
++	if (!err)
++		dev->refcount++;
++	else if (!dev->refcount &&
++		 dev->powerstate == NVHOST_POWER_STATE_CLOCKGATED)
++		schedule_powergating_locked(dev);
++	mutex_unlock(&dev->lock);
++	if (!err && drv->busy)
++		drv->busy(dev);
++	return err;
++}
++
+ void nvhost_module_busy(struct nvhost_device *dev)
+ {
+ 	struct nvhost_driver *drv = to_nvhost_driver(dev->dev.driver);
+@@ -260,8 +320,11 @@ void nvhost_module_busy(struct nvhost_device *dev)
+ 	cancel_delayed_work(&dev->powerstate_down);
+ 
+ 	dev->refcount++;
+-	if (dev->refcount > 0 && !nvhost_module_powered(dev))
+-		to_state_running_locked(dev);
++	if (dev->refcount > 0 && !nvhost_module_powered(dev)) {
++		int err = to_state_running_locked(dev);
++		if (err)
++			dev_err(&dev->dev, "Legacy busy activation failed: %d\n", err);
++	}
+ 	mutex_unlock(&dev->lock);
+ }
+ 
+@@ -277,8 +340,10 @@ static void powerstate_down_handler(struct work_struct *work)
+ 	if (dev->refcount == 0) {
+ 		switch (dev->powerstate) {
+ 		case NVHOST_POWER_STATE_RUNNING:
+-			to_state_clockgated_locked(dev);
+-			schedule_powergating_locked(dev);
++			if (to_state_clockgated_locked(dev))
++				schedule_clockgating_locked(dev);
++			else
++				schedule_powergating_locked(dev);
+ 			break;
+ 		case NVHOST_POWER_STATE_CLOCKGATED:
+ 			if (to_state_powergated_locked(dev))
+@@ -317,13 +382,16 @@ int nvhost_module_get_rate(struct nvhost_device *dev, unsigned long *rate,
+ 		int index)
+ {
+ 	struct clk *c;
++	int err;
+ 
+ 	c = dev->clk[index];
+ 	if (IS_ERR_OR_NULL(c))
+ 		return -EINVAL;
+ 
+ 	/* Need to enable client to get correct rate */
+-	nvhost_module_busy(dev);
++	err = nvhost_module_busy_checked(dev);
++	if (err)
++		return err;
+ 	*rate = clk_get_rate(c);
+ 	nvhost_module_idle(dev);
+ 	return 0;
+@@ -609,12 +677,17 @@ int nvhost_module_init(struct nvhost_device *dev)
+ 	init_waitqueue_head(&dev->idle_wq);
+ 	INIT_DELAYED_WORK(&dev->powerstate_down, powerstate_down_handler);
+ 
++	dev->poweron_pending = false;
+ 	/* power gate units that we can power gate */
+ 	if (dev->can_powergate) {
+-		do_powergate_locked(dev);
++		err = do_powergate_locked(dev);
++		if (err)
++			goto fail_clocks;
+ 		dev->powerstate = NVHOST_POWER_STATE_POWERGATED;
+ 	} else {
+-		do_unpowergate_locked(dev);
++		err = do_unpowergate_locked(dev);
++		if (err)
++			goto fail_clocks;
+ 		dev->powerstate = NVHOST_POWER_STATE_CLOCKGATED;
+ 	}
+ 
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.h b/drivers/staging/tegra/video/host/nvhost_acm.h
+index dac73cc7..63d0b732 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.h
++++ b/drivers/staging/tegra/video/host/nvhost_acm.h
+@@ -34,6 +34,7 @@ void nvhost_module_abort_init(struct nvhost_device *dev);
+ int nvhost_module_suspend(struct nvhost_device *dev);
+ 
+ void nvhost_module_reset(struct nvhost_device *dev);
++int nvhost_module_busy_checked(struct nvhost_device *dev);
+ void nvhost_module_busy(struct nvhost_device *dev);
+ void nvhost_module_idle_mult(struct nvhost_device *dev, int refs);
+ int nvhost_module_add_client(struct nvhost_device *dev,
+diff --git a/drivers/staging/tegra/video/host/nvhost_channel.c b/drivers/staging/tegra/video/host/nvhost_channel.c
+index fd309ee9..28b5e8b0 100644
+--- a/drivers/staging/tegra/video/host/nvhost_channel.c
++++ b/drivers/staging/tegra/video/host/nvhost_channel.c
+@@ -90,15 +90,17 @@ struct nvhost_channel *nvhost_getchannel(struct nvhost_channel *ch)
+ 	} else if (ch->dev->exclusive) {
+ 		err = -EBUSY;
+ 	}
++	/* Do not hand out a keepalive channel whose activation failed. */
++	if (!err && ch->dev->keepalive) {
++		err = nvhost_module_busy_checked(ch->dev);
++		if (err && ch->refcount == 0)
++			nvhost_cdma_deinit(&ch->cdma);
++	}
+ 	if (!err)
+ 		ch->refcount++;
+ 
+ 	mutex_unlock(&ch->reflock);
+ 
+-	/* Keep alive modules that needs to be when a channel is open */
+-	if (!err && ch->dev->keepalive)
+-		nvhost_module_busy(ch->dev);
+-
+ 	return err ? NULL : ch;
+ }
+ 
+diff --git a/drivers/staging/tegra/video/host/nvhost_syncpt.c b/drivers/staging/tegra/video/host/nvhost_syncpt.c
+index 514e2afa..67f97971 100644
+--- a/drivers/staging/tegra/video/host/nvhost_syncpt.c
++++ b/drivers/staging/tegra/video/host/nvhost_syncpt.c
+@@ -168,8 +168,10 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
+ 		return 0;
+ 	}
+ 
+-	/* keep host alive */
+-	nvhost_module_busy(syncpt_to_dev(sp)->dev);
++	/* No hardware read or waiter registration after failed activation. */
++	err = nvhost_module_busy_checked(syncpt_to_dev(sp)->dev);
++	if (err)
++		return err;
+ 
+ 	/* try to read from register */
+ 	val = syncpt_op().update_min(sp, id);
+@@ -324,8 +326,11 @@ int nvhost_mutex_try_lock(struct nvhost_syncpt *sp, int idx)
+ {
+ 	struct nvhost_master *host = syncpt_to_dev(sp);
+ 	u32 reg;
++	int err;
+ 
+-	nvhost_module_busy(host->dev);
++	err = nvhost_module_busy_checked(host->dev);
++	if (err)
++		return err;
+ 	reg = syncpt_op().mutex_try_lock(sp, idx);
+ 	if (reg) {
+ 		nvhost_module_idle(host->dev);
+-- 
+2.43.0
+

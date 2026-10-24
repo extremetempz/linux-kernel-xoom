@@ -1,0 +1,184 @@
+From 3a9d0aa283e4c8e2b3e3e4208a05a972cf00d87d Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 16:25:00 +1100
+Subject: [PATCH] Publish engine channels after module initialization and
+ unwind context handlers
+
+---
+ drivers/staging/tegra/video/host/bus_client.c     | 14 +++++++++-----
+ drivers/staging/tegra/video/host/gr3d/gr3d.c      | 11 +++++++++++
+ drivers/staging/tegra/video/host/gr3d/gr3d.h      |  2 ++
+ drivers/staging/tegra/video/host/gr3d/gr3d_t20.c  |  1 +
+ drivers/staging/tegra/video/host/gr3d/gr3d_t30.c  |  1 +
+ drivers/staging/tegra/video/host/nvhost_acm.c     |  2 +-
+ drivers/staging/tegra/video/host/nvhost_channel.c | 13 +++++++++++++
+ drivers/staging/tegra/video/host/nvhost_channel.h |  2 ++
+ drivers/staging/tegra/video/host/nvhost_hwctx.h   |  2 ++
+ 9 files changed, 42 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index 7c59e2d5..de228798 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -633,20 +633,24 @@ int nvhost_client_device_init(struct nvhost_device *dev)
+ 	if (err)
+ 		goto fail;
+ 
+-	err = nvhost_client_user_init(dev);
++	err = nvhost_module_init(dev);
+ 	if (err)
+-		goto fail;
++		goto fail_channel;
+ 
+-	err = nvhost_module_init(dev);
++	/* An open must never observe uninitialized module power/clock state. */
++	err = nvhost_client_user_init(dev);
+ 	if (err)
+-		goto fail;
++		goto fail_module;
+ 
+ 	dev_info(&dev->dev, "initialized\n");
+ 
+ 	return 0;
+ 
++fail_module:
++	nvhost_module_abort_init(dev);
++fail_channel:
++	nvhost_channel_abort_init(ch);
+ fail:
+-	/* Add clean-up */
+ 	nvhost_free_channel(ch);
+ 	return err;
+ }
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d.c b/drivers/staging/tegra/video/host/gr3d/gr3d.c
+index ed9a999d..4142ca35 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d.c
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d.c
+@@ -119,6 +119,17 @@ fail:
+ 	return NULL;
+ }
+ 
++void nvhost_3dctx_handler_free(struct nvhost_hwctx_handler *h,
++		struct nvhost_channel *ch)
++{
++	struct host1x_hwctx_handler *p = to_host1x_hwctx_handler(h);
++	struct mem_mgr *memmgr = nvhost_get_host(ch->dev)->memmgr;
++
++	mem_op().unpin(memmgr, p->save_buf);
++	mem_op().put(memmgr, p->save_buf);
++	kfree(p);
++}
++
+ void nvhost_3dctx_get(struct nvhost_hwctx *ctx)
+ {
+ 	kref_get(&ctx->ref);
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d.h b/drivers/staging/tegra/video/host/gr3d/gr3d.h
+index 61f708ce..7d3fcefa 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d.h
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d.h
+@@ -49,6 +49,8 @@ void nvhost_3dctx_restore_end(struct host1x_hwctx_handler *h, u32 *ptr);
+ struct host1x_hwctx *nvhost_3dctx_alloc_common(
+ 		struct host1x_hwctx_handler *p,
+ 		struct nvhost_channel *ch, bool map_restore);
++void nvhost_3dctx_handler_free(struct nvhost_hwctx_handler *h,
++		struct nvhost_channel *ch);
+ void nvhost_3dctx_get(struct nvhost_hwctx *ctx);
+ void nvhost_3dctx_free(struct kref *ref);
+ void nvhost_3dctx_put(struct nvhost_hwctx *ctx);
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c b/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c
+index 7d441d63..82219928 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d_t20.c
+@@ -388,6 +388,7 @@ struct nvhost_hwctx_handler *nvhost_gr3d_t20_ctxhandler_init(
+ 	setup_save(p, save_ptr);
+ 	mem_op().munmap(p->save_buf, save_ptr);
+ 
++	p->h.destroy = nvhost_3dctx_handler_free;
+ 	p->h.alloc = ctx3d_alloc_v0;
+ 	p->h.save_push = save_push_v0;
+ 	p->h.save_service = ctx3d_save_service;
+diff --git a/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c b/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c
+index 0014516d..40827983 100644
+--- a/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c
++++ b/drivers/staging/tegra/video/host/gr3d/gr3d_t30.c
+@@ -425,6 +425,7 @@ struct nvhost_hwctx_handler *nvhost_gr3d_t30_ctxhandler_init(
+ 
+ 	mem_op().munmap(p->save_buf, save_ptr);
+ 
++	p->h.destroy = nvhost_3dctx_handler_free;
+ 	p->h.alloc = ctx3d_alloc_v1;
+ 	p->h.save_push = save_push_v1;
+ 	p->h.save_service = NULL;
+diff --git a/drivers/staging/tegra/video/host/nvhost_acm.c b/drivers/staging/tegra/video/host/nvhost_acm.c
+index ad351189..273e6838 100644
+--- a/drivers/staging/tegra/video/host/nvhost_acm.c
++++ b/drivers/staging/tegra/video/host/nvhost_acm.c
+@@ -827,7 +827,7 @@ static void nvhost_module_release_power_attrs(struct nvhost_device *dev)
+ 	dev->power_attrib = NULL;
+ }
+ 
+-/* Failed unpublished host probe only: do not run power callbacks against
++/* Failed unpublished device probe only: do not run power callbacks against
+ 	* partially initialized syncpoints/interrupts. Caller balanced probe clocks. */
+ void nvhost_module_abort_init(struct nvhost_device *dev)
+ {
+diff --git a/drivers/staging/tegra/video/host/nvhost_channel.c b/drivers/staging/tegra/video/host/nvhost_channel.c
+index 28b5e8b0..0e0462e8 100644
+--- a/drivers/staging/tegra/video/host/nvhost_channel.c
++++ b/drivers/staging/tegra/video/host/nvhost_channel.c
+@@ -22,6 +22,7 @@
+ #include "dev.h"
+ #include "nvhost_acm.h"
+ #include "nvhost_job.h"
++#include "nvhost_hwctx.h"
+ #include "chip_support.h"
+ 
+ #include <trace/events/nvhost.h>
+@@ -49,6 +50,18 @@ int nvhost_channel_init(struct nvhost_channel *ch,
+ 	return 0;
+ }
+ 
++/* Only before userspace publication: no opens, CDMA or live contexts. */
++void nvhost_channel_abort_init(struct nvhost_channel *ch)
++{
++	if (ch->ctxhandler) {
++		if (ch->ctxhandler->destroy)
++			ch->ctxhandler->destroy(ch->ctxhandler, ch);
++		ch->ctxhandler = NULL;
++	}
++	if (ch->dev->channel == ch)
++		ch->dev->channel = NULL;
++}
++
+ int nvhost_channel_submit(struct nvhost_job *job)
+ {
+ 	/*
+diff --git a/drivers/staging/tegra/video/host/nvhost_channel.h b/drivers/staging/tegra/video/host/nvhost_channel.h
+index d7f096db..f44c5a2e 100644
+--- a/drivers/staging/tegra/video/host/nvhost_channel.h
++++ b/drivers/staging/tegra/video/host/nvhost_channel.h
+@@ -53,6 +53,8 @@ struct nvhost_channel {
+ int nvhost_channel_init(struct nvhost_channel *ch,
+ 	struct nvhost_master *dev, int index);
+ 
++void nvhost_channel_abort_init(struct nvhost_channel *ch);
++
+ int nvhost_channel_submit(struct nvhost_job *job);
+ 
+ struct nvhost_channel *nvhost_getchannel(struct nvhost_channel *ch);
+diff --git a/drivers/staging/tegra/video/host/nvhost_hwctx.h b/drivers/staging/tegra/video/host/nvhost_hwctx.h
+index 47bc3d40..f552fa98 100644
+--- a/drivers/staging/tegra/video/host/nvhost_hwctx.h
++++ b/drivers/staging/tegra/video/host/nvhost_hwctx.h
+@@ -38,6 +38,8 @@ struct nvhost_hwctx {
+ };
+ 
+ struct nvhost_hwctx_handler {
++	/* Unpublished channel teardown only; no live contexts may reference it. */
++	void (*destroy)(struct nvhost_hwctx_handler *h, struct nvhost_channel *ch);
+ 	struct nvhost_hwctx * (*alloc) (struct nvhost_hwctx_handler *h,
+ 			struct nvhost_channel *ch);
+ 	void (*get) (struct nvhost_hwctx *ctx);
+-- 
+2.43.0
+

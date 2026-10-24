@@ -1,0 +1,63 @@
+From dc9bb6729f9d453a323dafb4b041ff749410e053 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 11:58:42 +1100
+Subject: [PATCH] Unwind failed nvhost channel device publication
+
+---
+ drivers/staging/tegra/video/host/bus_client.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/host/bus_client.c b/drivers/staging/tegra/video/host/bus_client.c
+index bdf061b1..193e7a0c 100644
+--- a/drivers/staging/tegra/video/host/bus_client.c
++++ b/drivers/staging/tegra/video/host/bus_client.c
+@@ -567,13 +567,14 @@ static const struct file_operations nvhost_channelops = {
+ 
+ int nvhost_client_user_init(struct nvhost_device *dev)
+ {
+-	int err, devno;
+-
++	int err;
++	dev_t devno;
+ 	struct nvhost_channel *ch = dev->channel;
++
+ 	err = alloc_chrdev_region(&devno, 0, 1, IFACE_NAME);
+ 	if (err < 0) {
+ 		dev_err(&dev->dev, "failed to allocate devno\n");
+-		goto fail;
++		return err;
+ 	}
+ 
+ 	cdev_init(&ch->cdev, &nvhost_channelops);
+@@ -583,20 +584,25 @@ int nvhost_client_user_init(struct nvhost_device *dev)
+ 	if (err < 0) {
+ 		dev_err(&dev->dev,
+ 			"failed to add chan %i cdev\n", dev->index);
+-		goto fail;
++		goto fail_region;
+ 	}
+ 	ch->node = device_create(nvhost_get_host(dev)->nvhost_class,
+ 			NULL, devno, NULL,
+ 			IFACE_NAME "-%s", dev->name);
+ 	if (IS_ERR(ch->node)) {
+ 		err = PTR_ERR(ch->node);
++		ch->node = NULL;
+ 		dev_err(&dev->dev,
+ 			"failed to create %s channel device\n", dev->name);
+-		goto fail;
++		goto fail_cdev;
+ 	}
+ 
+ 	return 0;
+-fail:
++
++fail_cdev:
++	cdev_del(&ch->cdev);
++fail_region:
++	unregister_chrdev_region(devno, 1);
+ 	return err;
+ }
+ 
+-- 
+2.43.0
+

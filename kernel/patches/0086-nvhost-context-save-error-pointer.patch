@@ -1,0 +1,24 @@
+From 6a4869adc1965a80431c2518d37335049e3e9e4f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sat, 24 Oct 2026 12:10:20 +1100
+Subject: [PATCH] Do not free an error pointer after failed context-save setup
+
+---
+ drivers/staging/tegra/video/host/host1x/host1x_channel.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/staging/tegra/video/host/host1x/host1x_channel.c b/drivers/staging/tegra/video/host/host1x/host1x_channel.c
+index 43b88b2b..4f84f062 100644
+--- a/drivers/staging/tegra/video/host/host1x/host1x_channel.c
++++ b/drivers/staging/tegra/video/host/host1x/host1x_channel.c
+@@ -230,6 +230,7 @@ static int host1x_channel_submit(struct nvhost_job *job)
+ 	ctxsave_waiter = pre_submit_ctxsave(job, ch->cur_ctx);
+ 	if (IS_ERR(ctxsave_waiter)) {
+ 		err = PTR_ERR(ctxsave_waiter);
++		ctxsave_waiter = NULL;
+ 		nvhost_module_idle(ch->dev);
+ 		mutex_unlock(&ch->submitlock);
+ 		goto error;
+-- 
+2.43.0
+
