@@ -11,7 +11,7 @@ acceleration is unproven. The user restored the original boot image, and both
 complete original partition hashes are verified. No flash is pending or performed
 as part of this readback.
 
-**USB diagnosis prepared:** [image 57](docs/usb-reply-path-57.md) brackets the readiness reply with independent retained before/success/failure checkpoints. The kernel and linked-image checks pass; the GPU remains gated. This is diagnostic instrumentation, not a proven transport fix. No hardware test has been performed for 57.
+**USB image 57 result:** [two fresh reports and retained reply checkpoint](docs/usb-reply-test-57-result.md) confirm working readiness/report transport on this attempt. The GPU service reached its release gate; no GPU_RUN was sent. Both originals were restored and completely verified. Build 56's timeout cause remains unknown. Attempt 58 will reuse the exact image 57 binary for the first explicitly released bounded GPU probe, before accelerated Android integration.
 
 **Hardware-tested baseline:** Linux 4.4.147 boots the existing Android 4.4.4
 userspace. Image 32 displayed Welcome with working touch; image 33 confirms
