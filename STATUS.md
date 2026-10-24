@@ -1,5 +1,12 @@
 # Component status — 24 October 2026
 
+**Latest GPU attempt:** [test 48](docs/gpu-render-test-48-result.md) used a RAM-only
+NVIDIA offscreen diagnostic with checked reset, fixed low engine clocks and
+software-only EMC votes. Build/fault/image checks passed, but hardware produced
+no diagnostic USB report; its stopping point is unknown. The original ROM is
+restored and both complete original partition hashes match. Linux 4.4 rendering
+and accelerated Android composition remain unproven.
+
 **Hardware-tested baseline:** Linux 4.4.147 boots the existing Android 4.4.4
 userspace. Image 32 displayed Welcome with working touch; image 33 confirms
 Android completion, real single/two-contact events, USB, full eMMC capacity and
@@ -41,9 +48,45 @@ Non-trace SMP repeatability, broader L2 validation, DVFS and legacy GPU enableme
 - [Built Motorola carveout-only resource profile and original live heap observations](docs/wingray-legacy-resource-profile.md)
 - [Decatf reuse classifications and staged plan](docs/decatf-reuse-plan.md)
 
-Kernel corrections are separate exported commits through patch 0084; Android
+Kernel corrections are separate exported commits through patch 0094; Android
 wrapper changes are separate patches under `android/patches`. Sources, tests
 and sanitized findings are committed; proprietary libraries, original device
 images, identifiers and raw hardware reports are excluded. Tested configurations
 and boot artifacts are preserved. No Samsung board power or display tables were
 imported by these stages.
+
+The next work order keeps the six areas above ahead of Wi-Fi, Bluetooth and
+charging. [Channel-publication correction and remaining gates](docs/graphics-channel-publication-43.md)
+records patch 0085, its fault tests and ARM link, and the runtime
+clock/EMC/submission gaps. Linux 4.4 acceleration remains unproven; no new flash.
+
+[Runtime/submission integration](docs/graphics-runtime-integration-44.md) adds
+checked parent, EMC, clock and IRQ activation to the main submission path and
+related entry points. Patches 0086/0087 pass fault fixtures and the full ARM link.
+Motorola resource/provider validation and Linux 4.4 GPU rendering remain
+unproven; no device access or flash occurred in this stage.
+
+[Host-only diagnostic image prepared](docs/host-test-image-45-prepared.md):
+a separate boot image now packages the checked host clock/IRQ cycle test,
+original allocator layout and USB RAM reporter. Offline gates pass; it has
+not been flashed and performs no GPU rendering or Android startup.
+
+[Initial host-only hardware test passed](docs/host-test-image-45-result.md):
+one physical boot completed three checked host activation/suspend cycles at
+the retained 150 MHz rate, with two fresh USB/storage reports and a final zero
+host reference count. The original boot was restored and both complete original
+partition hashes verified. This does not establish GPU submission/rendering or
+completion interrupt delivery; an inherited fsync permission warning remains.
+
+[GPU submission/semaphore checkpoint](docs/gpu-submission-semaphore-46.md):
+the isolated original-ROM EGL trace confirms 24-byte headers and use of both
+GR2D/GR3D. Decatf semaphore reuse without RPC/AVP and engine-host deferral are
+separate patches 0091/0092; fixtures and the full ARM link pass. No new flash or
+Linux 4.4 GPU rendering result. Work stopped at the requested usage checkpoint.
+
+[GPU client lifetime checkpoint](docs/gpu-client-lifetime-47.md): patches
+0093/0094 reject failed GR3D context-save pins, release partial handlers and
+publish engine channels after module initialization. Actual-function fault
+fixtures and a fresh full ARM graphics link pass with the prior compile config
+unchanged. Checked pre-publication reset and Motorola EMC integration remain;
+no new boot image, flash or Linux 4.4 GPU rendering result.
