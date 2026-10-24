@@ -7,6 +7,7 @@ s=(root/'sources/kernel-donor/drivers/staging/tegra/video/host/nvhost_acm.c').re
 a=s.index('static void nvhost_module_release_clocks(');b=s.index('int nvhost_module_init(',a)
 functions=s[a:b]
 prefix=r'''
+#define wingray_gputrace_engine(i,s,r) do {} while (0)
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -80,6 +81,7 @@ with tempfile.TemporaryDirectory() as t:
 # GPU diagnostic must lower dividers before any enable, retain host rate,
 # reject physical EMC fallback, and unwind setters without enabling clocks.
 gpu_prefix=prefix.replace('int dev,num_clks','int index,dev,num_clks').replace('assert(enabled[c->id]);sets++','assert(!enabled[c->id]);sets++').replace('rate==200UL+c->id','rate==200000000UL')
+gpu_prefix="static int last_stage,last_result;\n"+gpu_prefix.replace('#define wingray_gputrace_engine(i,s,r) do {} while (0)', '#define wingray_gputrace_engine(i,s,r) do {last_stage=(s);last_result=(r);} while (0)')
 gpu_prefix += r'''
 static int provider_bad;
 static const char *__clk_get_name(struct clk*c){(void)c;return provider_bad?"emc":"wingray_gr3d_emc";}
@@ -94,6 +96,9 @@ int main(void){struct nvhost_device d;
  setup(&d);zero_round=0;assert(nvhost_module_init_clocks(&d)==-EINVAL);assert(!sets&&!preps);clean(&d);
  setup(&d);d.index=2;d.clocks[0].name="epp";d.clocks[1].name=NULL;assert(!nvhost_module_init_clocks(&d));assert(clocks[0].rate==100000000&&!preps);nvhost_module_release_clocks(&d);clean(&d);
  setup(&d);d.index=10;d.clocks[0].name="host1x";d.clocks[1].name=NULL;assert(!nvhost_module_init_clocks(&d));assert(!sets&&!preps&&clocks[0].rate==400000000);nvhost_module_release_clocks(&d);clean(&d);
+ setup(&d);zero_old=0;assert(nvhost_module_init_clocks(&d)==-EINVAL);assert(last_stage==0x105&&last_result==-EINVAL);clean(&d);
+ setup(&d);fail_round=0;assert(nvhost_module_init_clocks(&d)==-ERANGE);assert(last_stage==0x104&&last_result==-ERANGE);clean(&d);
+ setup(&d);fail_get=1;assert(nvhost_module_init_clocks(&d)==-EPROBE_DEFER);assert(last_stage==0x111&&last_result==-EPROBE_DEFER);clean(&d);
  puts("PASS actual GPU clock initialization: gated dividers, fixed host, EMC fallback rejection and rollback (UBSan)");}
 '''
 with tempfile.TemporaryDirectory() as t:

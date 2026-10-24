@@ -8,6 +8,7 @@ def fun(name):
  while d:d+=(source[e]=='{')-(source[e]=='}');e+=1
  return source[a:e]
 prefix=r'''
+#define wingray_gputrace_engine(i,s,r) do {} while (0)
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>

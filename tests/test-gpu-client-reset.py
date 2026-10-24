@@ -6,6 +6,7 @@ r=Path(__file__).resolve().parents[1]
 s=(r/'sources/kernel-donor/drivers/staging/tegra/video/host/nvhost_acm.c').read_text();a=s.index('int nvhost_module_prepare_client(');e=s.index('{',a)+1;d=1
 while d:d+=(s[e]=='{')-(s[e]=='}');e+=1
 prefix=r'''
+#define wingray_gputrace_engine(i,s,r) do {} while (0)
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>

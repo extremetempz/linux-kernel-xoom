@@ -8,6 +8,7 @@ def extract(file,name):
  while d:d+=(s[e]=='{')-(s[e]=='}');e+=1
  return s[a:e]
 prefix=r'''
+#define wingray_gputrace_engine(i,s,r) do {} while (0)
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
