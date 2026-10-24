@@ -11,6 +11,7 @@ root=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--module-dir',type=Path,required=True)
 p.add_argument('--output-dir',type=Path,required=True)
+p.add_argument('--trace-submission',action='store_true',help='Trace only the disposable child with installed strace; bounded RAM-only trace')
 a=p.parse_args();source=a.module_dir.resolve();out=a.output_dir.resolve()
 assert source.is_relative_to(root/'artifacts') and out.is_relative_to(root/'artifacts') and not out.exists()
 module=source/'xoom-egl-probe.so';manifest=json.loads((source/'manifest.json').read_text())
@@ -34,9 +35,14 @@ for name in libs:
  expected=hashlib.sha256((root/'artifacts/hardware-private/system-lib'/name).read_bytes()).hexdigest()
  value=shell('/system/xbin/busybox sha256sum '+shlex.quote('/system/lib/'+name)).split()
  assert value and value[0].decode()==expected,'Installed library differs: '+name
+tracer=None
+if a.trace_submission:
+ tracer=shell('/system/xbin/strace -V; /system/xbin/strace -h 2>&1')
+ assert b'-E var=val' in tracer and b'-xx' in tracer, 'Installed tracer lacks required child-only environment/hex options'
 out.mkdir();(out/'identity-private.txt').write_bytes(identity)
+if tracer:(out/'tracer-version-private.txt').write_bytes(tracer)
 remote='/dev/xoom-egl-probe41';created=False
-result={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'module_sha256':manifest['module_sha256'],'original_rom_only':True,'flash_performed':False,'new_kernel_acceleration_proven':False,'state':'started'}
+result={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'module_sha256':manifest['module_sha256'],'original_rom_only':True,'flash_performed':False,'new_kernel_acceleration_proven':False,'child_only_submission_trace':a.trace_submission,'state':'started'}
 try:
  ready=shell('if [ -e '+remote+' ]; then echo EXISTS; else mkdir '+remote+' && chmod 700 '+remote+' && echo CREATED; fi')
  assert ready.strip()==b'CREATED','Refuse to overwrite a pre-existing remote directory'
@@ -44,14 +50,24 @@ try:
  call('push',str(module),remote+'/xoom-egl-probe.so')
  assert shell('/system/xbin/busybox sha256sum '+remote+'/xoom-egl-probe.so').split()[0].decode()==manifest['module_sha256']
  # Environment applies only to the new child. Do not export into a service.
- output=shell('XOOM_EGL_PROBE_CHILD=1 LD_PRELOAD='+remote+'/xoom-egl-probe.so /system/bin/sh -c :; rc=$?; printf "\\nXOOM_EGL_CHILD_STATUS %s\\n" "$rc"',timeout=35)
+ if a.trace_submission:
+  # -E applies only to strace's new child: never preload the tracer itself.
+  # The 4096-block file-size limit bounds RAM trace growth if the probe fails.
+  command='ulimit -f 4096; /system/xbin/strace -f -xx -s 96 -e trace=open,openat,close,write,writev,ioctl,dup,dup2,clone -e raw=ioctl -o '+remote+'/submission.trace -E XOOM_EGL_PROBE_CHILD=1 -E LD_PRELOAD='+remote+'/xoom-egl-probe.so /system/bin/sh -c :'
+  output=shell(command+'; rc=$?; printf "\\nXOOM_EGL_CHILD_STATUS %s\\n" "$rc"',timeout=45)
+  size=shell('/system/xbin/busybox wc -c < '+remote+'/submission.trace').strip()
+  assert size.isdigit() and 0<int(size)<=4*1024*1024, 'Missing or oversized trace'
+  call('pull',remote+'/submission.trace',str(out/'submission-trace-private.txt'))
+  result['submission_trace_sha256']=hashlib.sha256((out/'submission-trace-private.txt').read_bytes()).hexdigest()
+ else:
+  output=shell('XOOM_EGL_PROBE_CHILD=1 LD_PRELOAD='+remote+'/xoom-egl-probe.so /system/bin/sh -c :; rc=$?; printf "\\nXOOM_EGL_CHILD_STATUS %s\\n" "$rc"',timeout=35)
  (out/'probe-output-private.txt').write_bytes(output)
  passed=(b'XOOM_EGL_ISOLATED_CHILD_BEGIN' in output and b'XOOM_EGL_OFFSCREEN_READBACK_PASS' in output and b'frame=0 triangle_and_background_readback=pass' in output and b'frame=1 triangle_and_background_readback=pass' in output and b'XOOM_EGL_CHILD_STATUS 0' in output and b'XOOM_EGL_PROBE_FAILED' not in output)
  result.update(state='passed' if passed else 'failed',output_sha256=hashlib.sha256(output).hexdigest())
  print(output.decode(errors='replace'))
 finally:
  if created:
-  cleaned=shell('rm '+remote+'/xoom-egl-probe.so; rmdir '+remote+'; if [ ! -e '+remote+' ]; then echo REMOVED; fi')
+  cleaned=shell('if [ -e '+remote+'/submission.trace ]; then rm '+remote+'/submission.trace; fi; rm '+remote+'/xoom-egl-probe.so; rmdir '+remote+'; if [ ! -e '+remote+' ]; then echo REMOVED; fi')
   result['temporary_ram_module_removed']=cleaned.strip()==b'REMOVED'
   assert result['temporary_ram_module_removed']
  result['same_original_boot_id']=shell('cat /proc/sys/kernel/random/boot_id')==bootid

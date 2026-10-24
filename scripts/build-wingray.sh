@@ -13,15 +13,17 @@ case "$profile" in
   android44-smp) defconfig=wingray_android44_smp_defconfig; dtname=tegra20-motorola-wingray-android44-smp; default_dest="$root/artifacts/wingray-android44-smp";;
   android44-smp2) defconfig=wingray_android44_smp2_defconfig; dtname=tegra20-motorola-wingray-android44-smp2; default_dest="$root/artifacts/wingray-android44-smp2";;
   android44-smptrace) defconfig=wingray_android44_smptrace_defconfig; dtname=tegra20-motorola-wingray-android44-smptrace; default_dest="$root/artifacts/wingray-android44-smptrace";;
+  host-test) defconfig=wingray_host_test_defconfig; dtname=tegra20-motorola-wingray-host-test; default_dest="$root/artifacts/wingray-host-test";;
+  gpu-test) defconfig=wingray_gpu_test_defconfig; dtname=tegra20-motorola-wingray-gpu-test; default_dest="$root/artifacts/wingray-gpu-test";;
   legacy-resources) defconfig=wingray_legacy_resources_defconfig; dtname=tegra20-motorola-wingray-legacy-resources; default_dest="$root/artifacts/wingray-legacy-resources";;
   display) defconfig=wingray_display_defconfig; dtname=tegra20-motorola-wingray-display; default_dest="$root/artifacts/wingray-display";;
   panelbus) defconfig=wingray_panelbus_defconfig; dtname=tegra20-motorola-wingray-panelbus; default_dest="$root/artifacts/wingray-panelbus";;
   diagnostic) defconfig=wingray_diagnostic_defconfig; dtname=tegra20-motorola-wingray-diagnostic; default_dest="$root/artifacts/wingray-diagnostic";;
-  *) echo 'Unknown XOOM_PROFILE (supported: peripherals, early, trace, diagnostic, panelbus, display, android44, android44-touch, android44-l2, android44-smp, android44-smp2, android44-smptrace, legacy-resources).' >&2; exit 1;;
+  *) echo 'Unknown XOOM_PROFILE (supported: peripherals, early, trace, diagnostic, panelbus, display, android44, android44-touch, android44-l2, android44-smp, android44-smp2, android44-smptrace, legacy-resources, host-test, gpu-test).' >&2; exit 1;;
 esac
 dest="${XOOM_ARTIFACT_DIR:-$default_dest}"
-if [ "$profile" = legacy-resources ] && [ -e "$dest" ]; then
- echo 'Use a new legacy resource artifact directory; existing evidence is preserved.' >&2; exit 1
+if { [ "$profile" = legacy-resources ] || [ "$profile" = host-test ] || [ "$profile" = gpu-test ]; } && [ -e "$dest" ]; then
+ echo 'Use a new resource/host artifact directory; existing evidence is preserved.' >&2; exit 1
 fi
 toolchain="${XOOM_TOOLCHAIN_DIR:-$root/toolchains/android-gcc49}"
 build="${XOOM_BUILD_ROOT:-$(mktemp -d /tmp/xoom-wingray44.XXXXXX)}"
@@ -46,9 +48,17 @@ args=(-C "$build/source" O="$build/out" ARCH=arm
   KCFLAGS='-fno-unwind-tables -fno-asynchronous-unwind-tables')
 make "${args[@]}" "$defconfig"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
-if [ "$profile" = legacy-resources ]; then
+if [ "$profile" = legacy-resources ] || [ "$profile" = host-test ] || [ "$profile" = gpu-test ]; then
  make "${args[@]}" tegra20-motorola-wingray-android44-smp2.dtb
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-smp2.dtb" "$dest/control-smp2.dtb"
+fi
+if [ "$profile" = host-test ] || [ "$profile" = gpu-test ]; then
+ make "${args[@]}" tegra20-motorola-wingray-legacy-resources.dtb
+ cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-legacy-resources.dtb" "$dest/control-resources.dtb"
+fi
+if [ "$profile" = gpu-test ]; then
+ make "${args[@]}" tegra20-motorola-wingray-host-test.dtb
+ cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-host-test.dtb" "$dest/control-host.dtb"
 fi
 cp "$build/out/arch/arm/boot/zImage" "$build/out/arch/arm/boot/zImage-dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/$dtname.dtb" "$dest/"
@@ -57,6 +67,10 @@ cp "$build/out/System.map" "$dest/"
 (cd "$dest" && sha256sum zImage zImage-dtb "$dtname.dtb" kernel.config System.map > SHA256SUMS)
 if [ "$profile" = legacy-resources ]; then
  python3 "$root/scripts/verify-legacy-resources.py" "$dest"
+elif [ "$profile" = host-test ]; then
+ python3 "$root/scripts/verify-host-test.py" "$dest"
+elif [ "$profile" = gpu-test ]; then
+ python3 "$root/scripts/verify-gpu-test.py" "$dest"
 else
  python3 "$root/scripts/verify-kernel.py" "$dest" "$profile"
 fi
