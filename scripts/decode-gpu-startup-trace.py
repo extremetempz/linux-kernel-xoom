@@ -13,7 +13,7 @@ def signed(n):
     return n-(1<<32) if n & (1<<31) else n
 
 def decode(data, system_map, cookie=COOKIE):
-    assert cookie in (COOKIE,0x584d0050)
+    assert cookie in (COOKIE,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056)
     assert len(data)==128, 'Require exactly one complete 128-byte snapshot'
     w=struct.unpack('<32I',data)
     assert w[:3]==(0x58534d50,1,cookie), 'Wrong/stale magic, version or build cookie'
@@ -36,8 +36,27 @@ def decode(data, system_map, cookie=COOKIE):
                   trace_sha256=hashlib.sha256(data).hexdigest(),
                   system_map_sha256=hashlib.sha256(system_map.encode()).hexdigest(),
                   limits='A checkpoint records progress, not causation. Missing/stale records cannot locate a failure. Reset retention and instrumentation timing can affect results. No GPU rendering is enabled.')
-    if cookie==0x584d0050:
+    if cookie==0x584d0056:
+        for engine in ('gr2d','gr3d'):
+            stage=result[engine+'_stage']
+            if 0x500<=stage<0x600:
+                result[engine+'_runtime']={'operation':'ioctl entry','number':stage-0x500}
+            elif 0x600<=stage<0x700:
+                result[engine+'_runtime']={'operation':'ioctl returned','number':stage-0x600}
+            else:
+                names={0x400:'channel open entry',0x401:'channel acquired',0x402:'before context allocation',0x403:'open returned',0x4ff:'open failed',0x410:'channel write entry',0x411:'submit header processed',0x412:'write returned',0x41f:'write failed',0x420:'before job pin',0x421:'job pin returned',0x422:'before channel submit',0x423:'channel submit returned'}
+                if stage in names:result[engine+'_runtime']={'operation':names[stage]}
+    if cookie in (0x584d0055,0x584d0056):
+        result['limits']=result['limits'].replace('No GPU rendering is enabled.','A bounded userspace rendering probe is enabled; checkpoints alone do not prove GPU rendering.')
+    if cookie in (0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056):
         result['panic_prefix']=data[0x6c:0x80].split(b'\0',1)[0].decode('utf-8',errors='replace')
+        if cookie in (0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056) and result['panic_seen']:
+            import re
+            pair=re.fullmatch(r'RD ([0-9a-f]{8}) ([0-9a-f]{8})',result['panic_prefix'])
+            if pair:
+                result['initrd_fnv1a32']=pair[1]
+                result['initrd_size']=int(pair[2],16)
+
     return result
 
 if __name__=='__main__':

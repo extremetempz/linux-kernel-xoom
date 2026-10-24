@@ -11,7 +11,7 @@ def startup_cookie(directory):
     import re
     text = (Path(directory)/'kernel.config').read_text()
     match = re.search(r'^CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=(0x[0-9a-f]+)$',text,re.M)
-    assert match and int(match[1],16) in (0x584d0049,0x584d0050)
+    assert match and int(match[1],16) in (0x584d0049,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056)
     return int(match[1],16)
 
 def validate_artifacts(directory, *, startup_trace=False, trace_cookie=0x584d0049):
@@ -31,8 +31,21 @@ def validate_artifacts(directory, *, startup_trace=False, trace_cookie=0x584d004
         'clock-names': b'gr3d\0', 'status': b'okay\0'})
     assert nodes == expected, 'Unexpected board/resource changes'
     text = (p/'kernel.config').read_text()
+    if startup_trace and trace_cookie in (0x584d0054,0x584d0055,0x584d0056):
+        import gzip,hashlib
+        assert 'CONFIG_INITRAMFS_SOURCE="usr/wingray-gpu-runtime.cpio"\n' in text
+        data=gzip.decompress((p/'builtin-initramfs.cpio.gz').read_bytes())
+        reference=(Path(__file__).resolve().parents[1]/'artifacts/gpu-startup53-ready/ramdisk.cpio.gz').read_bytes()
+        assert hashlib.sha256(reference).hexdigest()=='54bc23da30e3b4e17a87f461aac2e80bcf85bdbdcd17fc43230864f5a2b65c7a'
+        if trace_cookie in (0x584d0055,0x584d0056):
+            assert data==(p/'runtime-source.cpio').read_bytes()
+        else:
+            assert data==gzip.decompress(reference)
+    else:
+        assert 'CONFIG_INITRAMFS_SOURCE=""\n' in text
+
     if startup_trace:
-        assert trace_cookie in (0x584d0049,0x584d0050)
+        assert trace_cookie in (0x584d0049,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056)
         for line in ('CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y',
                      'CONFIG_MOTOROLA_XOOM_SMP_TRACE=y',
                      f'CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE={trace_cookie:#x}',
