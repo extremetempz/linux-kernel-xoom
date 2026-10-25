@@ -1,3 +1,7 @@
+> **Superseded by Image 68c.** The 68b report enumerated the SDIO card and
+> recognized BCM4329, but the empty NVRAM file failed with -22. Image 68c
+> supplies a minimal NVRAM entry. Use `android-gpu-68c-wifi-nvram.md`.
+
 # Image 68b: 3.3V SDIO card rail for BCM4329
 
 25 October 2026. Image 68 reached the BCM4329 SDIO card, but enumeration

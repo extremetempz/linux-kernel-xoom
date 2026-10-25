@@ -79,7 +79,7 @@ def entries(runtime):
  for d in ('lib','lib/firmware','lib/firmware/brcm'):
   result[d]=Entry(d,stat.S_IFDIR|0o755)
  result['lib/firmware/brcm/brcmfmac4329-sdio.bin']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.bin',stat.S_IFREG|0o644,firmware.read_bytes())
- result['lib/firmware/brcm/brcmfmac4329-sdio.txt']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.txt',stat.S_IFREG|0o644,b'')
+ result['lib/firmware/brcm/brcmfmac4329-sdio.txt']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.txt',stat.S_IFREG|0o644,b'macaddr=02:00:00:00:00:01\n')
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
  result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\n')
  # Match the working original ROM's permissions only for the three GPU channels used.
