@@ -1,3 +1,7 @@
+> **Superseded by Image 71e.** 71d proved WifiHW does not load the module;
+> 71e restores preload and no-ops station SET_INTERFACE. Use
+> `android-gpu-71e-bcmdhd-tf101.md`.
+
 # Image 71d: let WifiHW load bcmdhd once
 
 25 October 2026. 71c produced the exact supplicant error:

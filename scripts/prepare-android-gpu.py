@@ -55,6 +55,8 @@ WIFI_SCRIPT=b'''#!/bin/busybox sh
 # and calibration file.  This keeps the driver out of the early SDIO probe.
 LOG=/run/xoom-wifi.log
 : > "$LOG"
+/bin/busybox sleep 40
+echo "boot_delay=40" >> "$LOG"
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
  [ -r /system/vendor/firmware/fw_bcmdhd.bin ] && [ -r /system/etc/wifi/bcm4329.cal ] && break
  /bin/busybox sleep 1
@@ -113,6 +115,13 @@ if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  echo "update_config=1" >> /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chown 1000:1010 /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chmod 0660 /data/misc/wifi/wpa_supplicant.conf
+fi
+# Preload while storage is quiet; wlan0 and firmware are up before WifiService.
+/bin/busybox insmod /lib/modules/bcmdhd.ko firmware_path=/system/vendor/firmware/fw_bcmdhd.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
+rc=$?
+echo "insmod_rc=$rc" >> "$LOG"
+if [ "$rc" -eq 0 ]; then
+ /system/bin/setprop wlan.driver.status ok 2>/dev/null || /bin/setprop wlan.driver.status ok 2>/dev/null
 fi
 '''
 
