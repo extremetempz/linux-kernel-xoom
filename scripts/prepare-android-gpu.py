@@ -70,28 +70,22 @@ if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/nvram_net.txt
 fi
 [ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
-if [ -r /bin/bcmdhd_sta.bin ]; then
- /bin/busybox ln -sf /bin/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
- echo "sta_fw=private_bin:$(/bin/busybox wc -c < /bin/bcmdhd_sta.bin)" >> "$LOG"
-elif [ -r /xoom-firmware/bcmdhd_sta.bin ]; then
- /bin/busybox ln -sf /xoom-firmware/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
- echo "sta_fw=private_root:$(/bin/busybox wc -c < /xoom-firmware/bcmdhd_sta.bin)" >> "$LOG"
-elif [ -r /lib/firmware/bcmdhd_sta.bin ]; then
- /bin/busybox ln -sf /lib/firmware/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
- echo "sta_fw=private_lib:$(/bin/busybox wc -c < /lib/firmware/bcmdhd_sta.bin)" >> "$LOG"
+if [ -r /system/vendor/firmware/fw_bcmdhd.bin ]; then
+ /bin/busybox ln -sf /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
+ echo "sta_fw=system_4.218:$(/bin/busybox wc -c < /system/vendor/firmware/fw_bcmdhd.bin)" >> "$LOG"
 else
- [ ! -r /system/vendor/firmware/fw_bcmdhd.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
- echo "sta_fw=system_fallback" >> "$LOG"
+ echo "sta_fw=missing" >> "$LOG"
 fi
 [ ! -r /system/vendor/firmware/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_apsta.bin
 /bin/busybox chmod 0644 /system/etc/wifi/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_apsta.bin /system/etc/wifi/bcm4329.cal /system/etc/wifi/nvram_net.txt 2>/dev/null
-# WifiHW also insmods /system/lib/modules/dhd.ko on a disable/enable cycle.
+# WifiHW also insmods /system/lib/modules/bcmdhd.ko on a disable/enable cycle.
 /bin/busybox mkdir -p /run/xoom-modules
-/bin/busybox cp /lib/modules/dhd.ko /run/xoom-modules/dhd.ko
+/bin/busybox cp /lib/modules/bcmdhd.ko /run/xoom-modules/bcmdhd.ko
 if [ -d /system/lib/modules ]; then
  /bin/busybox mount -t tmpfs -o mode=0755,size=4m tmpfs /system/lib/modules >> "$LOG" 2>&1
- /bin/busybox cp /run/xoom-modules/dhd.ko /system/lib/modules/dhd.ko
- /bin/busybox chmod 0644 /system/lib/modules/dhd.ko
+ /bin/busybox cp /run/xoom-modules/bcmdhd.ko /system/lib/modules/bcmdhd.ko
+ /bin/busybox ln -sf bcmdhd.ko /system/lib/modules/dhd.ko
+ /bin/busybox chmod 0644 /system/lib/modules/bcmdhd.ko
 fi
 /bin/busybox mkdir -p /data/misc/wifi/sockets /data/misc/dhcp
 /bin/busybox chown 1010:1010 /data/misc/wifi /data/misc/wifi/sockets
@@ -105,7 +99,7 @@ if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  /bin/busybox chown 1000:1010 /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chmod 0660 /data/misc/wifi/wpa_supplicant.conf
 fi
-/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/bin/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
+/bin/busybox insmod /lib/modules/bcmdhd.ko firmware_path=/system/vendor/firmware/fw_bcmdhd.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
 rc=$?
 echo "insmod_rc=$rc" >> "$LOG"
 if [ "$rc" -eq 0 ]; then
@@ -158,17 +152,12 @@ def entries(runtime):
   path=ROOT/'diagnostic'/source;subprocess.run(['bash','-n',str(path)],check=True);files[name]=path.read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
- wifi_fw=ROOT/'artifacts/hardware-private/wifi/bcmdhd_sta.bin'
- assert wifi_fw.is_file() and digest(wifi_fw.read_bytes())=='462e89e7bcf1f4fd701933d9cb80e795acca27a7c80300e42661d7e3bc6f5ea7'
- files['lib/firmware/bcmdhd_sta.bin']=wifi_fw.read_bytes()
- files['xoom-firmware/bcmdhd_sta.bin']=wifi_fw.read_bytes()
- files['bin/bcmdhd_sta.bin']=wifi_fw.read_bytes()
  result=ramdisk_entries(original,files)
- module=runtime/'modules/dhd.ko'
+ module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0
  for d in ('lib','lib/modules','lib/firmware','xoom-firmware'):
   result[d]=Entry(d,stat.S_IFDIR|0o755)
- result['lib/modules/dhd.ko']=Entry('lib/modules/dhd.ko',stat.S_IFREG|0o644,module.read_bytes())
+ result['lib/modules/bcmdhd.ko']=Entry('lib/modules/bcmdhd.ko',stat.S_IFREG|0o644,module.read_bytes())
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
  result['init.xoom-wifi.rc']=Entry('init.xoom-wifi.rc',stat.S_IFREG|0o644,WIFI_RC)
  result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\nimport /init.xoom-wifi.rc\n')

@@ -1,3 +1,6 @@
+> **Superseded by Image 70l.** 70j used a private firmware that did not boot
+> and kept the module named dhd.  Use `android-gpu-70l-bcmdhd-legacy.md`.
+
 # Image 70j: firmware from /bin, the path that is actually present
 
 25 October 2026. Image 70i still logged:

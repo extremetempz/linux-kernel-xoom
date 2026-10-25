@@ -38,8 +38,8 @@ for helper in build-android44-probe build-display-pattern build-touch-events bui
 done
 make "${args[@]}" -j"${JOBS:-4}" modules
 mkdir -p "$dest/modules"
-cp "$build/out/drivers/net/wireless/bcmdhd-legacy/dhd.ko" "$dest/modules/dhd.ko"
-"$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/dhd.ko"
+cp "$build/out/drivers/net/wireless/bcmdhd-legacy/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
+"$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/bcmdhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb

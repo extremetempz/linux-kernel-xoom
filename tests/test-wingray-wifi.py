@@ -33,8 +33,11 @@ assert 'CONFIG_NETDEVICES is not set' not in CFG
 assert 'CONFIG_MODULES=y' in CFG
 assert 'CONFIG_CFG80211=y' in CFG
 assert 'CONFIG_LEGACY_BCMDHD=m' in CFG
-assert 'dhd.ko' in PREP
+assert 'bcmdhd.ko' in PREP
+assert 'system_4.218' in PREP
+assert 'firmware_path=/system/vendor/firmware/fw_bcmdhd.bin' in PREP
 assert 'bcmdhd-legacy' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
+assert 'obj-$(CONFIG_LEGACY_BCMDHD) += bcmdhd.o' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
 assert 'kthread_create' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h').read_text()
 assert 'module_param_string(fwpath' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c').read_text()
 assert 'REGULATORY_CUSTOM_REG' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c').read_text()
@@ -42,21 +45,15 @@ assert 'skb_mac_header(skb)' in (ROOT / 'sources/kernel-donor/drivers/net/wirele
 assert 'OOB_INTR_ONLY' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
 assert 'gpio_request(165' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c').read_text()
 assert 'gpio_request(162' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c').read_text()
-assert '462e89e7bcf1f4fd701933d9cb80e795acca27a7c80300e42661d7e3bc6f5ea7' in PREP
-assert '/lib/firmware/bcmdhd_sta.bin' in PREP
-assert 'ln -sf /lib/firmware/bcmdhd_sta.bin' in PREP
-assert '/xoom-firmware/bcmdhd_sta.bin' in PREP
-assert '/bin/bcmdhd_sta.bin' in PREP
-assert 'firmware_path=/bin/bcmdhd_sta.bin' in PREP
-assert 'private_bin' in PREP
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
-assert 'bcmdhd_sta.bin' in PREP
+assert 'system_4.218' in PREP
+assert 'firmware_path=/system/vendor/firmware/fw_bcmdhd.bin' in PREP
 assert 'xoom-wifi-load' in PREP
 assert 'xoomwifi' in PREP
 assert 'service wpa_supplicant' in PREP
 assert 'service dhcpcd' in PREP
-assert 'dhd.ko' in BUILD
+assert 'bcmdhd.ko' in BUILD
 assert '--module LEGACY_BCMDHD' in BUILD
 assert '\nEXTRA_CFLAGS += -DCONFIG_DTS\n' not in MAKE
 print('PASS BCM4329 Wi-Fi SDIO/config/firmware scope')
