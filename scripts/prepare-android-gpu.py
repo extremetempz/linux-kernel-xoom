@@ -71,6 +71,15 @@ def entries(runtime):
   path=ROOT/'diagnostic'/source;subprocess.run(['bash','-n',str(path)],check=True);files[name]=path.read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  result=ramdisk_entries(original,files)
+ # BCM4329 fullmac firmware for the SDIO Wi-Fi bring-up.  brcmfmac and
+ # bcmdhd use different file names for the same chip firmware; stage the
+ # known Xoom bcmdhd image under the brcmfmac name and an empty NVRAM file.
+ firmware=ROOT/'artifacts/hardware-private/wifi/bcmdhd_sta.bin'
+ assert firmware.is_file() and digest(firmware.read_bytes())=='462e89e7bcf1f4fd701933d9cb80e795acca27a7c80300e42661d7e3bc6f5ea7'
+ for d in ('lib','lib/firmware','lib/firmware/brcm'):
+  result[d]=Entry(d,stat.S_IFDIR|0o755)
+ result['lib/firmware/brcm/brcmfmac4329-sdio.bin']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.bin',stat.S_IFREG|0o644,firmware.read_bytes())
+ result['lib/firmware/brcm/brcmfmac4329-sdio.txt']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.txt',stat.S_IFREG|0o644,b'')
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
  result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\n')
  # Match the working original ROM's permissions only for the three GPU channels used.

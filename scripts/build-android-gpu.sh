@@ -25,6 +25,11 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  *) echo 'Only the corrected fbmap profile can be packaged.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
+# Kconfig orders NETDEVICES before the NET symbol in this tree; force the
+# Wi-Fi dependency set after the initial defconfig and resolve it cleanly.
+"$build/source/scripts/config" --file "$build/out/.config" \
+ --enable NETDEVICES --enable WLAN --enable BRCMFMAC --enable BRCMFMAC_SDIO
+make "${args[@]}" olddefconfig
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"

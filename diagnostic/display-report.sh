@@ -79,6 +79,14 @@ echo XOOM_SCREEN_AWAKE_END
 echo XOOM_INPUT_DEVICES_BEGIN
 [ ! -r /proc/bus/input/devices ] || /bin/busybox cat /proc/bus/input/devices
 echo XOOM_INPUT_DEVICES_END
+echo XOOM_NET_BEGIN
+[ ! -d /sys/class/net ] || /bin/busybox ls /sys/class/net
+[ ! -r /proc/net/dev ] || /bin/busybox cat /proc/net/dev
+for interface in wlan0 wlan1; do
+ [ ! -r "/sys/class/net/$interface/address" ] || { echo "$interface address:"; /bin/busybox cat "/sys/class/net/$interface/address"; }
+done
+[ ! -d /lib/firmware/brcm ] || /bin/busybox ls -l /lib/firmware/brcm
+echo XOOM_NET_END
 echo XOOM_ANDROID_DISPLAY_BEGIN
 if [ -x /system/bin/dumpsys ]; then
  {
