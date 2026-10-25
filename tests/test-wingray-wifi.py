@@ -13,6 +13,8 @@ for needle in (
     'sdhci@c8000200',
     'compatible = "brcm,bcm4329-fmac"',
     'wlan-power',
+    'wlan-vmmc',
+    'regulator-min-microvolt = <3300000>',
     'mmc-pwrseq-simple',
     'interrupts = <TEGRA_GPIO(U, 5) IRQ_TYPE_LEVEL_HIGH>',
 ):

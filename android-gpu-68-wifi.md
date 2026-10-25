@@ -1,3 +1,7 @@
+> **Superseded by Image 68b.** Image 68 reached the BCM4329 SDIO card but
+> failed enumeration with `no support for card's volts` because the 1.8V IO
+> rail was used as vmmc. Use `android-gpu-68b-wifi-vmmc.md`.
+
 # Image 68: BCM4329 Wi-Fi kernel foundation
 
 25 October 2026. The CPCAP power-key investigation is parked. All four CPCAP
