@@ -1,3 +1,7 @@
+> **Superseded by Image 70z.** 70y proved the late load is display-stable
+> but the missing platform device still prevented `wlan0`. Use
+> `android-gpu-70z-bcmdhd-tf101.md`.
+
 # Image 70y: wait for Android boot before probing TF101 bcmdhd
 
 25 October 2026. 70x proved the TF101 module was still being loaded at
