@@ -89,11 +89,7 @@ else
  [ ! -r /run/xoom-vendor-fw/fw_bcmdhd.bin ] || /bin/busybox cp /run/xoom-vendor-fw/fw_bcmdhd.bin /system/vendor/firmware/fw_bcmdhd.bin
  echo "sta_fw=system_fallback" >> "$LOG"
 fi
-if [ -r /bin/bcmdhd_apsta.bin ]; then
- /bin/busybox cp /bin/bcmdhd_apsta.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin
-else
- [ ! -r /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin
-fi
+[ ! -r /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin
 /bin/busybox ln -sf /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
 [ ! -r /system/vendor/firmware/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_apsta.bin
 /bin/busybox chmod 0644 /system/vendor/firmware/fw_bcmdhd.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_apsta.bin /system/etc/wifi/bcm4329.cal /system/etc/wifi/nvram_net.txt 2>/dev/null
@@ -182,11 +178,8 @@ def entries(runtime):
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
- aosp_ap=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329_apsta.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
- assert aosp_ap.is_file() and digest(aosp_ap.read_bytes())=='9c0b422e10dc25976352871b480605e232a64087d0b391540da615c17d23c288'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
- files['bin/bcmdhd_apsta.bin']=aosp_ap.read_bytes()
  nvram=ROOT/'artifacts/hardware-private/wifi/nvram_4329.txt'
  assert nvram.is_file() and digest(nvram.read_bytes())=='90852a9d824f2cf5463f24e27e6a6ce659cc89661814f4ec2163ca92d7969aa2'
  files['bin/nvram_4329.txt']=nvram.read_bytes()

@@ -40,6 +40,7 @@ assert 'ifconfig wlan0 up' in PREP
 assert 'WPA_LOG' in (ROOT / 'diagnostic/display-report.sh').read_text()
 assert 'ifconfig wlan0 up' in PREP
 assert 'aosp_246791' in PREP
+assert 'bin/bcmdhd_apsta.bin' not in PREP
 assert '90852a9d824f2cf5463f24e27e6a6ce659cc89661814f4ec2163ca92d7969aa2' in PREP
 assert 'postmarketos_4329' in PREP
 assert 'aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b' in PREP
@@ -56,6 +57,7 @@ assert 'gpio_request(162' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'aosp_246791' in PREP
+assert 'bin/bcmdhd_apsta.bin' not in PREP
 assert '90852a9d824f2cf5463f24e27e6a6ce659cc89661814f4ec2163ca92d7969aa2' in PREP
 assert 'postmarketos_4329' in PREP
 assert 'aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b' in PREP
