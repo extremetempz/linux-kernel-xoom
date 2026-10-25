@@ -3,9 +3,12 @@
 **Latest physical result, 25 October 2026:** Image 63 boots Android 4.4.4
 with the NVIDIA GPU composition path and a visible setup wizard on the
 internal LCD. The DC scans out a GPU-composed 1280x800 framebuffer and the
-LP8550 backlight is on. HWC overlay composition is not yet exercised
-(`numHwLayers=0`). See [Image 63 result](android-gpu-63-result.md);
-original boot/recovery restoration is pending after this test.
+LP8550 backlight is on. Image 64 confirms working touch: 25 presses, 22
+releases, 840 position events and three simultaneous contacts in one verified
+report. HWC overlay composition is not yet exercised (`numHwLayers=0`). See
+[Image 63 result](android-gpu-63-result.md) and
+[Image 64 touch result](android-gpu-64-touch-result.md); original
+boot/recovery restoration is pending after these tests.
 
 **Latest physical result, 24 October 2026:** Images 37/38 boot Android 4.4.4 on
 Linux 4.4.147 with both Tegra 2 CPUs online and PL310 enabled. Attempt 38
