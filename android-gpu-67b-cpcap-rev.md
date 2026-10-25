@@ -1,3 +1,7 @@
+> **Superseded by Image 67c.** Report 1 showed the input device exists but
+> neither CPCAP IRQ counts when the button is pressed. Use
+> `android-gpu-67c-cpcap-poll.md` for the polling fallback.
+
 # Image 67b: accept Wingray CPCAP 1.0 revision
 
 25 October 2026. Image 67's first hardware report identified the exact reason

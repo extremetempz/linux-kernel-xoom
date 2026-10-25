@@ -27,7 +27,9 @@ for needle in (
     "cpcap_register_pwrkey",
     "KEY_POWER",
     "CPCAP_BIT_ON_S",
-    "regmap_irq_get_virq(cpcap->irqdata[1], 7)",
+    "cpcap_pwrkey_work",
+    "schedule_delayed_work(&cpcap->pwrkey_work",
+    "CPCAP power key polling registered",
     'of_machine_is_compatible("motorola,wingray")',
     "rev != 0",
 ):

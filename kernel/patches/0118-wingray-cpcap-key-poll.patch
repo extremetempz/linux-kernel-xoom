@@ -1,0 +1,126 @@
+From 63dfb00b176f9b7e30dfa50db80494715e32f5ee Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:24:31 +1100
+Subject: [PATCH] mfd: cpcap: poll the Wingray ON sense bit for the power key
+
+Image 67b proved that CPCAP probes, the cpcap-pwrkey input device exists,
+and SPI reads work, but the CPCAP parent IRQ (and the nested pwrkey IRQ)
+never counted an interrupt when the physical button was pressed.  The ON
+sense register is still readable over SPI, so poll INTS2 bit 7 every 50 ms
+as a development fallback and report KEY_POWER on state changes.  Log the
+initial sense value and each transition for hardware diagnosis.
+
+The interrupt mapping can be revisited once the key path is proven.  This
+keeps the change limited to the Wingray power key; CPCAP IRQ core remains
+registered for other users.
+---
+ drivers/mfd/motorola-cpcap.c | 56 ++++++++++++++++++++++--------------
+ 1 file changed, 34 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+index 9dfd9748..c6640c3f 100644
+--- a/drivers/mfd/motorola-cpcap.c
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -19,6 +19,7 @@
+ #include <linux/of_device.h>
+ #include <linux/of_platform.h>
+ #include <linux/regmap.h>
++#include <linux/workqueue.h>
+ #include <linux/sysfs.h>
+ 
+ #include <linux/mfd/motorola-cpcap.h>
+@@ -36,6 +37,8 @@ struct cpcap_ddata {
+ 	const struct regmap_config *regmap_conf;
+ 	struct regmap *regmap;
+ 	struct input_dev *pwrkey;
++	struct delayed_work pwrkey_work;
++	bool pwrkey_state;
+ };
+ 
+ static int cpcap_sense_irq(struct regmap *regmap, int irq)
+@@ -227,18 +230,25 @@ static int cpcap_init_irq(struct cpcap_ddata *cpcap)
+ 	return 0;
+ }
+ 
+-static irqreturn_t cpcap_pwrkey_isr(int irq, void *data)
++static void cpcap_pwrkey_work(struct work_struct *work)
+ {
+-	struct cpcap_ddata *cpcap = data;
++	struct cpcap_ddata *cpcap =
++		container_of(work, struct cpcap_ddata, pwrkey_work.work);
+ 	unsigned int val;
++	bool pressed;
++
++	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val)) {
++		pressed = !!(val & CPCAP_BIT_ON_S);
++		if (pressed != cpcap->pwrkey_state) {
++			cpcap->pwrkey_state = pressed;
++			input_report_key(cpcap->pwrkey, KEY_POWER, pressed);
++			input_sync(cpcap->pwrkey);
++			dev_info(&cpcap->spi->dev, "CPCAP power key %s\n",
++				 pressed ? "pressed" : "released");
++		}
++	}
+ 
+-	if (regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val))
+-		return IRQ_HANDLED;
+-
+-	input_report_key(cpcap->pwrkey, KEY_POWER, !!(val & CPCAP_BIT_ON_S));
+-	input_sync(cpcap->pwrkey);
+-
+-	return IRQ_HANDLED;
++	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(50));
+ }
+ 
+ /*
+@@ -249,16 +259,12 @@ static irqreturn_t cpcap_pwrkey_isr(int irq, void *data)
+ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ {
+ 	struct input_dev *input;
+-	int virq, ret;
++	unsigned int val;
++	int ret;
+ 
+ 	if (!cpcap->irqdata[1])
+ 		return -ENODEV;
+ 
+-	/* CPCAP_IRQ_ON is bit 7 in the second 16-bit interrupt bank. */
+-	virq = regmap_irq_get_virq(cpcap->irqdata[1], 7);
+-	if (virq < 0)
+-		return virq;
+-
+ 	input = devm_input_allocate_device(&cpcap->spi->dev);
+ 	if (!input)
+ 		return -ENOMEM;
+@@ -276,15 +282,21 @@ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ 	cpcap->pwrkey = input;
+ 	device_init_wakeup(&cpcap->spi->dev, true);
+ 
+-	ret = devm_request_threaded_irq(&cpcap->spi->dev, virq, NULL,
+-					cpcap_pwrkey_isr, IRQF_ONESHOT,
+-					"cpcap-pwrkey", cpcap);
+-	if (ret) {
+-		cpcap->pwrkey = NULL;
+-		return ret;
++	/*
++	 * The CPCAP interrupt line is not reaching the GIC on this board even
++	 * though the SPI sense registers are readable.  Poll the ON sense bit
++	 * as a development fallback; the IRQ mapping can be revisited once the
++	 * key path is proven.
++	 */
++	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val)) {
++		cpcap->pwrkey_state = !!(val & CPCAP_BIT_ON_S);
++		dev_info(&cpcap->spi->dev, "CPCAP power key initial sense=%u\n",
++			 cpcap->pwrkey_state);
+ 	}
++	INIT_DELAYED_WORK(&cpcap->pwrkey_work, cpcap_pwrkey_work);
++	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(50));
+ 
+-	dev_info(&cpcap->spi->dev, "CPCAP power key registered (virq %d)\n", virq);
++	dev_info(&cpcap->spi->dev, "CPCAP power key polling registered\n");
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
+
