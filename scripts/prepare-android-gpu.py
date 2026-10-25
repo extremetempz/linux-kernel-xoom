@@ -41,9 +41,9 @@ exit 1
 AWAKE_RC=b'''# Development-only display wake workaround.  The kernel has no suspend or
 # power-key wake source, so keep the panel on after Android boots.
 on property:sys.boot_completed=1
-    start xoom_screen_awake
+    start xoomawake
 
-service xoom_screen_awake /bin/xoom-screen-awake
+service xoomawake /bin/xoom-screen-awake
     class late_start
     user root
     oneshot
@@ -73,8 +73,8 @@ def entries(runtime):
  result=ramdisk_entries(original,files)
  # BCM4329 fullmac firmware matching the in-kernel brcmfmac driver.
  # The Android bcmdhd image was downloaded but did not boot under brcmfmac.
- firmware=ROOT/'artifacts/hardware-private/wifi/brcmfmac4329-sdio.bin'
- assert firmware.is_file() and digest(firmware.read_bytes())=='d61983946b1e733e4c75dbe6841ac0f1250ebed2e3ee9058cdfdbbba3ba37c93'
+ firmware=ROOT/'artifacts/hardware-private/wifi/bcm4329-fullmac-4.bin'
+ assert firmware.is_file() and digest(firmware.read_bytes())=='ee87d73bc8b54aa29e343490297ca1294f71a1a4f66c845e6b301770c94082ee'
  for d in ('lib','lib/firmware','lib/firmware/brcm'):
   result[d]=Entry(d,stat.S_IFDIR|0o755)
  result['lib/firmware/brcm/brcmfmac4329-sdio.bin']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.bin',stat.S_IFREG|0o644,firmware.read_bytes())

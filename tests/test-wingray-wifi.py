@@ -32,6 +32,7 @@ for needle in (
 assert 'CONFIG_NETDEVICES is not set' not in CFG
 assert 'brcmfmac4329-sdio.bin' in PREP
 assert 'macaddr=02:00:00:00:00:01' in PREP
-assert 'd61983946b1e733e4c75dbe6841ac0f1250ebed2e3ee9058cdfdbbba3ba37c93' in PREP
+assert 'service xoomawake' in PREP
+assert 'ee87d73bc8b54aa29e343490297ca1294f71a1a4f66c845e6b301770c94082ee' in PREP
 assert '--enable NETDEVICES --enable WLAN --enable BRCMFMAC --enable BRCMFMAC_SDIO' in BUILD
 print('PASS BCM4329 Wi-Fi SDIO/config/firmware scope')

@@ -87,6 +87,22 @@ for interface in wlan0 wlan1; do
 done
 [ ! -d /lib/firmware/brcm ] || /bin/busybox ls -l /lib/firmware/brcm
 echo XOOM_NET_END
+echo XOOM_WIFI_FILES_BEGIN
+for directory in /system/etc/wifi /system/vendor/firmware /system/etc/firmware; do
+ if [ -d "$directory" ]; then
+  echo "DIR $directory"
+  /bin/busybox ls -l "$directory"
+ fi
+ for file in nvram_net.txt nvram.txt; do
+  path="$directory/$file"
+  if [ -r "$path" ]; then
+   echo "FILE $path"
+   /bin/busybox head -c 8192 "$path"
+   echo
+  fi
+ done
+done
+echo XOOM_WIFI_FILES_END
 echo XOOM_ANDROID_DISPLAY_BEGIN
 if [ -x /system/bin/dumpsys ]; then
  {

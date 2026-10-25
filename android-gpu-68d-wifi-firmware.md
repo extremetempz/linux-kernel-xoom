@@ -1,3 +1,9 @@
+> **Superseded by Image 68e.** Image 68d enumerated the card with matching
+> firmware but never created `wlan0`, and the init service name was still
+> invalid. Image 68e fixes the service name, tries the fullmac-4 firmware,
+> and reports the on-device Wi-Fi/NVRAM files. Use
+> `android-gpu-68e-wifi-nvram-files.md`.
+
 # Image 68d: matching brcmfmac BCM4329 firmware
 
 25 October 2026. Image 68c fixed the NVRAM parse; the SDIO card enumerated
