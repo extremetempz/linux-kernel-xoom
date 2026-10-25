@@ -1,3 +1,6 @@
+> **Superseded by Image 73g.** 73f still used the unsupported `join`
+> iovar. Use `android-gpu-73g-native.md`.
+
 # Image 73f: explicit 20 MHz join channel
 
 25 October 2026. 73e correctly reported the connect result on
