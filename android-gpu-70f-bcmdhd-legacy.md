@@ -1,3 +1,7 @@
+> **Superseded by Image 70g.** 70f fixed the OOB IRQ, but used the old
+> 4.218 firmware and left WL_REG_ON unpowered. Use
+> `android-gpu-70g-bcmdhd-legacy.md`.
+
 # Image 70f: restore the Xoom OOB host-wake interrupt
 
 25 October 2026. Image 70e fixed WifiHW's fwpath/config/regulatory issues and
