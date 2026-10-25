@@ -106,6 +106,7 @@ echo XOOM_WIFI_FILES_END
 echo XOOM_WIFI_STATE_BEGIN
 [ ! -r /run/xoom-wifi.log ] || /bin/busybox cat /run/xoom-wifi.log
 [ ! -r /run/wpa.log ] || { echo "WPA_LOG"; /bin/busybox tail -c 32768 /run/wpa.log; }
+[ ! -r /run/wpa-stderr.log ] || { echo "WPA_STDERR"; /bin/busybox tail -c 16384 /run/wpa-stderr.log; }
 if [ -d /sys/module/bcmdhd ]; then
  echo "DHD_MODULE present"
  for p in parameters/firmware_path parameters/nvram_path parameters/iface_name; do

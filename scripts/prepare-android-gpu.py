@@ -127,7 +127,7 @@ LOG=/run/wpa.log
 echo "wpa wrapper: bringing wlan0 up" >> "$LOG"
 /system/bin/ifconfig wlan0 up >> "$LOG" 2>&1 || /bin/busybox ifconfig wlan0 up >> "$LOG" 2>&1
 echo "ifconfig_rc=$?" >> "$LOG"
-exec /system/bin/wpa_supplicant -dd -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0 >> "$LOG" 2>&1
+exec /system/bin/wpa_supplicant -dd -f /run/wpa.log -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0 2>> /run/wpa-stderr.log
 '''
 
 WIFI_RC=b'''on post-fs-data

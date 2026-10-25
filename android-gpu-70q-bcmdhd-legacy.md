@@ -1,3 +1,6 @@
+> **Superseded by Image 70r.** 70q used the correct AOSP firmware but its
+> wpa debug was not written to a file. Use `android-gpu-70r-bcmdhd-legacy.md`.
+
 # Image 70q: use the AOSP BCM4329 firmware that postmarketOS uses
 
 25 October 2026. The postmarketOS TF101 work uses the AOSP Broadcom WLAN
