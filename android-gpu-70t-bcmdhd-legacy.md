@@ -1,3 +1,6 @@
+> **Superseded by Image 70v.** 70t still used the 2.6 5.90.195 host driver.
+> Use `android-gpu-70v-bcmdhd-tf101.md`.
+
 # Image 70t: same PMOS firmware+NVRAM, small enough for fastboot
 
 25 October 2026. The 70s boot image was 4,429,824 bytes and fastboot rejected
