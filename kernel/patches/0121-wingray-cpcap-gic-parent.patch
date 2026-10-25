@@ -1,0 +1,47 @@
+From de13f5bfb98764dfae6e5cf06a955ffb5cb645d8 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:40:33 +1100
+Subject: [PATCH] ARM: wingray: route CPCAP interrupt to the GIC
+
+The CPCAP node used the Tegra LIC as interrupt-parent with a GIC_SPI
+specifier.  That produced a LIC IRQ 86 (Linux IRQ 56) instead of the
+INT_EXTERNAL_PMU line (GIC SPI 86, Linux IRQ 118) used by the original
+board.  The parent IRQ never counted a CPCAP event.
+
+Point the CPCAP node's interrupt-parent at the GIC and keep the same
+GIC_SPI 86 level-high specifier.  The polling diagnostic remains in place
+for this test.
+---
+ arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts     | 2 +-
+ arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index 01a27b89..c9254b41 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -63,7 +63,7 @@
+ 			reg = <0>;
+ 			spi-max-frequency = <10000000>;
+ 			spi-cs-high;
+-			interrupt-parent = <&lic>;
++			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 		};
+ 	};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+index 3f5f5a56..c6a5d525 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+@@ -84,7 +84,7 @@
+ 			reg = <0>;
+ 			spi-max-frequency = <10000000>;
+ 			spi-cs-high;
+-			interrupt-parent = <&lic>;
++			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 			regulator-controller {
+ 				compatible = "motorola,wingray-cpcap-regulator";
+-- 
+2.43.0
+

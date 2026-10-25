@@ -1,3 +1,7 @@
+> **Superseded by Image 67e.** The DT routed `GIC_SPI 86` through the Tegra
+> LIC instead of the GIC. Image 67e fixes the parent and keeps the all-bank
+> diagnostic. Use `android-gpu-67e-cpcap-gic.md`.
+
 # Image 67d: unmask CPCAP ON and capture raw key registers
 
 25 October 2026. Image 67c report:

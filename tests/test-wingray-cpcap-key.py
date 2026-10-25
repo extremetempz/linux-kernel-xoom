@@ -14,7 +14,7 @@ for needle in (
     'status = "okay"',
     'pinctrl-0 = <&wingray_cpcap_spi>',
     'compatible = "motorola,cpcap"',
-    'interrupt-parent = <&lic>',
+    'interrupt-parent = <&intc>',
     'interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>',
 ):
     assert needle in DTS, needle
@@ -29,8 +29,8 @@ for needle in (
     "CPCAP_BIT_ON_S",
     "cpcap_pwrkey_work",
     "schedule_delayed_work(&cpcap->pwrkey_work",
-    "CPCAP INTS2=%04x",
-    "CPCAP INT2=%04x",
+    "CPCAP INTS%d=%04x",
+    "CPCAP INT%d=%04x",
     "CPCAP ON interrupt unmasked",
     "CPCAP power key polling registered",
     'of_machine_is_compatible("motorola,wingray")',
