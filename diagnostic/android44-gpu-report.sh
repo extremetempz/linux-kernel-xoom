@@ -148,6 +148,7 @@ if /bin/busybox awk '
  echo XOOM_ANDROID44_GPU_NODES_BEGIN
  /bin/busybox ls -l /dev/nvhost-ctrl /dev/nvhost-gr2d /dev/nvhost-gr3d /dev/nvmap /dev/graphics/fb0
  echo XOOM_ANDROID44_GPU_NODES_END
+ [ ! -x /bin/bluetooth-report ] || /bin/bluetooth-report
 else
  echo XOOM_ANDROID44_NATIVE_READS_DENIED_MOUNT
 fi
