@@ -45,7 +45,8 @@ assert 'gpio_request(162' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/
 assert '462e89e7bcf1f4fd701933d9cb80e795acca27a7c80300e42661d7e3bc6f5ea7' in PREP
 assert '/lib/firmware/bcmdhd_sta.bin' in PREP
 assert 'ln -sf /lib/firmware/bcmdhd_sta.bin' in PREP
-assert 'firmware_path=/lib/firmware/bcmdhd_sta.bin' in PREP
+assert '/xoom-firmware/bcmdhd_sta.bin' in PREP
+assert 'firmware_path=/xoom-firmware/bcmdhd_sta.bin' in PREP
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'bcmdhd_sta.bin' in PREP

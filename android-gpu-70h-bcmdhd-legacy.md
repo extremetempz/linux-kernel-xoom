@@ -1,3 +1,7 @@
+> **Superseded by Image 70i.** 70h still reported `sta_fw=system_fallback`;
+> the runtime `/lib/firmware` path was not visible. Use
+> `android-gpu-70i-bcmdhd-legacy.md`.
+
 # Image 70h: force the matching firmware into the driver
 
 25 October 2026. Image 70g was built with the private 5.90.100.410 firmware,
