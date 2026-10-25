@@ -1,3 +1,7 @@
+> **Superseded by Image 73a.** 72f froze on the Wi-Fi screen. The custom
+> WEXT path is abandoned; 73a uses the native 4.4 driver. Use
+> `android-gpu-73a-native.md`.
+
 # Image 72f: standard WEXT scan handlers
 
 25 October 2026. 72e made `SIOCSIWSCAN` succeed (`ret=0`), but result reads
