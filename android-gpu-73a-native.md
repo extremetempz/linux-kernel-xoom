@@ -1,3 +1,7 @@
+> **Superseded by Image 73b.** 73a was stable and scanned but returned
+> zero BSSes with the PMOS TF101 NVRAM. Use
+> `android-gpu-73b-native-oem-nvram.md`.
+
 # Image 73a: native 4.4 bcmdhd, loaded late
 
 25 October 2026. The custom 2.6 + WEXT route ended in a freeze on the Wi-Fi

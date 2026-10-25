@@ -187,9 +187,6 @@ def entries(runtime):
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
- nvram=ROOT/'artifacts/hardware-private/wifi/nvram_4329.txt'
- assert nvram.is_file() and digest(nvram.read_bytes())=='90852a9d824f2cf5463f24e27e6a6ce659cc89661814f4ec2163ca92d7969aa2'
- files['bin/nvram_4329.txt']=nvram.read_bytes()
  result=ramdisk_entries(original,files)
  module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0
