@@ -1,3 +1,6 @@
+> **Superseded by Image 73d.** 73c connects but handshake logs were
+> truncated. Use `android-gpu-73d-native.md`.
+
 # Image 73c: no explicit join chanspec
 
 25 October 2026. 73b scans correctly (7 BSSes) but association failed:
