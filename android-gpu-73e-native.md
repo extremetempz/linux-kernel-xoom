@@ -1,3 +1,7 @@
+> **Superseded by Image 73f.** 73e's connect result was correct but the
+> all-channel join exceeded the 10-second supplicant auth timeout. Use
+> `android-gpu-73f-native.md`.
+
 # Image 73e: report connect result on WLC_E_ASSOC
 
 25 October 2026. The full handshake log exposed the real blocker:
