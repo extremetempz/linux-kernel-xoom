@@ -39,6 +39,8 @@ assert 'kthread_create' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bc
 assert 'module_param_string(fwpath' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c').read_text()
 assert 'REGULATORY_CUSTOM_REG' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c').read_text()
 assert 'skb_mac_header(skb)' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c').read_text()
+assert 'OOB_INTR_ONLY' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
+assert 'gpio_request(165' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c').read_text()
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'bcmdhd_sta.bin' in PREP

@@ -1,3 +1,7 @@
+> **Superseded by Image 70f.** 70e fixed WifiHW integration but the driver
+> still timed out on the firmware control channel because the 2.6 OOB
+> host-wake IRQ was missing. Use `android-gpu-70f-bcmdhd-legacy.md`.
+
 # Image 70e: close the remaining 2.6 -> 4.4 Wi-Fi integration gaps
 
 25 October 2026. Image 70c loaded `dhd.ko`, created `wlan0`, and loaded the
