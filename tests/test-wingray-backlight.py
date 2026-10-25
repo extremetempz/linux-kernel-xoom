@@ -8,7 +8,10 @@ def extract(name):
  start=s.index('static int '+name+'(');op=s.index('{',start);end=op+1;depth=1
  while depth:depth+=(s[end]=='{')-(s[end]=='}');end+=1
  return s[start:end]+'\n'
-actual=''.join(extract(n) for n in ['lp855x_wingray_setup','lp855x_wingray_verify','lp855x_wingray_brightness'])
+def extract_array(name):
+ start=s.index('static const u8 '+name+'[]');end=s.index('};',start)+2
+ return s[start:end]+';\n'
+actual=extract_array('lp855x_wingray_production')+''.join(extract(n) for n in ['lp855x_wingray_setup','lp855x_wingray_verify','lp855x_wingray_program','lp855x_wingray_brightness'])
 fixture=r'''
 #include <assert.h>
 #include <stdbool.h>
@@ -27,15 +30,23 @@ struct device { struct device_node *of_node; };
 struct pdata { unsigned device_control,period_ns,size_program; };
 struct lp855x { struct device *dev;int chip_id;struct pdata *pdata;bool wingray_p3;void *client; };
 static bool wingray;
-static int regs[256],fail_read,fail_write,nreads,nwrites,wr_reg[4],wr_value[4];
+static int regs[256],fail_read,fail_write,ignore_reg,nreads,nwrites,wr_reg[16],wr_value[16];
 static bool of_device_is_compatible(struct device_node *n,const char *v) {assert(!strcmp(v,"motorola,wingray-p3-lp8550"));return n&&n->custom;}
 static bool of_machine_is_compatible(const char *v) {assert(!strcmp(v,"motorola,wingray"));return wingray;}
 static void *of_find_property(struct device_node *n,const char *v,void *unused) {(void)unused;assert(!strcmp(v,"power-supply"));return n&&n->supply?n:NULL;}
 static int i2c_smbus_read_byte_data(void *c,int reg) {(void)c;++nreads;return nreads==fail_read?-EIO:regs[reg];}
-static int lp855x_write_byte(struct lp855x *lp,u8 reg,u8 value) {(void)lp;wr_reg[nwrites]=reg;wr_value[nwrites++]=value;assert(nwrites<=2);return nwrites==fail_write?-EIO:0;}
+static int lp855x_write_byte(struct lp855x *lp,u8 reg,u8 value) {
+ (void)lp;assert(nwrites<16);wr_reg[nwrites]=reg;wr_value[nwrites++]=value;
+ if(nwrites==fail_write)return -EIO;
+ if(reg!=ignore_reg)regs[reg]=value;
+ return 0;
+}
 '''
 main=r'''
-static void reset(void) {nreads=nwrites=fail_read=fail_write=0;}
+static const int prod[]={0x67,0xbf,0x3f,0x08,0xea,0x64,0x2a};
+static void reset(void) {nreads=nwrites=fail_read=fail_write=ignore_reg=0;}
+static void set_prod(void) {regs[3]=0xfc;for(int i=0;i<7;++i)regs[0xa1+i]=prod[i];}
+static void no_eeprom_writes(void) {for(int i=0;i<nwrites;++i)assert(wr_reg[i]!=0x72);}
 int main(void) {
  struct device_node node={true,true};struct device dev={&node};struct pdata pd={3,0,0};struct lp855x lp={&dev,LP8550,&pd,false,NULL};wingray=true;
  assert(lp855x_wingray_setup(&lp)==0&&lp.wingray_p3);
@@ -45,9 +56,27 @@ int main(void) {
   int ret=lp855x_wingray_setup(&lp);assert(!lp.wingray_p3);assert(ret==(gate==0?0:-EINVAL));
  }
  node.custom=node.supply=wingray=true;pd.device_control=4;pd.period_ns=pd.size_program=0;lp.chip_id=LP8550;assert(lp855x_wingray_setup(&lp)==-EINVAL);
- static const int prod[]={0x67,0xbf,0x3f,0x08,0xea,0x64,0x2a};regs[3]=0xfc;for(int i=0;i<7;++i)regs[0xa1+i]=prod[i];reset();assert(lp855x_wingray_verify(&lp)==0&&nreads==8&&nwrites==0);
- for(int fail=1;fail<=8;++fail) {reset();fail_read=fail;assert(lp855x_wingray_verify(&lp)==-EIO&&nreads==fail&&nwrites==0);}
- for(int i=0;i<8;++i) {int reg=i?0xa0+i:3;int old=regs[reg];regs[reg]^=1;reset();assert(lp855x_wingray_verify(&lp)<0&&nwrites==0);regs[reg]=old;}
+
+ /* Read validation remains strict and write-free. */
+ set_prod();reset();assert(lp855x_wingray_verify(&lp)==0&&nreads==8&&nwrites==0);
+ for(int fail=1;fail<=8;++fail) {set_prod();reset();fail_read=fail;assert(lp855x_wingray_verify(&lp)==-EIO&&nreads==fail&&nwrites==0);}
+ for(int i=0;i<8;++i) {set_prod();int reg=i?0xa0+i:3;regs[reg]^=1;reset();assert(lp855x_wingray_verify(&lp)<0&&nwrites==0);}
+
+ /* Cold-boot defaults are replaced by the exact vendor sequence, then verified. */
+ set_prod();regs[0xa1]=0x60;regs[0xa2]=0x9f;reset();
+ assert(lp855x_wingray_program(&lp)==0);assert(nwrites==9);
+ assert(wr_reg[0]==0x01&&wr_value[0]==0x05);
+ for(int i=0;i<7;++i)assert(wr_reg[1+i]==0xa1+i&&wr_value[1+i]==prod[i]);
+ assert(wr_reg[8]==0x01&&wr_value[8]==0x03);
+ for(int i=0;i<7;++i)assert(regs[0xa1+i]==prod[i]);
+ no_eeprom_writes();
+
+ /* Every write and every post-write readback failure is reported. */
+ for(int fail=1;fail<=9;++fail) {set_prod();reset();fail_write=fail;assert(lp855x_wingray_program(&lp)==-EIO);assert(nwrites==fail);no_eeprom_writes();}
+ for(int fail=1;fail<=8;++fail) {set_prod();regs[0xa1]=0x60;regs[0xa2]=0x9f;reset();fail_read=fail;assert(lp855x_wingray_program(&lp)==-EIO);assert(nwrites==9);no_eeprom_writes();}
+ for(int stuck=0xa1;stuck<=0xa7;++stuck) {set_prod();regs[0xa1]=0x60;regs[0xa2]=0x9f;regs[stuck]=0;reset();ignore_reg=stuck;assert(lp855x_wingray_program(&lp)==-EINVAL);assert(nwrites==9);no_eeprom_writes();}
+
+ /* Brightness remains the existing A0 current/brightness policy. */
  for(unsigned br=0;br<=255;++br) {
   reset();assert(lp855x_wingray_brightness(&lp,br)==0);
   if(!br)assert(nwrites==1&&wr_reg[0]==1&&wr_value[0]==4);
@@ -55,7 +84,8 @@ int main(void) {
   for(int fail=1;fail<=(br?2:1);++fail) {reset();fail_write=fail;assert(lp855x_wingray_brightness(&lp,br)==-EIO&&nwrites==fail);}
  }
  reset();assert(!lp855x_wingray_brightness(&lp,~0U)&&wr_value[0]==185);
- puts("PASS actual backlight policy: strict scope/supply/config gates, production-read validation and failures, 256 brightness values, 19mA cap policy, write-failure stop and overflow clamp.");
+ puts("PASS actual backlight policy: strict gates, vendor A1-A7 programming and readback, per-write/read/stuck faults, no EEPROM control writes, 256 brightness values, 19mA cap policy and overflow clamp.");
+ return 0;
 }
 '''
 with tempfile.TemporaryDirectory(prefix='xoom-backlight-') as t:
