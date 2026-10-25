@@ -29,6 +29,7 @@ for needle in (
     "CPCAP_BIT_ON_S",
     "regmap_irq_get_virq(cpcap->irqdata[1], 7)",
     'of_machine_is_compatible("motorola,wingray")',
+    "rev != 0",
 ):
     assert needle in MFD, needle
 

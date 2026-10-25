@@ -1,0 +1,39 @@
+From bdf1c0f24858e992ec094fe2810a7b6cb3fd412a Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:16:23 +1100
+Subject: [PATCH] mfd: cpcap: accept Wingray's ST 1.0 revision
+
+The Xoom's CPCAP reports vendor ST and raw revision zero, i.e. 1.0.  The
+mainline core rejects every revision below 2.1, so CPCAP probe failed with
+-ENODEV before IRQ or input registration.
+
+Accept revision zero and the explicit 1.0 encoding while retaining the
+existing floor for other old revisions.  The SPI, interrupt and ON-key
+registers used by Image 67 are compatible; regulator/charger drivers remain
+disabled.  This is the fix for the power button producing no input device.
+---
+ drivers/mfd/motorola-cpcap.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+index 0af117a9..9dfd9748 100644
+--- a/drivers/mfd/motorola-cpcap.c
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -82,7 +82,13 @@ static int cpcap_check_revision(struct cpcap_ddata *cpcap)
+ 		 CPCAP_REVISION_MAJOR(rev), CPCAP_REVISION_MINOR(rev),
+ 		 rev);
+ 
+-	if (rev < CPCAP_REVISION_2_1) {
++	/*
++	 * Wingray's ST CPCAP 1.0 reports a raw revision of zero.  The
++	 * registers and ON interrupt used by this board are compatible with
++	 * the older part; only the regulator/charger features are omitted.
++	 */
++	if (rev != 0 && rev != CPCAP_REVISION_1_0 &&
++	    rev < CPCAP_REVISION_2_1) {
+ 		dev_info(&cpcap->spi->dev,
+ 			 "Please add old CPCAP revision support as needed\n");
+ 		return -ENODEV;
+-- 
+2.43.0
+

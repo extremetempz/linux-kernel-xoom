@@ -1,3 +1,7 @@
+> **Superseded by Image 67b.** Hardware report 1 showed that the Xoom's
+> CPCAP is ST revision 1.0 (raw zero), which the mainline core rejected with
+> `-ENODEV`. Use `android-gpu-67b-cpcap-rev.md` and the 67b image instead.
+
 # Image 67: CPCAP PMIC power-key foundation
 
 25 October 2026. Image 66 proved the volume-down interim wake key works, but
