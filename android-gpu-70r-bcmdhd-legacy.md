@@ -1,3 +1,7 @@
+> **Superseded by Image 70s.** 70r only captured wpa debug; 70s adds the
+> postmarketOS BCM4329 NVRAM required by the firmware. Use
+> `android-gpu-70s-bcmdhd-legacy.md`.
+
 # Image 70r: capture wpa_supplicant's file log
 
 25 October 2026. Image 70q finally used the postmarketOS/AOSP firmware path:

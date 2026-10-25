@@ -65,9 +65,14 @@ done
 [ ! -r /system/etc/wifi/bcm4329.cal ] || /bin/busybox cp /system/etc/wifi/bcm4329.cal /run/xoom-wifi-orig/
 [ ! -r /system/etc/wifi/wpa_supplicant.conf ] || /bin/busybox cp /system/etc/wifi/wpa_supplicant.conf /run/xoom-wifi-orig/
 /bin/busybox mount -t tmpfs -o mode=0755,size=4m tmpfs /system/etc/wifi >> "$LOG" 2>&1
-if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
+if [ -r /bin/nvram_4329.txt ]; then
+ /bin/busybox cp /bin/nvram_4329.txt /system/etc/wifi/nvram_net.txt
+ /bin/busybox cp /bin/nvram_4329.txt /system/etc/wifi/bcm4329.cal
+ echo "nvram=postmarketos_4329" >> "$LOG"
+elif [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/bcm4329.cal
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/nvram_net.txt
+ echo "nvram=system_cal" >> "$LOG"
 fi
 [ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
 # The ROM vendor firmware is the dual-band 264140 image.  The AOSP 2.4 GHz
@@ -182,6 +187,9 @@ def entries(runtime):
  assert aosp_ap.is_file() and digest(aosp_ap.read_bytes())=='9c0b422e10dc25976352871b480605e232a64087d0b391540da615c17d23c288'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
  files['bin/bcmdhd_apsta.bin']=aosp_ap.read_bytes()
+ nvram=ROOT/'artifacts/hardware-private/wifi/nvram_4329.txt'
+ assert nvram.is_file() and digest(nvram.read_bytes())=='90852a9d824f2cf5463f24e27e6a6ce659cc89661814f4ec2163ca92d7969aa2'
+ files['bin/nvram_4329.txt']=nvram.read_bytes()
  result=ramdisk_entries(original,files)
  module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0
