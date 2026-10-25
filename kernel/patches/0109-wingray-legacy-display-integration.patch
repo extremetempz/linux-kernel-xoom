@@ -1,0 +1,152 @@
+From adb51983ff24d6c657b6a08ce6c4c3341482f0fa Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 10:58:57 +1100
+Subject: [PATCH] tegra: connect fixed Wingray GPU clocks to Motorola legacy
+ display
+
+---
+ drivers/staging/tegra/clk.c         | 18 ++++++++++---
+ drivers/staging/tegra/video/Kconfig |  7 ++---
+ drivers/staging/tegra/video/dc/dc.c | 40 +++++++++++++++++++++++++----
+ 3 files changed, 54 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/staging/tegra/clk.c b/drivers/staging/tegra/clk.c
+index cf067097..a12de24e 100644
+--- a/drivers/staging/tegra/clk.c
++++ b/drivers/staging/tegra/clk.c
+@@ -239,9 +239,21 @@ static const struct clk_ops wingray_emc_ops = {
+ 
+ static int register_wingray_emc(void)
+ {
+-	static const int ids[] = {G3D, G2D};
+-	static const char * const names[] = {"wingray_gr3d_emc", "wingray_gr2d_emc"};
+-	static const char * const clients[] = {"gr3d", "gr2d"};
++	static const int ids[] = {G3D, G2D,
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++		DISP1,
++#endif
++	};
++	static const char * const names[] = {"wingray_gr3d_emc", "wingray_gr2d_emc",
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++		"wingray_disp1_emc",
++#endif
++	};
++	static const char * const clients[] = {"gr3d", "gr2d",
++#ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
++		"tegradc.0",
++#endif
++	};
+ 	int i, err;
+ 
+ 	if (!of_machine_is_compatible("motorola,wingray"))
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index 438ab76c..9e4b3216 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -9,9 +9,9 @@ config TEGRA_GRHOST
+ 	  Driver for the Tegra graphics host hardware.
+ 
+ config TEGRA_GRHOST_WINGRAY_GPU_TEST
+-	bool "Motorola Wingray fixed-clock offscreen GPU diagnostic"
++	bool "Motorola Wingray fixed-clock GPU experiment"
+ 	depends on MACH_MOTOROLA_WINGRAY && ARCH_TEGRA_2x_SOC && TEGRA_GRHOST=y && TEGRA_NVMAP=y
+-	depends on !TEGRA_HOST1X && !TEGRA_DC && !TEGRA_IOVMM && !IOMMU_API
++	depends on !TEGRA_HOST1X && (!TEGRA_DC || FB_TEGRA_WINGRAY_LEGACY) && !TEGRA_IOVMM && !IOMMU_API
+ 	depends on !CPU_FREQ && !SUSPEND && !TEGRA_RPC && !TEGRA_AVP && !TEGRA_MEDIASERVER
+ 	depends on !TEGRA_GRHOST_WINGRAY_HOST_TEST
+ 	select TEGRA_SEMA_STANDALONE
+@@ -22,7 +22,8 @@ config TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	  100 MHz, retain host rate, and use fixed software EMC votes which
+ 	  never change DRAM timing/rate. Reject a boot EMC rate below 400 MHz.
+ 	  Perform checked engine reset before channel publication. Use only
+-	  with the GPU-test DT, RAM NVIDIA runtime and offscreen readback test.
++	  with the GPU-test DT and RAM NVIDIA runtime. A display additionally
++	  requires the explicit Wingray legacy framebuffer compatibility path.
+ 
+ config TEGRA_GRHOST_WINGRAY_HOST_TEST
+ 	bool "Motorola Wingray host-only diagnostic"
+diff --git a/drivers/staging/tegra/video/dc/dc.c b/drivers/staging/tegra/video/dc/dc.c
+index 5609f17b..f1713e65 100644
+--- a/drivers/staging/tegra/video/dc/dc.c
++++ b/drivers/staging/tegra/video/dc/dc.c
+@@ -1416,7 +1416,14 @@ int tegra_dc_panel_enable_common(struct tegra_dc *dc)
+ 
+ 	switch (dc->out->type) {
+ 		case TEGRA_DC_OUT_RGB:
+-			if (!IS_ERR_OR_NULL(dc->out->pnl_vdd))
++			if (of_machine_is_compatible("motorola,wingray")) {
++				int err;
++				if (IS_ERR_OR_NULL(dc->out->pnl_vdd))
++					return -ENODEV;
++				err = regulator_enable(dc->out->pnl_vdd);
++				if (err)
++					return err;
++			} else if (!IS_ERR_OR_NULL(dc->out->pnl_vdd))
+ 				WARN_ON(regulator_enable(dc->out->pnl_vdd) != 0);
+ 			if (!IS_ERR_OR_NULL(dc->out->lvds_vdd))
+ 				WARN_ON(regulator_enable(dc->out->lvds_vdd) != 0);
+@@ -1483,11 +1490,15 @@ void tegra_dc_panel_disable_common(struct tegra_dc *dc)
+ static bool _tegra_dc_controller_enable(struct tegra_dc *dc, bool no_reset)
+ {
+ 	int failed_init = 0;
++	int panel_result;
+ 
+ 	if (dc->out->enable)
+ 		dc->out->enable();
+-	if (tegra_dc_panel_enable_common(dc))
+-			msleep(dc->out->lvds_to_bl_timeout);
++	panel_result = tegra_dc_panel_enable_common(dc);
++	if (panel_result < 0)
++		return false;
++	if (panel_result)
++		msleep(dc->out->lvds_to_bl_timeout);
+ 
+ 	tegra_dc_setup_clk(dc, dc->clk);
+ 	tegra_dc_clk_enable(dc);
+@@ -1974,6 +1985,12 @@ static struct tegra_dc_platform_data *tegra_dc_parse_dt(struct nvhost_device *nd
+ 	dc_out->bl_vdd = devm_regulator_get(&ndev->dev, "bl-vdd");
+ 	dc_out->hdmi_vdd = devm_regulator_get(&ndev->dev, "hdmi-vdd");
+ 	dc_out->hdmi_pll = devm_regulator_get(&ndev->dev, "hdmi-pll");
++	/* Wingray uses the existing shared panel rail, never a guessed dummy.
++	 * Preserve deferred probing until that provider is available. */
++	if (of_machine_is_compatible("motorola,wingray") &&
++	    IS_ERR(dc_out->pnl_vdd))
++		return ERR_CAST(dc_out->pnl_vdd);
++
+ 
+ 	if (dc_out->type == TEGRA_DC_OUT_HDMI) {
+ 		hdmi_np = of_get_child_by_name(of_get_parent(dc_np), "hdmi");
+@@ -2030,8 +2047,15 @@ static struct tegra_dc_platform_data *tegra_dc_parse_dt(struct nvhost_device *nd
+ 				mode->h_active      = vm.hactive,
+ 				mode->v_active      = vm.vactive,
+ 				mode->h_front_porch = vm.hfront_porch,
+-				mode->v_front_porch = vm.vfront_porch,
+-
++				mode->v_front_porch = vm.vfront_porch;
++
++				if (of_machine_is_compatible("motorola,wingray")) {
++					u32 ref;
++					if (!of_property_read_u32(np, "motorola,h-ref-to-sync", &ref))
++						mode->h_ref_to_sync = ref;
++					if (!of_property_read_u32(np, "motorola,v-ref-to-sync", &ref))
++						mode->v_ref_to_sync = ref;
++				}
+ 				dc_out->n_modes++;
+ 			}
+ 
+@@ -2093,6 +2117,12 @@ static int tegra_dc_probe(struct nvhost_device *ndev,
+ 	if (!ndev->dev.platform_data && ndev->dev.of_node)
+ 		ndev->dev.platform_data = tegra_dc_parse_dt(ndev);
+ 
++	if (IS_ERR(ndev->dev.platform_data)) {
++		ret = PTR_ERR(ndev->dev.platform_data);
++		ndev->dev.platform_data = NULL;
++		return ret;
++	}
++
+ 	if (!ndev->dev.platform_data) {
+ 		dev_err(&ndev->dev, "no platform data\n");
+ 		return -ENOENT;
+-- 
+2.43.0
+
