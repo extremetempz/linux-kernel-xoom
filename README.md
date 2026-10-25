@@ -1,6 +1,24 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
-**Latest physical result, 25 October 2026:** Image 63 boots Android 4.4.4
+**Latest physical result, 26 October 2026:** Image 73k has working Wi-Fi on
+Android 4.4.4 / Linux 4.4.147. The native 4.4 `bcmdhd` driver loads after
+`/system` is mounted, scans 2.4 GHz networks, completes WPA2 association and
+the four-way handshake, obtains a DHCP lease, survives disconnect/reconnect,
+and passes Internet traffic. The display, NVIDIA GPU composition, touch, SMP,
+PL310, eMMC/BigPart and USB path remain intact; screen-awake and volume-down
+wake are preserved.
+
+- **Confirmed image:** [Image 73k](artifacts/androidgpu73k-ready/wingray-android44-gpu.img)
+  — 4,122,624 bytes, SHA-256 `8152ad4b5fc7c9bf30760b354bf8f6973c6c82beaeac71874f52aeaf1073f94b`
+- **Recovery:** [70t](artifacts/androidgpu70t-ready/wingray-android44-gpu.img)
+  and [Image 66](artifacts/androidgpu66-ready/wingray-android44-gpu.img)
+- **Known limit:** station mode is deliberately limited to 2.4 GHz; 5 GHz,
+  SoftAP and long suspend/resume soak testing are not part of this result.
+
+See [the working Wi-Fi record](docs/wifi-working.md) and the updated
+[component status](STATUS.md).
+
+**Previous GPU/touch result, 25 October 2026:** Image 63 boots Android 4.4.4
 with the NVIDIA GPU composition path and a visible setup wizard on the
 internal LCD. The DC scans out a GPU-composed 1280x800 framebuffer and the
 LP8550 backlight is on. Image 64 confirms working touch: 25 presses, 22
@@ -10,7 +28,7 @@ report. HWC overlay composition is not yet exercised (`numHwLayers=0`). See
 [Image 64 touch result](android-gpu-64-touch-result.md); original
 boot/recovery restoration is pending after these tests.
 
-**Latest physical result, 24 October 2026:** Images 37/38 boot Android 4.4.4 on
+**Earlier SMP result, 24 October 2026:** Images 37/38 boot Android 4.4.4 on
 Linux 4.4.147 with both Tegra 2 CPUs online and PL310 enabled. Attempt 38
 uses the unchanged non-trace image from attempt 36. Two fresh reports,
 a bounded two-core memory/affinity check, advancing local timers/reschedule IPIs
@@ -34,7 +52,7 @@ Kernel bring-up workspace, prepared 18 October 2026.
 See the [early-boot review](docs/early-boot-review.md) for the failed physical
 boot analysis, verified image layout, unresolved hypotheses and staged plan.
 
-**Selected engineering target: Linux 4.4 + AOSP Android 8.1, ARMv7 without NEON, with Xoom BigPart.** The first experimental Linux 4.4.147 Wingray kernel and appended DTB compile. The first physical diagnostic boot stayed at the Motorola logo; later images reached Android 4.4.4 Welcome with working touch. This remains an experimental port, with software graphics and RAM-backed data, rather than a complete newer ROM.
+**Original engineering target: Linux 4.4 + AOSP Android 8.1, ARMv7 without NEON, with Xoom BigPart.** The delivered and hardware-tested build is the Android 4.4.4 Image 73k above. The first experimental Linux 4.4.147 Wingray kernel and appended DTB compile. The first physical diagnostic boot stayed at the Motorola logo; later images reached Android 4.4.4 Welcome with working touch. This remains an experimental port, with software graphics and RAM-backed data, rather than a complete newer ROM.
 
 Decatf's Galaxy Tab 10.1 Linux donor is genuinely 4.4.147. Its Oreo manifest selects the 4.4 kernel family. The original Wingray baseline is 2.6.39.4. Same SoC does not imply interchangeable boot images or peripheral drivers.
 
