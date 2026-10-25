@@ -1,0 +1,56 @@
+From 50e88814956ac8930d95a77966070308a2a7d759 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 17:03:42 +1100
+Subject: [PATCH] bcmdhd-legacy: control WL_REG_ON and expose fw_path
+
+70f firmware booted and the OOB IRQ worked, but chanspec enumeration
+failed with the old ROM firmware and the driver powered the chip down.
+Drive GPIO U2 (WL_REG_ON/reset) from wifi_set_power(), and expose the
+fw_path sysfs alias as well as fwpath/firmware_path.
+---
+ .../net/wireless/bcmdhd-legacy/dhd_custom_gpio.c | 16 +++++++++++++++-
+ drivers/net/wireless/bcmdhd-legacy/dhd_linux.c   |  1 +
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c b/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c
+index 8ecd1da0..c4663b68 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c
++++ b/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c
+@@ -49,7 +49,21 @@ int wifi_get_mac_addr(unsigned char *buf);
+ void *wifi_get_country_code(char *ccode);
+ #else
+ #include <linux/gpio.h>
+-int wifi_set_power(int on, unsigned long msec) { return -1; }
++int wifi_set_power(int on, unsigned long msec)
++{
++	static bool xoom_power_gpio;
++	if (!xoom_power_gpio) {
++		/* WL_REG_ON/reset: TEGRA_GPIO(U, 2), active low. */
++		gpio_request(162, "bcm4329_reg_on");
++		xoom_power_gpio = true;
++	}
++	gpio_set_value(162, on ? 1 : 0);
++	if (on)
++		msleep(200);
++	if (msec)
++		msleep(msec);
++	return 0;
++}
+ int wifi_get_mac_addr(unsigned char *buf) { return -1; }
+ void *wifi_get_country_code(char *ccode) { return NULL; }
+ /* The 4.4 DT declares the BCM4329 host-wake on GPIO U5 (165).  The 2.6
+diff --git a/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c b/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c
+index 8e341677..aa42095a 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c
++++ b/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c
+@@ -301,6 +301,7 @@ char nvram_path[MOD_PARAM_PATHLEN];
+ module_param_string(firmware_path, firmware_path, MOD_PARAM_PATHLEN, 0660);
+ /* Android WifiHW/SoftapController use the historical fwpath name. */
+ module_param_string(fwpath, firmware_path, MOD_PARAM_PATHLEN, 0660);
++module_param_string(fw_path, firmware_path, MOD_PARAM_PATHLEN, 0660);
+ module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0);
+ 
+ char info_string[MOD_PARAM_INFOLEN];
+-- 
+2.43.0
+

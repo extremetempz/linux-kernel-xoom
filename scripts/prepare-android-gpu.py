@@ -67,15 +67,11 @@ done
 [ ! -r /system/etc/wifi/bcm4329.cal ] || /bin/busybox cp /system/etc/wifi/bcm4329.cal /run/xoom-wifi-orig/
 [ ! -r /system/etc/wifi/wpa_supplicant.conf ] || /bin/busybox cp /system/etc/wifi/wpa_supplicant.conf /run/xoom-wifi-orig/
 /bin/busybox mount -t tmpfs -o mode=0755,size=4m tmpfs /system/etc/wifi >> "$LOG" 2>&1
-if [ -r /bin/nvram_4329.txt ]; then
- /bin/busybox cp /bin/nvram_4329.txt /system/etc/wifi/nvram_net.txt
- /bin/busybox cp /bin/nvram_4329.txt /system/etc/wifi/bcm4329.cal
- echo "nvram=postmarketos_4329" >> "$LOG"
-elif [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
+if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/bcm4329.cal
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/nvram_net.txt
- echo "nvram=system_cal" >> "$LOG"
 fi
+echo "nvram=system_cal" >> "$LOG"
 [ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
 # The ROM vendor firmware is the dual-band 264140 image.  The AOSP 2.4 GHz
 # bcm4329 image (246791) is the one postmarketOS uses with bcmdhd, renamed
@@ -181,9 +177,6 @@ def entries(runtime):
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
- wpa_wext=ROOT/'artifacts/hardware-private/system-bin/wpa_supplicant-wext'
- assert wpa_wext.is_file() and digest(wpa_wext.read_bytes())=='4ec6c543782afd630db40f19bf6510408d7c3f175269a49eba27641ce084a2f5'
- files['bin/wpa_supplicant-wext']=wpa_wext.read_bytes()
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()

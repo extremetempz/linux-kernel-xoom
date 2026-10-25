@@ -1,0 +1,61 @@
+From 023272e650dd4567ed6a8cd9dbd8971b20a04edd Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 16:56:50 +1100
+Subject: [PATCH] bcmdhd-legacy: use the Xoom OOB host-wake GPIO
+
+The original Xoom driver expects an out-of-band interrupt from GPIO U5.
+Without it, dhd_open downloaded NVRAM but timed out waiting for the
+firmware control response, then could not re-enumerate the chip.  Map the
+DT-declared GPIO 165 to an IRQ and restore the OOB build flags.
+---
+ drivers/net/wireless/bcmdhd-legacy/Makefile     |  2 +-
+ .../wireless/bcmdhd-legacy/dhd_custom_gpio.c    | 17 ++++++++++++++++-
+ 2 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/bcmdhd-legacy/Makefile b/drivers/net/wireless/bcmdhd-legacy/Makefile
+index 35fefc6e..bf53c9b6 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/Makefile
++++ b/drivers/net/wireless/bcmdhd-legacy/Makefile
+@@ -3,7 +3,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-error=date-time -Dlinux -DBCMDRIVER
+ 	-DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DWLBTAMP -DBCMFILEIMAGE  \
+ 	-DDHDTHREAD -DDHD_GPL -DDHD_SCHED -DDHD_DEBUG -DSDTEST -DBDC -DTOE    \
+ 	-DDHD_BCMEVENTS -DSHOW_EVENTS -DDONGLEOVERLAYS -DBCMDBG               \
+-	-DCUSTOMER_HW2       \
++	-DCUSTOMER_HW2 -DCUSTOM_OOB_GPIO_NUM=2 -DOOB_INTR_ONLY -DHW_OOB \
+ 	-DMMC_SDIO_ABORT -DBCMSDIO -DBCMLXSDMMC -DBCMPLATFORM_BUS -DWLP2P     \
+ 	-DNEW_COMPAT_WIRELESS -DWIFI_ACT_FRAME -DARP_OFFLOAD_SUPPORT          \
+ 	-DKEEP_ALIVE -DCSCAN -DGET_CUSTOM_MAC_ENABLE -DPKT_FILTER_SUPPORT     \
+diff --git a/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c b/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c
+index de519a57..8ecd1da0 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c
++++ b/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c
+@@ -48,10 +48,25 @@ int wifi_get_irq_number(unsigned long *irq_flags_ptr);
+ int wifi_get_mac_addr(unsigned char *buf);
+ void *wifi_get_country_code(char *ccode);
+ #else
++#include <linux/gpio.h>
+ int wifi_set_power(int on, unsigned long msec) { return -1; }
+-int wifi_get_irq_number(unsigned long *irq_flags_ptr) { return -1; }
+ int wifi_get_mac_addr(unsigned char *buf) { return -1; }
+ void *wifi_get_country_code(char *ccode) { return NULL; }
++/* The 4.4 DT declares the BCM4329 host-wake on GPIO U5 (165).  The 2.6
++ * driver expects the board file to provide this through board data.
++ */
++int wifi_get_irq_number(unsigned long *irq_flags_ptr)
++{
++	static int oob_irq = -1;
++	if (oob_irq < 0) {
++		if (gpio_request(165, "bcm4329_oob") == 0)
++			gpio_direction_input(165);
++		oob_irq = gpio_to_irq(165);
++	}
++	if (irq_flags_ptr)
++		*irq_flags_ptr = IRQF_TRIGGER_HIGH;
++	return oob_irq;
++}
+ #endif /* CONFIG_WIFI_CONTROL_FUNC */
+ #endif /* CUSTOMER_HW2 */
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,55 @@
+From 790fa6fa6d64ac7e137342c437499d4d8812d0c3 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 16:46:24 +1100
+Subject: [PATCH] bcmdhd-legacy: fix Android fwpath and 4.4 regulatory setup
+
+The 70c report showed dhd loaded and created wlan0, but Android WifiHW
+could not open the firmware-path sysfs parameter and the 4.4 regulatory
+core warned that the custom domain was applied without
+REGULATORY_CUSTOM_REG.  Expose the historical fwpath module parameter
+alongside firmware_path and set the 4.4 regulatory flag before applying
+the Broadcom domain.
+---
+ drivers/net/wireless/bcmdhd-legacy/dhd_linux.c   | 2 ++
+ drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c | 5 ++++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c b/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c
+index bb72deea..44b1066a 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c
++++ b/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c
+@@ -299,6 +299,8 @@ char nvram_path[MOD_PARAM_PATHLEN];
+ 
+ /* load firmware and/or nvram values from the filesystem */
+ module_param_string(firmware_path, firmware_path, MOD_PARAM_PATHLEN, 0660);
++/* Android WifiHW/SoftapController use the historical fwpath name. */
++module_param_string(fwpath, firmware_path, MOD_PARAM_PATHLEN, 0660);
+ module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0);
+ 
+ char info_string[MOD_PARAM_INFOLEN];
+diff --git a/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c b/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c
+index 16bec1a7..55e2ed8a 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c
++++ b/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c
+@@ -4679,7 +4679,9 @@ static s32 wl_setup_wiphy(struct wireless_dev *wdev, struct device *sdiofunc_dev
+ 	/* AP_SME flag can be advertised to remove patch from wpa_supplicant */
+ 	wdev->wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
+ 	WL_DBG(("Registering custom regulatory)\n"));
+-		wiphy_apply_custom_regulatory(wdev->wiphy, &brcm_regdom);
++	/* 4.4 replaced the old custom-regulatory wiphy flag with this one. */
++	wdev->wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
++	wiphy_apply_custom_regulatory(wdev->wiphy, &brcm_regdom);
+ 	/* Now we can register wiphy with cfg80211 module */
+ 	err = wiphy_register(wdev->wiphy);
+ 	if (unlikely(err < 0)) {
+@@ -7328,6 +7330,7 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
+ 		}
+ 	}
+ 
++	wiphy->regulatory_flags |= REGULATORY_CUSTOM_REG;
+ 	wiphy_apply_custom_regulatory(wiphy, &brcm_regdom);
+ 
+ end_bands:
+-- 
+2.43.0
+
