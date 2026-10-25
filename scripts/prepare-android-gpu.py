@@ -153,6 +153,13 @@ service dhcpcd /system/bin/dhcpcd -aABKL
     class main
     disabled
     oneshot
+
+# Android's DhcpStateMachine starts this exact service name and appends
+# its own -f/-h/wlan0 arguments.
+service dhcpcd_wlan0 /system/bin/dhcpcd -aABKL
+    class main
+    disabled
+    oneshot
 '''
 
 def entries(runtime):

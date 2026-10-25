@@ -68,6 +68,7 @@ assert 'xoom-wifi-load' in PREP
 assert 'xoomwifi' in PREP
 assert 'service wpa_supplicant' in PREP
 assert 'service dhcpcd' in PREP
+assert 'service dhcpcd_wlan0' in PREP
 assert 'WPA_LOG' in (ROOT / 'diagnostic/display-report.sh').read_text()
 
 assert 'bcmdhd.ko' in BUILD
