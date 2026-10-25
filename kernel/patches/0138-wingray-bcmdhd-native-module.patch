@@ -1,0 +1,27 @@
+From 9bce554b1ad2b616dc86446fd6c3d47b49cb7291 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 20:34:10 +1100
+Subject: [PATCH] bcmdhd: emit bcmdhd.ko for the 4.4 native driver
+
+---
+ drivers/net/wireless/bcmdhd/Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/bcmdhd/Makefile b/drivers/net/wireless/bcmdhd/Makefile
+index 356a0e5b..85276804 100755
+--- a/drivers/net/wireless/bcmdhd/Makefile
++++ b/drivers/net/wireless/bcmdhd/Makefile
+@@ -1280,8 +1280,8 @@ ifneq ($(filter -DSTAT_REPORT,$(DHDCFLAGS)),)
+ DHDOFILES += wl_statreport.o
+ endif
+ 
+-dhd-y := $(DHDOFILES)
+-obj-$(DRIVER_TYPE)   += dhd.o
++bcmdhd-y := $(DHDOFILES)
++obj-$(DRIVER_TYPE)   += bcmdhd.o
+ 
+ all:
+ 	@echo "$(MAKE) --no-print-directory -C $(KDIR) SUBDIRS=$(CURDIR) modules"
+-- 
+2.43.0
+

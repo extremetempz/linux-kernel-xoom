@@ -1,0 +1,157 @@
+From 74275dc25334a93150b659d67205b87f083c3a67 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:51:20 +1100
+Subject: [PATCH] ARM: wingray: add BCM4329 SDIO Wi-Fi bring-up
+
+Enable cfg80211/brcmfmac SDIO and add the minimal Wi-Fi power, reset,
+SDIO2 controller and pinmux nodes to the GPU base DT.  The SDIO host uses
+the fixed 1.8V WLAN rail and mmc-pwrseq reset GPIO from the original board
+description; the BCM4329 host-wake IRQ is GPIO U5.
+
+This is the Wi-Fi kernel/SDIO foundation, not Android supplicant or DHCP
+integration.  Firmware is staged by the runtime image.
+---
+ .../dts/tegra20-motorola-wingray-gpu-test.dts | 69 +++++++++++++++++++
+ .../configs/wingray_android44_gpu_defconfig   | 13 +++-
+ .../wingray_android44_gpu_fbmap_defconfig     | 13 +++-
+ 3 files changed, 89 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index c9254b41..3e2a8247 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -67,6 +67,75 @@
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 		};
+ 	};
++	wlan_power: wlan-power {
++		compatible = "regulator-fixed";
++		regulator-name = "wingray-wlan-io";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpio = <&gpio TEGRA_GPIO(U, 4) GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		startup-delay-us = <300000>;
++	};
++	wlan_pwrseq: wlan-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		reset-gpios = <&gpio TEGRA_GPIO(U, 2) GPIO_ACTIVE_LOW>;
++		post-power-on-delay-ms = <200>;
++	};
++	pinmux@70000014 {
++		wingray_wifi_pins: wifi-pins {
++			kbcb {
++				nvidia,pins = "kbcb";
++				nvidia,function = "sdio2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			kbcd {
++				nvidia,pins = "kbcd";
++				nvidia,function = "sdio2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			pu2 {
++				nvidia,pins = "pu2";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++			pu4 {
++				nvidia,pins = "pu4";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			pu5 {
++				nvidia,pins = "pu5";
++				nvidia,function = "rsvd4";
++				nvidia,tristate = <0>;
++				nvidia,pull = <2>;
++			};
++		};
++	};
++	sdhci@c8000200 {
++		status = "okay";
++		bus-width = <4>;
++		non-removable;
++		cap-sdio-irq;
++		max-frequency = <25000000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&wingray_wifi_pins>;
++		mmc-pwrseq = <&wlan_pwrseq>;
++		vmmc-supply = <&wlan_power>;
++		vqmmc-supply = <&wlan_power>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		wifi@1 {
++			compatible = "brcm,bcm4329-fmac";
++			reg = <1>;
++			interrupt-parent = <&gpio>;
++			interrupts = <TEGRA_GPIO(U, 5) IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "host-wake";
++		};
++	};
+ 	host1x@50000000 {
+ 		gr2d@54140000 {
+ 			clocks = <&tegra_car TEGRA20_CLK_GR2D>, <&tegra_car TEGRA20_CLK_EPP>;
+diff --git a/arch/arm/configs/wingray_android44_gpu_defconfig b/arch/arm/configs/wingray_android44_gpu_defconfig
+index 48254a24..26605261 100644
+--- a/arch/arm/configs/wingray_android44_gpu_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_defconfig
+@@ -62,9 +62,7 @@ CONFIG_NET=y
+ CONFIG_UNIX=y
+ CONFIG_INET=y
+ CONFIG_IPV6=y
+-# CONFIG_NETDEVICES is not set
+-# CONFIG_WIRELESS is not set
+-# CONFIG_CFG80211 is not set
++CONFIG_WIRELESS=y
+ # Only the factory-preserving P3 maXTouch input path is added.
+ CONFIG_INPUT=y
+ CONFIG_INPUT_EVDEV=y
+@@ -187,3 +185,12 @@ CONFIG_SPI_TEGRA20_SLINK=y
+ CONFIG_DMADEVICES=y
+ CONFIG_TEGRA20_APB_DMA=y
+ CONFIG_MFD_CPCAP=y
++
++# BCM4329 Wi-Fi bring-up: SDIO fullmac plus legacy WEXT for Android.
++CONFIG_NETDEVICES=y
++CONFIG_WLAN=y
++CONFIG_CFG80211=y
++CONFIG_CFG80211_WEXT=y
++CONFIG_RFKILL=y
++CONFIG_BRCMFMAC=y
++CONFIG_BRCMFMAC_SDIO=y
+diff --git a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+index 6eff6955..dcd3dd3b 100644
+--- a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+@@ -62,9 +62,7 @@ CONFIG_NET=y
+ CONFIG_UNIX=y
+ CONFIG_INET=y
+ CONFIG_IPV6=y
+-# CONFIG_NETDEVICES is not set
+-# CONFIG_WIRELESS is not set
+-# CONFIG_CFG80211 is not set
++CONFIG_WIRELESS=y
+ # Only the factory-preserving P3 maXTouch input path is added.
+ CONFIG_INPUT=y
+ CONFIG_INPUT_EVDEV=y
+@@ -187,3 +185,12 @@ CONFIG_SPI_TEGRA20_SLINK=y
+ CONFIG_DMADEVICES=y
+ CONFIG_TEGRA20_APB_DMA=y
+ CONFIG_MFD_CPCAP=y
++
++# BCM4329 Wi-Fi bring-up: SDIO fullmac plus legacy WEXT for Android.
++CONFIG_NETDEVICES=y
++CONFIG_WLAN=y
++CONFIG_CFG80211=y
++CONFIG_CFG80211_WEXT=y
++CONFIG_RFKILL=y
++CONFIG_BRCMFMAC=y
++CONFIG_BRCMFMAC_SDIO=y
+-- 
+2.43.0
+

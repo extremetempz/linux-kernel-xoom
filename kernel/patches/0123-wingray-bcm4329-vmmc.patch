@@ -1,0 +1,45 @@
+From d3c3edcfc639487eaa2ebbc274e73c55b6517434 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 15:00:45 +1100
+Subject: [PATCH] ARM: wingray: use a 3.3V SDIO card rail for BCM4329
+
+Image 68 reached the BCM4329 SDIO card but failed enumeration with
+'sdhci-tegra c8000200.sdhci: no support for card volts' and -EINVAL.
+The fixed 1.8V regulator was being used as vmmc (card power), while
+1.8V is the IO rail.  Keep wlan_power as vqmmc and add an always-on
+3.3V fixed vmmc rail; the card already responds and the 3.3V WLAN rail
+is present from the board power sequence.
+---
+ arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index 3e2a8247..ce286849 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -76,6 +76,13 @@
+ 		enable-active-high;
+ 		startup-delay-us = <300000>;
+ 	};
++	wlan_vmmc: wlan-vmmc {
++		compatible = "regulator-fixed";
++		regulator-name = "wingray-wlan-vmmc";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		regulator-always-on;
++	};
+ 	wlan_pwrseq: wlan-pwrseq {
+ 		compatible = "mmc-pwrseq-simple";
+ 		reset-gpios = <&gpio TEGRA_GPIO(U, 2) GPIO_ACTIVE_LOW>;
+@@ -124,7 +131,7 @@
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&wingray_wifi_pins>;
+ 		mmc-pwrseq = <&wlan_pwrseq>;
+-		vmmc-supply = <&wlan_power>;
++		vmmc-supply = <&wlan_vmmc>;
+ 		vqmmc-supply = <&wlan_power>;
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+-- 
+2.43.0
+

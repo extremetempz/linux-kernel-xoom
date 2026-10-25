@@ -1,0 +1,223 @@
+From 8756b9563681007c320b1a82c686da46f6f08adf Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:05:37 +1100
+Subject: [PATCH] mfd: cpcap: add Wingray power-key input and transport config
+
+The Xoom power button is wired to the CPCAP PMIC ON interrupt, not a
+GPIO.  Enable the Tegra20 SLINK SPI controller, APB DMA and the CPCAP MFD
+core in the GPU profiles, leaving the regulator/charger drivers disabled.
+
+Register CPCAP's ON interrupt as a KEY_POWER input device on Wingray only.
+The second 16-bit CPCAP interrupt bank's bit 7 is the ON sense bit; report
+the raw sense state and mark the input device wakeup-capable.  If CPCAP or
+the IRQ is unavailable, log a warning and leave the Image 66 volume-key and
+screen-awake fallbacks in place.
+
+This is not a battery or charger driver.
+---
+ .../dts/tegra20-motorola-wingray-gpu-test.dts | 37 ++++++++++
+ .../configs/wingray_android44_gpu_defconfig   |  7 ++
+ .../wingray_android44_gpu_fbmap_defconfig     |  7 ++
+ drivers/mfd/motorola-cpcap.c                  | 70 +++++++++++++++++++
+ include/linux/mfd/motorola-cpcap.h            |  1 +
+ 5 files changed, 122 insertions(+)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index 3060ef24..01a27b89 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -30,6 +30,43 @@
+ 			line-name = "wingray-keypad-column";
+ 		};
+ 	};
++	/* The early-boot base omits the full peripherals include.  Add only the
++	 * SPI1/CPCAP path needed for the PMIC power-key interrupt. */
++	pinmux@70000014 {
++		wingray_cpcap_spi: cpcap-spi {
++			spid {
++				nvidia,pins = "spid";
++				nvidia,function = "spi1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spie {
++				nvidia,pins = "spie";
++				nvidia,function = "spi1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++			spif {
++				nvidia,pins = "spif";
++				nvidia,function = "spi1";
++				nvidia,tristate = <0>;
++				nvidia,pull = <0>;
++			};
++		};
++	};
++	spi@7000d400 {
++		status = "okay";
++		pinctrl-names = "default";
++		pinctrl-0 = <&wingray_cpcap_spi>;
++		cpcap: pmic@0 {
++			compatible = "motorola,cpcap";
++			reg = <0>;
++			spi-max-frequency = <10000000>;
++			spi-cs-high;
++			interrupt-parent = <&lic>;
++			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
++		};
++	};
+ 	host1x@50000000 {
+ 		gr2d@54140000 {
+ 			clocks = <&tegra_car TEGRA20_CLK_GR2D>, <&tegra_car TEGRA20_CLK_EPP>;
+diff --git a/arch/arm/configs/wingray_android44_gpu_defconfig b/arch/arm/configs/wingray_android44_gpu_defconfig
+index 4520b839..48254a24 100644
+--- a/arch/arm/configs/wingray_android44_gpu_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_defconfig
+@@ -180,3 +180,10 @@ CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0059
+ 
+ # Bypass the externally loaded large initrd; RAM runtime stays private.
+ CONFIG_INITRAMFS_SOURCE="usr/wingray-android-runtime.cpio"
++
++# Motorola CPCAP PMIC transport and IRQ core; power key only.
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_MFD_CPCAP=y
+diff --git a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+index c67e4619..6eff6955 100644
+--- a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+@@ -180,3 +180,10 @@ CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0060
+ 
+ # Bypass the externally loaded large initrd; RAM runtime stays private.
+ CONFIG_INITRAMFS_SOURCE="usr/wingray-android-runtime.cpio"
++
++# Motorola CPCAP PMIC transport and IRQ core; power key only.
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_MFD_CPCAP=y
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+index a7d498db..0af117a9 100644
+--- a/drivers/mfd/motorola-cpcap.c
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -10,10 +10,12 @@
+ 
+ #include <linux/device.h>
+ #include <linux/err.h>
++#include <linux/input.h>
+ #include <linux/interrupt.h>
+ #include <linux/irq.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/of_platform.h>
+ #include <linux/regmap.h>
+@@ -33,6 +35,7 @@ struct cpcap_ddata {
+ 	struct regmap_irq_chip_data *irqdata[CPCAP_NR_IRQ_CHIPS];
+ 	const struct regmap_config *regmap_conf;
+ 	struct regmap *regmap;
++	struct input_dev *pwrkey;
+ };
+ 
+ static int cpcap_sense_irq(struct regmap *regmap, int irq)
+@@ -218,6 +221,67 @@ static int cpcap_init_irq(struct cpcap_ddata *cpcap)
+ 	return 0;
+ }
+ 
++static irqreturn_t cpcap_pwrkey_isr(int irq, void *data)
++{
++	struct cpcap_ddata *cpcap = data;
++	unsigned int val;
++
++	if (regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val))
++		return IRQ_HANDLED;
++
++	input_report_key(cpcap->pwrkey, KEY_POWER, !!(val & CPCAP_BIT_ON_S));
++	input_sync(cpcap->pwrkey);
++
++	return IRQ_HANDLED;
++}
++
++/*
++ * Wingray's power button is wired to CPCAP's ON interrupt, not a GPIO.
++ * Register it as a normal power-key input device; this is deliberately
++ * limited to the Wingray board while the rest of CPCAP stays untouched.
++ */
++static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
++{
++	struct input_dev *input;
++	int virq, ret;
++
++	if (!cpcap->irqdata[1])
++		return -ENODEV;
++
++	/* CPCAP_IRQ_ON is bit 7 in the second 16-bit interrupt bank. */
++	virq = regmap_irq_get_virq(cpcap->irqdata[1], 7);
++	if (virq < 0)
++		return virq;
++
++	input = devm_input_allocate_device(&cpcap->spi->dev);
++	if (!input)
++		return -ENOMEM;
++
++	input->name = "cpcap-pwrkey";
++	input->phys = "cpcap-pwrkey/input0";
++	input->dev.parent = &cpcap->spi->dev;
++	__set_bit(EV_KEY, input->evbit);
++	__set_bit(KEY_POWER, input->keybit);
++
++	ret = input_register_device(input);
++	if (ret)
++		return ret;
++
++	cpcap->pwrkey = input;
++	device_init_wakeup(&cpcap->spi->dev, true);
++
++	ret = devm_request_threaded_irq(&cpcap->spi->dev, virq, NULL,
++					cpcap_pwrkey_isr, IRQF_ONESHOT,
++					"cpcap-pwrkey", cpcap);
++	if (ret) {
++		cpcap->pwrkey = NULL;
++		return ret;
++	}
++
++	dev_info(&cpcap->spi->dev, "CPCAP power key registered (virq %d)\n", virq);
++	return 0;
++}
++
+ static const struct of_device_id cpcap_of_match[] = {
+ 	{ .compatible = "motorola,cpcap", },
+ 	{ .compatible = "st,6556002", },
+@@ -317,6 +381,12 @@ static int cpcap_probe(struct spi_device *spi)
+ 	if (ret)
+ 		return ret;
+ 
++	if (of_machine_is_compatible("motorola,wingray")) {
++		ret = cpcap_register_pwrkey(cpcap);
++		if (ret)
++			dev_warn(&spi->dev, "CPCAP power key unavailable: %d\n", ret);
++	}
++
+ 	ret = of_platform_populate(spi->dev.of_node, NULL, NULL, &spi->dev);
+ 	if (ret) {
+ 		of_platform_depopulate(&spi->dev);
+diff --git a/include/linux/mfd/motorola-cpcap.h b/include/linux/mfd/motorola-cpcap.h
+index aefc49cb..aa9722d2 100644
+--- a/include/linux/mfd/motorola-cpcap.h
++++ b/include/linux/mfd/motorola-cpcap.h
+@@ -39,6 +39,7 @@
+ #define CPCAP_REG_INTM4		0x001c	/* Interrupt Mask 4 */
+ #define CPCAP_REG_INTS1		0x0020	/* Interrupt Sense 1 */
+ #define CPCAP_REG_INTS2		0x0024	/* Interrupt Sense 2 */
++#define CPCAP_BIT_ON_S		0x0080	/* ON/ power-key sense, INTS2 bit 7 */
+ #define CPCAP_REG_INTS3		0x0028	/* Interrupt Sense 3 */
+ #define CPCAP_REG_INTS4		0x002c	/* Interrupt Sense 4 */
+ #define CPCAP_REG_ASSIGN1	0x0030	/* Resource Assignment 1 */
+-- 
+2.43.0
+

@@ -233,7 +233,8 @@ int main(void){
  a=request(1);a.win[0].offset_u=4;assert(flip(&a)==-EINVAL&&!updates);
  a=request(1);a.win[0].stride_uv=4;assert(flip(&a)==-EINVAL&&!updates);
  a=request(1);a.win[0].blend=3;assert(flip(&a)==-EINVAL&&!updates);
- a=request(1);a.win[0].z=3;assert(flip(&a)==-EINVAL&&!updates);
+ a=request(1);a.win[0].z=3;
+ assert(!tegra_fb_legacy_validate(&a.win[0],4096000,0x30000000,1280,800));
  a=request(1);a.win[0].offset=1;assert(flip(&a)==-EINVAL&&!updates);
  a=request(1);a.win[0].w=a.win[0].out_w=0;assert(flip(&a)==-EINVAL&&!updates);
  a=request(1);a.win[0].h=a.win[0].out_h=0;assert(flip(&a)==-EINVAL&&!updates);

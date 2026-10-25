@@ -1,0 +1,31 @@
+From bcd0e5b3dd6f7da9119355238c796af5b2dc0fa3 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 15:58:49 +1100
+Subject: [PATCH] bcmdhd: accept the BCM4329 chip ID
+
+The 69e report reached the SDIO probe but stopped at:
+  dhdsdio_probe_attach: unsupported chip: 0x4329
+
+The donor driver advertised the 4329 SDIO device ID but omitted the chip
+from dhdsdio_chipmatch().  Accept BCM4329_CHIP_ID so the existing generic
+SDIO/ARM/SOCRAM firmware path can run against the Xoom chip.
+---
+ drivers/net/wireless/bcmdhd/dhd_sdio.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/wireless/bcmdhd/dhd_sdio.c b/drivers/net/wireless/bcmdhd/dhd_sdio.c
+index 26634ae1..5b7efa88 100755
+--- a/drivers/net/wireless/bcmdhd/dhd_sdio.c
++++ b/drivers/net/wireless/bcmdhd/dhd_sdio.c
+@@ -7578,6 +7578,8 @@ dhd_dump_cis(uint fn, uint8 *cis)
+ static bool
+ dhdsdio_chipmatch(uint16 chipid)
+ {
++	if (chipid == BCM4329_CHIP_ID)
++		return TRUE;
+ 	if (chipid == BCM4336_CHIP_ID)
+ 		return TRUE;
+ 	if (chipid == BCM4330_CHIP_ID)
+-- 
+2.43.0
+

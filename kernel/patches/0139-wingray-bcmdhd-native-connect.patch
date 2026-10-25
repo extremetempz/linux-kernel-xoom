@@ -1,0 +1,147 @@
+From: Justin <justinscollo@protonmail.com>
+Subject: [PATCH] bcmdhd: native 4.218 association and join handling
+
+Report the cfg80211 connect result on both WLC_E_ASSOC and WLC_E_AUTH
+success, restrict the legacy join scan to 2.4 GHz, and join through
+WLC_SET_SSID supported by the ROM's 4.218 firmware.
+
+diff --git a/drivers/net/wireless/bcmdhd/wl_cfg80211.c b/drivers/net/wireless/bcmdhd/wl_cfg80211.c
+index f83f8290..22ab7624 100755
+--- a/drivers/net/wireless/bcmdhd/wl_cfg80211.c
++++ b/drivers/net/wireless/bcmdhd/wl_cfg80211.c
+@@ -5579,15 +5579,16 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
+ 	}
+ #endif /* ROAM_ENABLE && ROAM_AP_ENV_DETECTION */
+ 
+-	if (chan) {
+-		cfg->channel = ieee80211_frequency_to_channel(chan->center_freq);
+-		chan_cnt = 1;
+-		WL_DBG(("channel (%d), center_req (%d), %d channels\n", cfg->channel,
+-			chan->center_freq, chan_cnt));
+-	} else {
+-		WL_DBG(("No channel info from user space\n"));
+-		cfg->channel = 0;
+-	}
++	/* The 4.218 firmware rejects a connect that carries an explicit
++	 * channel before the join path runs.  Ignore the channel here and
++	 * build a 2.4 GHz channel list in wl_ch_to_chanspec() instead; this
++	 * keeps the join quick enough for the supplicant's 10-second timeout.
++	 */
++	(void)chan;
++	chan = NULL;
++	cfg->channel = 0;
++	chan_cnt = 0;
++	WL_DBG(("No explicit connect channel; using 2.4 GHz join list\n"));
+ 
+ #ifdef ROAM_CHANNEL_CACHE
+ 	/*
+@@ -5703,14 +5704,11 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
+ 			band = (channel <= CH_MAX_2G_CHANNEL) ? WL_CHANSPEC_BAND_2G
+ 				: WL_CHANSPEC_BAND_5G;
+ 
+-			/* Get min_bw set for the interface */
+-			bw = wl_cfg80211_ulb_get_min_bw_chspec(cfg, dev->ieee80211_ptr, bssidx);
+-			if (bw == INVCHANSPEC) {
+-				WL_ERR(("Invalid chanspec \n"));
+-				kfree(ext_join_params);
+-				err = BCME_ERROR;
+-				goto exit;
+-			}
++			/* The 4.218 firmware cannot parse the newer host's
++			 * 80 MHz chanspec.  Use a plain 20 MHz chanspec so the
++			 * explicit channel join is accepted and completes quickly.
++			 */
++			bw = WL_CHANSPEC_BW_20;
+ 
+ 			ctl_sb = WL_CHANSPEC_CTL_SB_NONE;
+ 			chspec = (channel | band | bw | ctl_sb);
+@@ -5732,37 +5730,15 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
+ 		err = BCME_ERROR;
+ 		goto exit;
+ 	}
+-	err = wldev_iovar_setbuf_bsscfg(dev, "join", ext_join_params, join_params_size,
+-		cfg->ioctl_buf, WLC_IOCTL_MAXLEN, bssidx, &cfg->ioctl_buf_sync);
+-
+-	if (cfg->rcc_enabled) {
+-		WL_ERR_KERN(("Connecting with" MACDBG " ssid \"%s\", len (%d) with rcc "
+-			"channels \n\n", MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)),
+-			ext_join_params->ssid.SSID, ext_join_params->ssid.SSID_len));
+-		WL_ERR_MEM(("Connecting with " MACDBG " ssid \"%s\", len (%d) with rcc "
+-			"channels \n\n", MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)),
+-			"*****", ext_join_params->ssid.SSID_len));
+-	} else {
+-		WL_ERR_KERN(("Connecting with" MACDBG " ssid \"%s\", len (%d) channel=%d\n\n",
+-			MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)),
+-			ext_join_params->ssid.SSID, ext_join_params->ssid.SSID_len, cfg->channel));
+-		WL_ERR_MEM(("Connecting with " MACDBG " ssid \"%s\", len (%d) channel=%d\n\n",
+-			MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)),
+-			"*****", ext_join_params->ssid.SSID_len, cfg->channel));
+-	}
++	WL_ERR_KERN(("Connecting with" MACDBG " ssid \"%s\", len (%d) channel=%d\n\n",
++		MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)),
++		ext_join_params->ssid.SSID, ext_join_params->ssid.SSID_len, cfg->channel));
+ 
+ 	kfree(ext_join_params);
+-	if (err) {
+-		wl_clr_drv_status(cfg, CONNECTING, dev);
+-		if (err == BCME_UNSUPPORTED) {
+-			WL_DBG(("join iovar is not supported\n"));
+-			goto set_ssid;
+-		} else {
+-			WL_ERR(("error (%d)\n", err));
+-			goto exit;
+-		}
+-	} else
+-		goto exit;
++	/* The 4.218 firmware rejects the newer "join" iovar; always use the
++	 * legacy WLC_SET_SSID path, which accepts the explicit channel.
++	 */
++	goto set_ssid;
+ 
+ set_ssid:
+ 	memset(&join_params, 0, sizeof(join_params));
+@@ -5777,6 +5753,11 @@ set_ssid:
+ 	else
+ 		memcpy(&join_params.params.bssid, &ether_bcast, ETH_ALEN);
+ 
++	/* The 4.218 firmware has no usable if_band iovar, but it accepts
++	 * WLC_SET_BAND.  Restrict the join scan to 2.4 GHz so it finishes
++	 * inside the supplicant's 10-second auth timeout.
++	 */
++	(void)wldev_set_band(dev, WLC_BAND_2G);
+ 	if (wl_ch_to_chanspec(dev, cfg->channel, &join_params, &join_params_size) < 0) {
+ 		WL_ERR(("Invalid chanspec\n"));
+ 		return -EINVAL;
+@@ -12323,6 +12304,15 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
+ 			ntoh32(e->event_type), ntoh32(e->status), ndev));
+ 		if (event == WLC_E_ASSOC || event == WLC_E_AUTH) {
+ 			wl_get_auth_assoc_status(cfg, ndev, e);
++			/* The 4.218 firmware reports association completion with
++			 * WLC_E_ASSOC and does not send the WLC_E_LINK event that
++			 * wl_bss_connect_done normally waits for.  Report the
++			 * connect result here so the supplicant leaves ASSOCIATING
++			 * and processes the 4-way M1 frames.
++			 */
++			if ((event == WLC_E_ASSOC || event == WLC_E_AUTH) &&
++			    ntoh32(e->status) == WLC_E_STATUS_SUCCESS)
++				wl_bss_connect_done(cfg, ndev, e, data, true);
+ 			return 0;
+ 		}
+ 		DHD_DISABLE_RUNTIME_PM((dhd_pub_t *)cfg->pub);
+@@ -13137,12 +13127,10 @@ static s32 wl_ch_to_chanspec(struct net_device *dev, int ch, struct wl_join_para
+ 			else
+ 				chanspec |= WL_CHANSPEC_BAND_5G;
+ 
+-			/* Get the min_bw set for the interface */
+-			chspec = wl_cfg80211_ulb_get_min_bw_chspec(cfg, dev->ieee80211_ptr, bssidx);
+-			if (chspec == INVCHANSPEC) {
+-				WL_ERR(("Invalid chanspec \n"));
+-				return -EINVAL;
+-			}
++			/* Plain 20 MHz: the 4.218 firmware rejects the newer
++			 * host's 80 MHz chanspec with BCME_BADCHAN.
++			 */
++			chspec = WL_CHANSPEC_BW_20;
+ 			chanspec |= chspec;
+ 			chanspec |= WL_CHANSPEC_CTL_SB_NONE;
+ 

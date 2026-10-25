@@ -1,0 +1,117 @@
+From d2561d81b2b6cc9603fafd78fda3448c25c1dc11 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:39:16 +1100
+Subject: [PATCH] mfd: cpcap: poll all interrupt banks for the Wingray power
+ key
+
+Image 67d pressed the back power button ten times and still saw INT2 and
+INTS2 exactly zero, even after unmasking ON.  Read all four interrupt
+status/sense banks every 20 ms and log any change.  KEY_POWER still follows
+INTS2 bit 7 until the report identifies the actual bank/bit.
+
+This is a bounded diagnostic; if no bank changes, the power button is not
+exposed through the CPCAP register banks currently being read.
+---
+ drivers/mfd/motorola-cpcap.c | 59 +++++++++++++++++++++---------------
+ 1 file changed, 35 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+index 1c062c5c..061208f7 100644
+--- a/drivers/mfd/motorola-cpcap.c
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -39,8 +39,8 @@ struct cpcap_ddata {
+ 	struct input_dev *pwrkey;
+ 	struct delayed_work pwrkey_work;
+ 	bool pwrkey_state;
+-	unsigned int pwrkey_raw;
+-	unsigned int pwrkey_status;
++	unsigned int pwrkey_sense[4];
++	unsigned int pwrkey_int[4];
+ };
+ 
+ static int cpcap_sense_irq(struct regmap *regmap, int irq)
+@@ -236,23 +236,30 @@ static void cpcap_pwrkey_work(struct work_struct *work)
+ {
+ 	struct cpcap_ddata *cpcap =
+ 		container_of(work, struct cpcap_ddata, pwrkey_work.work);
+-	unsigned int sense = 0, status = 0;
++	unsigned int sense, status;
+ 	bool pressed;
+-
+-	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &sense)) {
+-		if (sense != cpcap->pwrkey_raw) {
+-			cpcap->pwrkey_raw = sense;
+-			dev_info(&cpcap->spi->dev, "CPCAP INTS2=%04x\n", sense);
++	int i;
++
++	for (i = 0; i < 4; i++) {
++		if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS1 + i * 4,
++				 &sense)) {
++			if (sense != cpcap->pwrkey_sense[i]) {
++				cpcap->pwrkey_sense[i] = sense;
++				dev_info(&cpcap->spi->dev,
++					 "CPCAP INTS%d=%04x\n", i + 1, sense);
++			}
+ 		}
+-	}
+-	if (!regmap_read(cpcap->regmap, CPCAP_REG_INT2, &status)) {
+-		if (status != cpcap->pwrkey_status) {
+-			cpcap->pwrkey_status = status;
+-			dev_info(&cpcap->spi->dev, "CPCAP INT2=%04x\n", status);
++		if (!regmap_read(cpcap->regmap, CPCAP_REG_INT1 + i * 4,
++				 &status)) {
++			if (status != cpcap->pwrkey_int[i]) {
++				cpcap->pwrkey_int[i] = status;
++				dev_info(&cpcap->spi->dev,
++					 "CPCAP INT%d=%04x\n", i + 1, status);
++			}
+ 		}
+ 	}
+ 
+-	pressed = !!(sense & CPCAP_BIT_ON_S);
++	pressed = !!(cpcap->pwrkey_sense[1] & CPCAP_BIT_ON_S);
+ 	if (pressed != cpcap->pwrkey_state) {
+ 		cpcap->pwrkey_state = pressed;
+ 		input_report_key(cpcap->pwrkey, KEY_POWER, pressed);
+@@ -273,7 +280,7 @@ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ {
+ 	struct input_dev *input;
+ 	unsigned int val;
+-	int ret;
++	int ret, i;
+ 
+ 	if (!cpcap->irqdata[1])
+ 		return -ENODEV;
+@@ -311,16 +318,20 @@ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ 	 * as a development fallback; the IRQ mapping can be revisited once the
+ 	 * key path is proven.
+ 	 */
+-	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val)) {
+-		cpcap->pwrkey_raw = val;
+-		cpcap->pwrkey_state = !!(val & CPCAP_BIT_ON_S);
+-		dev_info(&cpcap->spi->dev, "CPCAP power key initial INTS2=%04x sense=%u\n",
+-			 val, cpcap->pwrkey_state);
+-	}
+-	if (!regmap_read(cpcap->regmap, CPCAP_REG_INT2, &val)) {
+-		cpcap->pwrkey_status = val;
+-		dev_info(&cpcap->spi->dev, "CPCAP power key initial INT2=%04x\n", val);
++	for (i = 0; i < 4; i++) {
++		if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS1 + i * 4, &val)) {
++			cpcap->pwrkey_sense[i] = val;
++			dev_info(&cpcap->spi->dev,
++				 "CPCAP power key initial INTS%d=%04x\n", i + 1, val);
++		}
++		if (!regmap_read(cpcap->regmap, CPCAP_REG_INT1 + i * 4, &val)) {
++			cpcap->pwrkey_int[i] = val;
++			dev_info(&cpcap->spi->dev,
++				 "CPCAP power key initial INT%d=%04x\n", i + 1, val);
++		}
+ 	}
++	cpcap->pwrkey_state =
++		!!(cpcap->pwrkey_sense[1] & CPCAP_BIT_ON_S);
+ 	INIT_DELAYED_WORK(&cpcap->pwrkey_work, cpcap_pwrkey_work);
+ 	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(20));
+ 
+-- 
+2.43.0
+

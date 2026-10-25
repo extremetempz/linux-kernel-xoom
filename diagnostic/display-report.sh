@@ -2,7 +2,7 @@
 # Read-only metadata. The bound driver owns SMBus; never use forced i2c tools.
 echo XOOM_DISPLAY_BEGIN
 case "$(/bin/busybox uname -r)" in
- 4.4.147-wingray-display|4.4.147-wingray-android44|4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace) ;;
+ 4.4.147-wingray-display|4.4.147-wingray-android44|4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace|4.4.147-wingray-android44-gpu) ;;
  *)
  echo XOOM_DISPLAY_DENIED_RELEASE
  echo XOOM_DISPLAY_END
@@ -35,7 +35,8 @@ for connector in /sys/class/drm/card0-*; do
 done
 echo XOOM_DRM_END
 echo XOOM_BACKLIGHT_BEGIN
-for attr in brightness actual_brightness max_brightness bl_power type; do
+/bin/busybox ls -l /sys/class/backlight
+for attr in brightness actual_brightness max_brightness bl_power power type; do
  path="/sys/class/backlight/lcd-backlight/$attr"
  [ -r "$path" ] || continue
  /bin/busybox printf '%s=' "$attr"
@@ -58,4 +59,91 @@ echo XOOM_PANEL_REGULATORS_END
 echo XOOM_CLOCKS_BEGIN
 [ ! -r /sys/kernel/debug/clk/clk_summary ] || /bin/busybox cat /sys/kernel/debug/clk/clk_summary
 echo XOOM_CLOCKS_END
+echo XOOM_DC_BEGIN
+/bin/busybox ls -l /sys/kernel/debug/tegradc.0 2>/dev/null
+for attr in mode stats; do
+ path="/sys/kernel/debug/tegradc.0/$attr"
+ [ -r "$path" ] || continue
+ echo "XOOM_DC $attr"
+ /bin/busybox cat "$path"
+done
+if [ -r /sys/kernel/debug/tegradc.0/regs ]; then
+ echo 'XOOM_DC regs'
+ /bin/busybox head -c 32768 /sys/kernel/debug/tegradc.0/regs
+ echo
+fi
+echo XOOM_DC_END
+echo XOOM_SCREEN_AWAKE_BEGIN
+[ ! -r /run/xoom-screen-awake.log ] || /bin/busybox cat /run/xoom-screen-awake.log
+echo XOOM_SCREEN_AWAKE_END
+echo XOOM_INPUT_DEVICES_BEGIN
+[ ! -r /proc/bus/input/devices ] || /bin/busybox cat /proc/bus/input/devices
+echo XOOM_INPUT_DEVICES_END
+echo XOOM_NET_BEGIN
+[ ! -d /sys/class/net ] || /bin/busybox ls /sys/class/net
+[ ! -r /proc/net/dev ] || /bin/busybox cat /proc/net/dev
+for interface in wlan0 wlan1; do
+ [ ! -r "/sys/class/net/$interface/address" ] || { echo "$interface address:"; /bin/busybox cat "/sys/class/net/$interface/address"; }
+done
+[ ! -d /lib/firmware/brcm ] || /bin/busybox ls -l /lib/firmware/brcm
+echo XOOM_NET_END
+echo XOOM_WIFI_FILES_BEGIN
+for directory in /system/etc/wifi /system/vendor/firmware /system/etc/firmware; do
+ if [ -d "$directory" ]; then
+  echo "DIR $directory"
+  /bin/busybox ls -l "$directory"
+ fi
+ for file in nvram_net.txt nvram.txt; do
+  path="$directory/$file"
+  if [ -r "$path" ]; then
+   echo "FILE $path"
+   /bin/busybox head -c 8192 "$path"
+   echo
+  fi
+ done
+done
+echo XOOM_WIFI_FILES_END
+echo XOOM_WIFI_STATE_BEGIN
+[ ! -r /run/xoom-wifi.log ] || /bin/busybox cat /run/xoom-wifi.log
+[ ! -r /run/wpa.log ] || { echo "WPA_LOG"; /bin/busybox tail -c 32768 /run/wpa.log; }
+[ ! -r /run/wpa-stderr.log ] || { echo "WPA_STDERR"; /bin/busybox tail -c 16384 /run/wpa-stderr.log; }
+[ ! -r /run/wpa-logcat.txt ] || { echo "WPA_LOGCAT"; /bin/busybox tail -c 32768 /run/wpa-logcat.txt; }
+if [ -d /sys/module/bcmdhd ]; then
+ echo "DHD_MODULE present"
+ for p in parameters/firmware_path parameters/nvram_path parameters/iface_name; do
+  [ ! -r "/sys/module/bcmdhd/$p" ] || { echo "$p:"; /bin/busybox cat "/sys/module/bcmdhd/$p"; }
+ done
+fi
+[ ! -r /proc/net/wireless ] || { echo "PROC_NET_WIRELESS"; /bin/busybox cat /proc/net/wireless; }
+for tool in /system/bin/iwconfig /system/xbin/iwconfig; do
+ if [ -x "$tool" ]; then
+  /bin/busybox timeout -s KILL 2 "$tool" wlan0 2>&1 | /bin/busybox head -c 4096
+  break
+ fi
+done
+if [ -x /system/bin/dumpsys ]; then
+ /bin/busybox timeout -s KILL 2 /system/bin/dumpsys wifi 2>&1 | /bin/busybox head -c 8192
+fi
+echo XOOM_WIFI_STATE_END
+echo XOOM_ANDROID_DISPLAY_BEGIN
+if [ -x /system/bin/dumpsys ]; then
+ {
+  /bin/busybox timeout -s KILL 2 /system/bin/dumpsys display
+  echo "XOOM_DUMPSYS_DISPLAY_EXIT $?"
+ } 2>&1 | /bin/busybox head -c 16384
+ {
+  /bin/busybox timeout -s KILL 2 /system/bin/dumpsys power
+  echo "XOOM_DUMPSYS_POWER_EXIT $?"
+ } 2>&1 | /bin/busybox head -c 8192
+fi
+echo XOOM_ANDROID_DISPLAY_END
+echo XOOM_GFXINFO_BEGIN
+if [ -x /system/bin/dumpsys ]; then
+ for package in com.cyanogenmod.trebuchet com.google.android.setupwizard; do
+  echo "XOOM_GFXINFO $package"
+  /bin/busybox timeout -s KILL 2 /system/bin/dumpsys gfxinfo "$package" 2>&1 | /bin/busybox head -c 16384
+  echo
+ done
+fi
+echo XOOM_GFXINFO_END
 echo XOOM_DISPLAY_END

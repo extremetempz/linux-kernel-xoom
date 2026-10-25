@@ -25,10 +25,21 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  *) echo 'Only the corrected fbmap profile can be packaged.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
+# Kconfig orders NETDEVICES before the NET symbol in this tree; force the
+# Wi-Fi dependency set after the initial defconfig and resolve it cleanly.
+"$build/source/scripts/config" --file "$build/out/.config" \
+ --enable NETDEVICES --enable WLAN --enable MODULES --enable MODULE_UNLOAD \
+ --enable CFG80211 --enable WIRELESS_EXT --enable PACKET --disable RD_GZIP --disable RD_BZIP2 --disable RD_LZMA --disable RD_LZO --disable RD_LZ4 --enable RD_XZ --enable WEXT_CORE --enable WEXT_PROC --enable WEXT_PRIV \
+ --enable BROADCOM_WIFI --disable BCM4330 --disable BRCMFMAC --disable BRCMFMAC_SDIO
+make "${args[@]}" olddefconfig
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"
 done
+make "${args[@]}" -j"${JOBS:-4}" modules
+mkdir -p "$dest/modules"
+cp "$build/out/drivers/net/wireless/bcmdhd/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
+"$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/bcmdhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
@@ -36,6 +47,13 @@ make "${args[@]}" tegra20-motorola-wingray-gpu-test.dtb tegra20-motorola-wingray
 cp "$build/out/arch/arm/boot/"{zImage,zImage-dtb} "$dest/"
 cp "$build/out/arch/arm/boot/dts/$dt.dtb" "$build/out/arch/arm/boot/dts/"tegra20-motorola-wingray-{gpu-test,android44-smp2}.dtb "$dest/"
 cp "$build/out/System.map" "$dest/"
-cp "$build/out/usr/initramfs_data.cpio.gz" "$dest/builtin-initramfs.cpio.gz"
+for f in "$build/out/usr/initramfs_data.cpio.xz" "$build/out/usr/initramfs_data.cpio.lz4" "$build/out/usr/initramfs_data.cpio.gz"; do
+  [ ! -f "$f" ] || { cp "$f" "$dest/builtin-initramfs.cpio.${f##*.}"; break; }
+done
+# The image validator expects the canonical gzip copy even when the kernel
+# carries an XZ-compressed built-in initramfs.
+if [ -f "$dest/builtin-initramfs.cpio.xz" ]; then
+  xz -dc "$dest/builtin-initramfs.cpio.xz" | gzip -9 > "$dest/builtin-initramfs.cpio.gz"
+fi
 python3 "$root/scripts/pack-android-gpu-image.py" --kernel-dir "$dest" --output-dir "${XOOM_IMAGE_DIR:?Set a new ignored image directory}"
 echo "Build complete; no device operations. Build: $build Artifacts: $dest"

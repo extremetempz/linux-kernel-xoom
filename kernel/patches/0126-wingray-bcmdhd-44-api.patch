@@ -1,0 +1,28 @@
+From 46b928f346dba6c2ab7de2949c082f69341516b4 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 15:34:42 +1100
+Subject: [PATCH] bcmdhd: drop wiphy->wowlan for the 4.4 cfg80211 API
+
+The donor bcmdhd source targets a newer cfg80211 where wiphy has a
+wowlan member.  Linux 4.4 does not; remove the assignment.  This is the
+first 4.4 API fix required by the module build.
+---
+ drivers/net/wireless/bcmdhd/wl_cfg80211.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/bcmdhd/wl_cfg80211.c b/drivers/net/wireless/bcmdhd/wl_cfg80211.c
+index a2b031d6..f83f8290 100755
+--- a/drivers/net/wireless/bcmdhd/wl_cfg80211.c
++++ b/drivers/net/wireless/bcmdhd/wl_cfg80211.c
+@@ -11216,7 +11216,7 @@ static void wl_free_wdev(struct bcm_cfg80211 *cfg)
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
+ 		/* Reset wowlan & wowlan_config before Unregister to avoid  Kernel Panic */
+ 		WL_DBG(("wl_free_wdev Clearing wowlan Config \n"));
+-		wdev->wiphy->wowlan = NULL;
++		/* 4.4 cfg80211 has no wiphy->wowlan member. */
+ #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0) */
+ 		wiphy_unregister(wdev->wiphy);
+ 		wdev->wiphy->dev.parent = NULL;
+-- 
+2.43.0
+

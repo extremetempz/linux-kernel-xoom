@@ -1,0 +1,34 @@
+From 8b3005cb904955fe86a08fb22883b4710184898c Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 16:06:00 +1100
+Subject: [PATCH] bcmdhd: allow runtime 4329 with multi-chip support
+
+The 69f report downloaded firmware and reached dhd_bus_start, then the
+CUSTOMER_HW4_DEBUG validator rejected the runtime 4329 because the module
+was compiled for BCM4330:
+  CONFIG_BCMXXX and CHIP ID(4329) is mismatched
+
+Define SUPPORT_MULTIPLE_CHIPS so the validator logs the difference instead
+of aborting.  The same driver already accepts the 4329 SDIO ID and chip.
+---
+ drivers/net/wireless/bcmdhd/Makefile | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/wireless/bcmdhd/Makefile b/drivers/net/wireless/bcmdhd/Makefile
+index 7fae3e97..356a0e5b 100755
+--- a/drivers/net/wireless/bcmdhd/Makefile
++++ b/drivers/net/wireless/bcmdhd/Makefile
+@@ -1227,6 +1227,10 @@ DHDCFLAGS += -include "dhd_sec_feature.h"
+ # No android,bcmdhd_wlan platform node on this board; use direct SDIO
+ # registration so dhd_module_init reaches dhd_bus_register().
+ # EXTRA_CFLAGS += -DCONFIG_DTS
++# The 4329 is one of several supported SDIO chips in this driver.  The
++# CUSTOMER_HW4_DEBUG chip-id validator is compiled for BCM4330 here; allow
++# the runtime 4329 match instead of aborting dhd_bus_start.
++EXTRA_CFLAGS += -DSUPPORT_MULTIPLE_CHIPS
+ EXTRA_CFLAGS += -DDISABLE_IF_COUNTERS
+ EXTRA_CFLAGS += -DREAD_MACADDR
+ 
+-- 
+2.43.0
+

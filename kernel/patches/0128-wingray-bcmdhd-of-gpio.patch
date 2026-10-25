@@ -1,0 +1,29 @@
+From 0ae775f30b8ce0ecdef5a7486670a53b85af0d32 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 15:51:18 +1100
+Subject: [PATCH] bcmdhd: include of_gpio for the non-DTS build
+
+The direct-registration build still compiles the platform-device removal
+path, which calls of_get_gpio.  Include linux/of_gpio.h unconditionally.
+---
+ drivers/net/wireless/bcmdhd/dhd_linux_platdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/bcmdhd/dhd_linux_platdev.c b/drivers/net/wireless/bcmdhd/dhd_linux_platdev.c
+index fa83959e..d14fb079 100755
+--- a/drivers/net/wireless/bcmdhd/dhd_linux_platdev.c
++++ b/drivers/net/wireless/bcmdhd/dhd_linux_platdev.c
+@@ -42,9 +42,9 @@
+ #if defined(CONFIG_WIFI_CONTROL_FUNC)
+ #include <linux/wlan_plat.h>
+ #endif
++#include <linux/of_gpio.h>
+ #ifdef CONFIG_DTS
+ #include<linux/regulator/consumer.h>
+-#include<linux/of_gpio.h>
+ #endif /* CONFIG_DTS */
+ #define WIFI_PLAT_NAME		"bcmdhd_wlan"
+ #define WIFI_PLAT_NAME2		"bcm4329_wlan"
+-- 
+2.43.0
+

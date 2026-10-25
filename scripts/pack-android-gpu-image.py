@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pack only a matching built-in accelerated Android runtime; no device operations."""
 from pathlib import Path
-import argparse,gzip,hashlib,importlib.util,json,struct
+import argparse,gzip,lzma,hashlib,importlib.util,json,struct
 from android44_image import pack_newc,boot_image
 from android_gpu import validate_artifacts
 ROOT=Path(__file__).resolve().parents[1]
@@ -13,9 +13,9 @@ archive=pack_newc(m.entries(k));assert gzip.decompress((k/'builtin-initramfs.cpi
 assert (k/'runtime-source.cpio').read_bytes()==archive
 kernel=(k/'zImage').read_bytes();dt=(k/'tegra20-motorola-wingray-android44-gpu-fbmap.dtb').read_bytes();combined=(k/'zImage-dtb').read_bytes()
 assert struct.unpack_from('<I',kernel,36)[0]==0x016f2818 and combined==kernel+dt
-ram=gzip.compress(pack_newc({}),mtime=0);image=boot_image(combined,ram);assert len(image)<8388608
+ram=lzma.compress(pack_newc({}),format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32);image=boot_image(combined,ram);assert len(image)<8388608
 sha=lambda v:hashlib.sha256(v).hexdigest()
-out.mkdir();(out/'wingray-android44-gpu.img').write_bytes(image);(out/'ramdisk.cpio.gz').write_bytes(ram)
+out.mkdir();(out/'wingray-android44-gpu.img').write_bytes(image);(out/'ramdisk.cpio.xz').write_bytes(ram)
 manifest={'purpose':'combined RAM-data Android with original NVIDIA EGL/gralloc/HWC; hardware untested',
  'kernel_profile':'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
  'sha256':sha(image),'size':len(image),'kernel_sha256':sha(combined),'system_map_sha256':sha((k/'System.map').read_bytes()),

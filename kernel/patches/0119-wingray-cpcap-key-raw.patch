@@ -1,0 +1,128 @@
+From 2581443dc29d64a3d60ce4252f62417d12017114 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 14:31:17 +1100
+Subject: [PATCH] mfd: cpcap: log raw INT2/INTS2 for the Wingray power key
+
+Image 67c showed the ON sense bit remained zero and no key transitions were
+reported, while SPI polling continued to work.  Log the full second
+interrupt-sense register and the latched second interrupt-status register
+on every change, and poll at 20 ms so a short press is not missed.
+
+This is diagnostic: it will show whether the power button changes another
+bit, whether only the latched status changes, or whether no CPCAP register
+reacts at all.  KEY_POWER reporting still follows INTS2 bit 7 until the
+next hardware result.
+---
+ drivers/mfd/motorola-cpcap.c       | 54 +++++++++++++++++++++++-------
+ include/linux/mfd/motorola-cpcap.h |  1 +
+ 2 files changed, 42 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+index c6640c3f..1c062c5c 100644
+--- a/drivers/mfd/motorola-cpcap.c
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -39,6 +39,8 @@ struct cpcap_ddata {
+ 	struct input_dev *pwrkey;
+ 	struct delayed_work pwrkey_work;
+ 	bool pwrkey_state;
++	unsigned int pwrkey_raw;
++	unsigned int pwrkey_status;
+ };
+ 
+ static int cpcap_sense_irq(struct regmap *regmap, int irq)
+@@ -234,21 +236,32 @@ static void cpcap_pwrkey_work(struct work_struct *work)
+ {
+ 	struct cpcap_ddata *cpcap =
+ 		container_of(work, struct cpcap_ddata, pwrkey_work.work);
+-	unsigned int val;
++	unsigned int sense = 0, status = 0;
+ 	bool pressed;
+ 
+-	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val)) {
+-		pressed = !!(val & CPCAP_BIT_ON_S);
+-		if (pressed != cpcap->pwrkey_state) {
+-			cpcap->pwrkey_state = pressed;
+-			input_report_key(cpcap->pwrkey, KEY_POWER, pressed);
+-			input_sync(cpcap->pwrkey);
+-			dev_info(&cpcap->spi->dev, "CPCAP power key %s\n",
+-				 pressed ? "pressed" : "released");
++	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &sense)) {
++		if (sense != cpcap->pwrkey_raw) {
++			cpcap->pwrkey_raw = sense;
++			dev_info(&cpcap->spi->dev, "CPCAP INTS2=%04x\n", sense);
++		}
++	}
++	if (!regmap_read(cpcap->regmap, CPCAP_REG_INT2, &status)) {
++		if (status != cpcap->pwrkey_status) {
++			cpcap->pwrkey_status = status;
++			dev_info(&cpcap->spi->dev, "CPCAP INT2=%04x\n", status);
+ 		}
+ 	}
+ 
+-	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(50));
++	pressed = !!(sense & CPCAP_BIT_ON_S);
++	if (pressed != cpcap->pwrkey_state) {
++		cpcap->pwrkey_state = pressed;
++		input_report_key(cpcap->pwrkey, KEY_POWER, pressed);
++		input_sync(cpcap->pwrkey);
++		dev_info(&cpcap->spi->dev, "CPCAP power key %s\n",
++			 pressed ? "pressed" : "released");
++	}
++
++	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(20));
+ }
+ 
+ /*
+@@ -282,6 +295,16 @@ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ 	cpcap->pwrkey = input;
+ 	device_init_wakeup(&cpcap->spi->dev, true);
+ 
++	/* regmap-irq masks all sources at registration.  Unmask ON and clear
++	 * any stale status before the polling fallback starts. */
++	ret = regmap_update_bits(cpcap->regmap, CPCAP_REG_INTM2,
++				 CPCAP_BIT_ON_I, 0);
++	if (ret)
++		dev_warn(&cpcap->spi->dev, "CPCAP ON unmask failed: %d\n", ret);
++	else
++		dev_info(&cpcap->spi->dev, "CPCAP ON interrupt unmasked\n");
++	regmap_write(cpcap->regmap, CPCAP_REG_INT2, CPCAP_BIT_ON_I);
++
+ 	/*
+ 	 * The CPCAP interrupt line is not reaching the GIC on this board even
+ 	 * though the SPI sense registers are readable.  Poll the ON sense bit
+@@ -289,12 +312,17 @@ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ 	 * key path is proven.
+ 	 */
+ 	if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS2, &val)) {
++		cpcap->pwrkey_raw = val;
+ 		cpcap->pwrkey_state = !!(val & CPCAP_BIT_ON_S);
+-		dev_info(&cpcap->spi->dev, "CPCAP power key initial sense=%u\n",
+-			 cpcap->pwrkey_state);
++		dev_info(&cpcap->spi->dev, "CPCAP power key initial INTS2=%04x sense=%u\n",
++			 val, cpcap->pwrkey_state);
++	}
++	if (!regmap_read(cpcap->regmap, CPCAP_REG_INT2, &val)) {
++		cpcap->pwrkey_status = val;
++		dev_info(&cpcap->spi->dev, "CPCAP power key initial INT2=%04x\n", val);
+ 	}
+ 	INIT_DELAYED_WORK(&cpcap->pwrkey_work, cpcap_pwrkey_work);
+-	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(50));
++	schedule_delayed_work(&cpcap->pwrkey_work, msecs_to_jiffies(20));
+ 
+ 	dev_info(&cpcap->spi->dev, "CPCAP power key polling registered\n");
+ 	return 0;
+diff --git a/include/linux/mfd/motorola-cpcap.h b/include/linux/mfd/motorola-cpcap.h
+index aa9722d2..f173b53c 100644
+--- a/include/linux/mfd/motorola-cpcap.h
++++ b/include/linux/mfd/motorola-cpcap.h
+@@ -39,6 +39,7 @@
+ #define CPCAP_REG_INTM4		0x001c	/* Interrupt Mask 4 */
+ #define CPCAP_REG_INTS1		0x0020	/* Interrupt Sense 1 */
+ #define CPCAP_REG_INTS2		0x0024	/* Interrupt Sense 2 */
++#define CPCAP_BIT_ON_I		0x0080	/* ON interrupt status/mask, INT2/INTM2 bit 7 */
+ #define CPCAP_BIT_ON_S		0x0080	/* ON/ power-key sense, INTS2 bit 7 */
+ #define CPCAP_REG_INTS3		0x0028	/* Interrupt Sense 3 */
+ #define CPCAP_REG_INTS4		0x002c	/* Interrupt Sense 4 */
+-- 
+2.43.0
+

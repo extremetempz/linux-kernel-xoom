@@ -2,7 +2,7 @@
 # Fixed read-only metadata and a five-second independent evdev observation.
 echo XOOM_TOUCH_BEGIN
 case "$(/bin/busybox uname -r)" in
- 4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace) ;;
+ 4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace|4.4.147-wingray-android44-gpu) ;;
  *) echo XOOM_TOUCH_DENIED_RELEASE; echo XOOM_TOUCH_END; exit 0;;
 esac
 if ! /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray; then

@@ -1,0 +1,111 @@
+From 8f748ef819008eb93361018aea8a4faa8f8d9518 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 12:42:04 +1100
+Subject: [PATCH] backlight: lp855x: initialize Wingray P3 production registers
+
+The LP8550 powers up with A1/A2 defaults that differ from the AUO P3
+production settings.  The existing compatibility path only verified the
+registers, so a cold boot failed the probe with -EINVAL and registered no
+backlight device; a warm boot only passed because the registers retained
+values written by the original vendor driver.
+
+Replicate the Motorola initialization sequence: select configuration mode,
+write the exact A1-A7 production table, re-enable the device, then keep the
+existing post-write readback verification.  These are volatile
+configuration registers; the EEPROM control register 0x72 is not touched.
+A0 remains the brightness/current register handled by the existing
+brightness path.  Any write or readback failure still fails the probe.
+---
+ drivers/video/backlight/lp855x_bl.c | 42 ++++++++++++++++++++++++-----
+ 1 file changed, 36 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/video/backlight/lp855x_bl.c b/drivers/video/backlight/lp855x_bl.c
+index 561fb686..91c6b43e 100644
+--- a/drivers/video/backlight/lp855x_bl.c
++++ b/drivers/video/backlight/lp855x_bl.c
+@@ -83,8 +83,14 @@ static int lp855x_write_byte(struct lp855x *lp, u8 reg, u8 data)
+ }
+ 
+ /* P3 uses A0 LED-current control, not the generic brightness register.
+- * Keep the production A1-A7 settings; fail closed rather than reprogram them.
++ * A1-A7 are volatile configuration registers: the original Motorola driver
++ * writes this table on every probe and re-writes A1-A7 after every enable.
++ * The EEPROM control register 0x72 is not used here.
+  */
++static const u8 lp855x_wingray_production[] = {
++	0x67, 0xbf, 0x3f, 0x08, 0xea, 0x64, 0x2a
++};
++
+ static int lp855x_wingray_setup(struct lp855x *lp)
+ {
+ 	if (!of_device_is_compatible(lp->dev->of_node,
+@@ -102,7 +108,6 @@ static int lp855x_wingray_setup(struct lp855x *lp)
+ 
+ static int lp855x_wingray_verify(struct lp855x *lp)
+ {
+-	static const u8 production[] = { 0x67, 0xbf, 0x3f, 0x08, 0xea, 0x64, 0x2a };
+ 	int value, i, mismatch = 0;
+ 
+ 	value = i2c_smbus_read_byte_data(lp->client, 0x03);
+@@ -114,7 +119,7 @@ static int lp855x_wingray_verify(struct lp855x *lp)
+ 		dev_err(lp->dev, "P3 chip ID %02x, expected fc\n", value);
+ 		return -ENODEV;
+ 	}
+-	for (i = 0; i < ARRAY_SIZE(production); i++) {
++	for (i = 0; i < ARRAY_SIZE(lp855x_wingray_production); i++) {
+ 		value = i2c_smbus_read_byte_data(lp->client, 0xa1 + i);
+ 		if (value < 0) {
+ 			dev_err(lp->dev, "P3 register %02x read failed: %d\n",
+@@ -122,13 +127,38 @@ static int lp855x_wingray_verify(struct lp855x *lp)
+ 			return value;
+ 		}
+ 		dev_info(lp->dev, "P3 register %02x=%02x, expected %02x\n",
+-			 0xa1 + i, value, production[i]);
+-		if (value != production[i])
++			 0xa1 + i, value, lp855x_wingray_production[i]);
++		if (value != lp855x_wingray_production[i])
+ 			mismatch = 1;
+ 	}
+ 	return mismatch ? -EINVAL : 0;
+ }
+ 
++/* Replicate the Motorola LP8550 initialization sequence.  The chip powers up
++ * with defaults that differ from the P3 production settings, so a verify-only
++ * probe fails after a cold boot.  Keep the post-write readback guard. */
++static int lp855x_wingray_program(struct lp855x *lp)
++{
++	int ret, i;
++
++	ret = lp855x_write_byte(lp, 0x01, 0x05);
++	if (ret < 0)
++		return ret;
++
++	for (i = 0; i < ARRAY_SIZE(lp855x_wingray_production); i++) {
++		ret = lp855x_write_byte(lp, 0xa1 + i,
++					lp855x_wingray_production[i]);
++		if (ret < 0)
++			return ret;
++	}
++
++	ret = lp855x_write_byte(lp, 0x01, 0x03);
++	if (ret < 0)
++		return ret;
++
++	return lp855x_wingray_verify(lp);
++}
++
+ static int lp855x_wingray_brightness(struct lp855x *lp, unsigned int brightness)
+ {
+ 	int ret;
+@@ -235,7 +265,7 @@ static int lp855x_configure(struct lp855x *lp)
+ 	struct lp855x_platform_data *pd = lp->pdata;
+ 
+ 	if (lp->wingray_p3)
+-		return lp855x_wingray_verify(lp);
++		return lp855x_wingray_program(lp);
+ 
+ 	switch (lp->chip_id) {
+ 	case LP8550:
+-- 
+2.43.0
+

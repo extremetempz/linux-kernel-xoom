@@ -61,6 +61,11 @@ exec /usr/bin/busybox "$@"
   self.assertIn(b'XOOM_TOUCH_DENIED_RELEASE',data)
   self.assertNotIn(b'XOOM_TOUCH_I2C_METADATA_BEGIN',data)
   self.assertFalse(self.calls.exists())
+ def test_gpu_release_allowed(self):
+  self.device(0)
+  data=self.execute(TEST_RELEASE='4.4.147-wingray-android44-gpu')
+  self.assertNotIn(b'XOOM_TOUCH_DENIED_RELEASE',data)
+  self.assertIn(b'XOOM_TOUCH_SAMPLE_EXIT 0',data)
  def test_wrong_board_denied(self):
   self.compatible.write_bytes(b'motorola,wingray-other\0')
   data=self.execute();self.assertIn(b'XOOM_TOUCH_DENIED_BOARD',data)

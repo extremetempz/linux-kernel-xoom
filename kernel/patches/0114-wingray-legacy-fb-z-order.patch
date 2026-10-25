@@ -1,0 +1,36 @@
+From 3c7a280e6a1cf91ac8ea028b9497aa4a22100a07 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 13:06:19 +1100
+Subject: [PATCH] video: tegra: accept legacy framebuffer z-order values
+
+The Motorola gralloc NvGrPost path passes z = layer index + 2 (2, 3, 4)
+to FBIO_TEGRA_FLIP.  z is a relative blend-order value used by
+tegra_dc_set_blending(), not a window index.  The compatibility validator
+mistakenly required z < DC_N_WINDOWS, so every multi-layer Android post
+failed with -EINVAL and no framebuffer window was enabled.
+
+Remove only that invalid bound.  All crop, format, stride, alignment,
+pin extent and 32-bit address checks remain in place.
+---
+ drivers/staging/tegra/video/fb_legacy.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/video/fb_legacy.h b/drivers/staging/tegra/video/fb_legacy.h
+index 701dc3db..19211ed9 100644
+--- a/drivers/staging/tegra/video/fb_legacy.h
++++ b/drivers/staging/tegra/video/fb_legacy.h
+@@ -48,7 +48,10 @@ static int tegra_fb_legacy_validate(const struct tegra_fb_windowattr *a,
+ 		return 0; /* the original ABI disables this window */
+ 	if (a->flags & ~(TEGRA_FB_WIN_FLAG_INVERT_H | TEGRA_FB_WIN_FLAG_INVERT_V))
+ 		return -EOPNOTSUPP;
+-	if (a->blend > TEGRA_FB_WIN_BLEND_COVERAGE || a->z >= DC_N_WINDOWS)
++	/* z is a blend-order value, not a window index.  The original
++	 * Motorola gralloc uses layer index + 2 (2, 3, 4); the DC blends by
++	 * relative order and does not index an array with it. */
++	if (a->blend > TEGRA_FB_WIN_BLEND_COVERAGE)
+ 		return -EINVAL;
+ 	if (a->w != a->out_w || a->h != a->out_h)
+ 		return -EOPNOTSUPP; /* filtering access patterns need a separate gate */
+-- 
+2.43.0
+

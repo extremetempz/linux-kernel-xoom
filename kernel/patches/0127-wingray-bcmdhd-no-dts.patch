@@ -1,0 +1,36 @@
+From 7c27d4c1b517d84a6f9e17b3a760df1c0d93f35e Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 15:50:29 +1100
+Subject: [PATCH] bcmdhd: use direct SDIO registration without CONFIG_DTS
+
+The donor driver was built with CONFIG_DTS, which makes
+dhd_wifi_platform_register_drv() register a platform driver for an
+android,bcmdhd_wlan DT node and return success without registering the
+SDIO bus.  This board has no such node, so dhd.ko loaded but never probed
+the BCM4329.
+
+Build without CONFIG_DTS so the non-DT path falls through to
+dhd_wifi_platform_load() and dhd_bus_register(), matching the already
+enumerated SDIO function.
+---
+ drivers/net/wireless/bcmdhd/Makefile | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/bcmdhd/Makefile b/drivers/net/wireless/bcmdhd/Makefile
+index bcd3f6f2..7fae3e97 100755
+--- a/drivers/net/wireless/bcmdhd/Makefile
++++ b/drivers/net/wireless/bcmdhd/Makefile
+@@ -1224,7 +1224,9 @@ DHDCFLAGS += -include "dhd_sec_feature.h"
+ 
+ #EXTRA_LDFLAGS += --strip-debug
+ 
+-EXTRA_CFLAGS += -DCONFIG_DTS
++# No android,bcmdhd_wlan platform node on this board; use direct SDIO
++# registration so dhd_module_init reaches dhd_bus_register().
++# EXTRA_CFLAGS += -DCONFIG_DTS
+ EXTRA_CFLAGS += -DDISABLE_IF_COUNTERS
+ EXTRA_CFLAGS += -DREAD_MACADDR
+ 
+-- 
+2.43.0
+
