@@ -1,3 +1,7 @@
+> **Superseded by Image 70m.** 70l fixed the bcmdhd module/WifiHW paths but
+> `dhd_open` still failed on optional preinit iovars. Use
+> `android-gpu-70m-bcmdhd-legacy.md`.
+
 # Image 70l: bcmdhd module name and the firmware that actually boots
 
 25 October 2026. 70j proved the private 5.90.100.410 image was used, but it
