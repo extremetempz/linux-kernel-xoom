@@ -55,6 +55,12 @@ WIFI_SCRIPT=b'''#!/bin/busybox sh
 # and calibration file.  This keeps the driver out of the early SDIO probe.
 LOG=/run/xoom-wifi.log
 : > "$LOG"
+# TF101 bcmdhd probes SDIO in module_init and creates wlan0 there.  Load
+# after boot-time display/SDIO activity has settled, but before Android's
+# WifiService starts supplicant (~62s), otherwise supplicant runs before
+# wlan0 exists and WifiHW unloads the driver.
+/bin/busybox sleep 40
+echo "boot_delay=40" >> "$LOG"
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
  [ -r /system/vendor/firmware/fw_bcmdhd.bin ] && [ -r /system/etc/wifi/bcm4329.cal ] && break
  /bin/busybox sleep 1

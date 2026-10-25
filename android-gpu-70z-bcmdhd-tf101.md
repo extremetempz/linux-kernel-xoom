@@ -1,3 +1,6 @@
+> **Superseded by Image 71b.** 70z created wlan0 but loaded after the
+> supplicant race. Use `android-gpu-71b-bcmdhd-tf101.md`.
+
 # Image 70z: skip the missing Xoom WiFi platform device
 
 25 October 2026. 70y delayed the module until 63 seconds, and the display was
