@@ -1,0 +1,36 @@
+{
+  "baseline_main": "60cfb5f7f0aa019cfddac14cc9329683ae181f15",
+  "kernel_commit": "276189735d38212f60108a2ba0cb92a03c119ec8",
+  "reviewed_broadcom_libbt_commit": "bbb55397b562c915464282224743ba4d92bf50f3",
+  "image_sha256": "e8595162a15f60ffa9327c60bb2284ee6b40c2bd104195951de3cf29b799a512",
+  "image_size": 4124672,
+  "config_changes_from_73k": {
+    "CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES": [
+      "CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES=\"tegra20-motorola-wingray-android44-gpu-fbmap\"",
+      "CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES=\"tegra20-motorola-wingray-android44-bluetooth\""
+    ],
+    "CONFIG_RFKILL_WINGRAY_BT": [
+      null,
+      "CONFIG_RFKILL_WINGRAY_BT=y"
+    ],
+    "CONFIG_SERIAL_TEGRA": [
+      null,
+      "CONFIG_SERIAL_TEGRA=y"
+    ]
+  },
+  "full_build_script_passed": true,
+  "hardware_tested": false,
+  "flashed": false,
+  "tests": [
+    "actual-power-failure-fixture",
+    "compiled-DT-ownership-and-negative-controls",
+    "existing-native-Wi-Fi-static-checks",
+    "static-non-NEON-runtime-build",
+    "kernel-DT-runtime-packing-integrity"
+  ],
+  "limits": [
+    "Awake-only; no host-wake IRQ/LPM validation",
+    "Vendor baud and factory address not yet verified",
+    "Pairing, transfer, audio and coexistence untested"
+  ]
+}
