@@ -1,3 +1,7 @@
+> **Superseded by Image 70j.** 70i still reported `sta_fw=system_fallback`;
+> only `/bin` content is reliably visible to the loader. Use
+> `android-gpu-70j-bcmdhd-legacy.md`.
+
 # Image 70i: load firmware from a path that is actually visible
 
 25 October 2026. Image 70h still logged:

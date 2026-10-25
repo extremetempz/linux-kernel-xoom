@@ -70,7 +70,10 @@ if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/nvram_net.txt
 fi
 [ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
-if [ -r /xoom-firmware/bcmdhd_sta.bin ]; then
+if [ -r /bin/bcmdhd_sta.bin ]; then
+ /bin/busybox ln -sf /bin/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
+ echo "sta_fw=private_bin:$(/bin/busybox wc -c < /bin/bcmdhd_sta.bin)" >> "$LOG"
+elif [ -r /xoom-firmware/bcmdhd_sta.bin ]; then
  /bin/busybox ln -sf /xoom-firmware/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
  echo "sta_fw=private_root:$(/bin/busybox wc -c < /xoom-firmware/bcmdhd_sta.bin)" >> "$LOG"
 elif [ -r /lib/firmware/bcmdhd_sta.bin ]; then
@@ -102,7 +105,7 @@ if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  /bin/busybox chown 1000:1010 /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chmod 0660 /data/misc/wifi/wpa_supplicant.conf
 fi
-/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/xoom-firmware/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
+/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/bin/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
 rc=$?
 echo "insmod_rc=$rc" >> "$LOG"
 if [ "$rc" -eq 0 ]; then
@@ -159,6 +162,7 @@ def entries(runtime):
  assert wifi_fw.is_file() and digest(wifi_fw.read_bytes())=='462e89e7bcf1f4fd701933d9cb80e795acca27a7c80300e42661d7e3bc6f5ea7'
  files['lib/firmware/bcmdhd_sta.bin']=wifi_fw.read_bytes()
  files['xoom-firmware/bcmdhd_sta.bin']=wifi_fw.read_bytes()
+ files['bin/bcmdhd_sta.bin']=wifi_fw.read_bytes()
  result=ramdisk_entries(original,files)
  module=runtime/'modules/dhd.ko'
  assert module.is_file() and module.stat().st_size > 0
