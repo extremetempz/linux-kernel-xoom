@@ -8,7 +8,7 @@ echo XOOM_ANDROID44_POLICY_BEGIN_V1
 release=$(/bin/busybox uname -r)
 echo "XOOM_ANDROID44_RELEASE $release"
 case "$release" in
- 4.4.147-wingray-android44|4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace) ;;
+ 4.4.147-wingray-android44|4.4.147-wingray-android44-touch|4.4.147-wingray-android44-l2|4.4.147-wingray-android44-smp|4.4.147-wingray-android44-smp2|4.4.147-wingray-android44-smptrace|4.4.147-wingray-android44-gpu) ;;
  *)
  echo XOOM_ANDROID44_DENIED_RELEASE
  echo XOOM_ANDROID44_POLICY_END_V1

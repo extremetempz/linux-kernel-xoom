@@ -12,7 +12,14 @@ static int layout_ok(const struct fb_var_screeninfo *v,
         v->yres_virtual < 800 || v->yres_virtual > 2048 ||
         v->xoffset > v->xres_virtual - 1280 ||
         v->yoffset > v->yres_virtual - 800 || v->nonstd || v->grayscale ||
-        v->rotate || v->pixclock || v->vmode != FB_VMODE_NONINTERLACED ||
+        v->rotate ||
+#ifdef XOOM_LEGACY_DISPLAY
+        (v->pixclock != 15060 || f->smem_start != 0x2e800000 ||
+         f->smem_len != 0x800000) ||
+#else
+        v->pixclock ||
+#endif
+        v->vmode != FB_VMODE_NONINTERLACED ||
         f->type != FB_TYPE_PACKED_PIXELS || f->visual != FB_VISUAL_TRUECOLOR ||
         f->line_length < v->xres_virtual * 4 || f->line_length > 8192 ||
         (f->line_length & 3) || !f->smem_start || (f->smem_start & 4095) ||
