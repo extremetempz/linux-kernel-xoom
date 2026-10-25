@@ -1,0 +1,92 @@
+From cf5891c0ba91910f2cab692a0c4266f371e35737 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 13:46:57 +1100
+Subject: [PATCH] ARM: wingray: add interim volume-key wake source
+
+The real Xoom power button is a CPCAP PMIC interrupt, not a GPIO.  The
+current kernel has no CPCAP key driver and Android cannot wake from the
+120-second display timeout.  The early-boot DT deletes the base gpio-keys
+node and the GPIO keyboard driver was disabled.
+
+Re-add the two volume GPIO keys in the fixed-clock GPU base profile, enable
+INPUT_KEYBOARD/KEYBOARD_GPIO, mark both keys wakeup-capable and map
+volume-down to KEY_POWER.  Both the GPU-test and Android profiles inherit
+the same keys, so their only DT difference remains the display node.  This
+is an interim physical wake key, not a substitute for a CPCAP power-key
+driver.
+---
+ .../dts/tegra20-motorola-wingray-gpu-test.dts | 28 +++++++++++++++++++
+ .../configs/wingray_android44_gpu_defconfig   |  3 +-
+ .../wingray_android44_gpu_fbmap_defconfig     |  3 +-
+ 3 files changed, 32 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index e838735f..3060ef24 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -2,6 +2,34 @@
+ #include "tegra20-motorola-wingray-host-test.dts"
+ / {
+ 	model = "Motorola Xoom P3 fixed-clock offscreen GPU diagnostic";
++	/* The early-boot include deletes the base gpio-keys.  Re-add only the
++	 * physical volume keys.  Volume-down emits KEY_POWER as an interim wake
++	 * key because the real power button is a CPCAP PMIC interrupt that this
++	 * kernel does not yet expose. */
++	gpio-keys {
++		compatible = "gpio-keys";
++		volume-up {
++			label = "Volume Up";
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_LOW>;
++			wakeup-source;
++		};
++		volume-down {
++			label = "Power (Volume Down)";
++			linux,code = <KEY_POWER>;
++			gpios = <&gpio TEGRA_GPIO(R, 1) GPIO_ACTIVE_LOW>;
++			wakeup-source;
++		};
++	};
++	gpio@6000d000 {
++		/* Shared column for the two volume switches. */
++		keypad-column {
++			gpio-hog;
++			gpios = <TEGRA_GPIO(Q, 0) GPIO_ACTIVE_HIGH>;
++			output-low;
++			line-name = "wingray-keypad-column";
++		};
++	};
+ 	host1x@50000000 {
+ 		gr2d@54140000 {
+ 			clocks = <&tegra_car TEGRA20_CLK_GR2D>, <&tegra_car TEGRA20_CLK_EPP>;
+diff --git a/arch/arm/configs/wingray_android44_gpu_defconfig b/arch/arm/configs/wingray_android44_gpu_defconfig
+index 7441ec9d..4520b839 100644
+--- a/arch/arm/configs/wingray_android44_gpu_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_defconfig
+@@ -75,7 +75,8 @@ CONFIG_TOUCHSCREEN_ATMEL_MXT=y
+ # CONFIG_INPUT_LEDS is not set
+ # CONFIG_INPUT_MOUSEDEV is not set
+ # CONFIG_INPUT_JOYDEV is not set
+-# CONFIG_INPUT_KEYBOARD is not set
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_INPUT_MOUSE is not set
+ # CONFIG_INPUT_JOYSTICK is not set
+ # CONFIG_INPUT_TABLET is not set
+diff --git a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+index 9b990730..c67e4619 100644
+--- a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+@@ -75,7 +75,8 @@ CONFIG_TOUCHSCREEN_ATMEL_MXT=y
+ # CONFIG_INPUT_LEDS is not set
+ # CONFIG_INPUT_MOUSEDEV is not set
+ # CONFIG_INPUT_JOYDEV is not set
+-# CONFIG_INPUT_KEYBOARD is not set
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_INPUT_MOUSE is not set
+ # CONFIG_INPUT_JOYSTICK is not set
+ # CONFIG_INPUT_TABLET is not set
+-- 
+2.43.0
+

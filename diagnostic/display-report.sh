@@ -88,4 +88,13 @@ if [ -x /system/bin/dumpsys ]; then
  } 2>&1 | /bin/busybox head -c 8192
 fi
 echo XOOM_ANDROID_DISPLAY_END
+echo XOOM_GFXINFO_BEGIN
+if [ -x /system/bin/dumpsys ]; then
+ for package in com.cyanogenmod.trebuchet com.google.android.setupwizard; do
+  echo "XOOM_GFXINFO $package"
+  /bin/busybox timeout -s KILL 2 /system/bin/dumpsys gfxinfo "$package" 2>&1 | /bin/busybox head -c 16384
+  echo
+ done
+fi
+echo XOOM_GFXINFO_END
 echo XOOM_DISPLAY_END

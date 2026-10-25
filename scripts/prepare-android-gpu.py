@@ -41,9 +41,9 @@ exit 1
 AWAKE_RC=b'''# Development-only display wake workaround.  The kernel has no suspend or
 # power-key wake source, so keep the panel on after Android boots.
 on property:sys.boot_completed=1
-    start xoom-screen-awake
+    start xoom_screen_awake
 
-service xoom-screen-awake /bin/xoom-screen-awake
+service xoom_screen_awake /bin/xoom-screen-awake
     class late_start
     user root
     oneshot
