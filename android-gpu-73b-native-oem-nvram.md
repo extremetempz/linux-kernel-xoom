@@ -1,3 +1,6 @@
+> **Superseded by Image 73c.** 73b scanned but association returned
+> `BCME_BADCHAN`. Use `android-gpu-73c-native.md`.
+
 # Image 73b: native 4.4 driver with the Xoom OEM NVRAM
 
 25 October 2026. 73a is the first image with a stable screen, working Wi-Fi
