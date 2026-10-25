@@ -1,3 +1,6 @@
+> **Superseded by Image 72e.** 72d enabled Wi-Fi but CSCAN rejected WEXT
+> scans. Use `android-gpu-72e-wext.md`.
+
 # Image 72d: AF_PACKET and root supplicant
 
 25 October 2026. 72c finally initialized the WEXT driver, but failed at:
