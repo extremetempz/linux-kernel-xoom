@@ -1,3 +1,6 @@
+> **Superseded by Image 72c.** 72b's supplicant had no driver registered;
+> 72c adds `-DCONFIG_DRIVER_WEXT`. Use `android-gpu-72c-wext.md`.
+
 # Image 72b: WEXT-capable wpa_supplicant
 
 25 October 2026. 72a proved the ROM's supplicant lacks WEXT:

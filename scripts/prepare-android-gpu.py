@@ -182,7 +182,7 @@ def entries(runtime):
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
  wpa_wext=ROOT/'artifacts/hardware-private/system-bin/wpa_supplicant-wext'
- assert wpa_wext.is_file() and digest(wpa_wext.read_bytes())=='e7bf416825f551f9f15baf8a5a4470c98d21c4f37908ca626bfa10cb823cb65a'
+ assert wpa_wext.is_file() and digest(wpa_wext.read_bytes())=='289e9ef2c8c3548104367e82ff55ecf63fe7c7d3e90467e9dde822a871c45f6e'
  files['bin/wpa_supplicant-wext']=wpa_wext.read_bytes()
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
