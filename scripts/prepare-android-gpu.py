@@ -64,10 +64,7 @@ done
 /bin/busybox chmod 0770 /data/misc/wifi /data/misc/wifi/sockets
 /bin/busybox chown 1014:1014 /data/misc/dhcp
 /bin/busybox chmod 0770 /data/misc/dhcp
-if [ -r /system/etc/wifi/wpa_supplicant.conf ] && [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
- /bin/busybox cp /system/etc/wifi/wpa_supplicant.conf /data/misc/wifi/wpa_supplicant.conf
- /bin/busybox chown 1010:1010 /data/misc/wifi/wpa_supplicant.conf
-fi
+# Use the Android 4.4 socket layout; the ROM config may target a stale path.
 if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  echo "ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi" > /data/misc/wifi/wpa_supplicant.conf
  echo "update_config=1" >> /data/misc/wifi/wpa_supplicant.conf

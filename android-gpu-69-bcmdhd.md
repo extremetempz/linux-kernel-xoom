@@ -1,3 +1,7 @@
+> **Superseded by Image 69b.** 69b uses a clean Android 4.4 supplicant
+> socket config and adds Wi-Fi state diagnostics. Use
+> `android-gpu-69b-bcmdhd.md`.
+
 # Image 69: Xoom bcmdhd 4329 module and Android Wi-Fi services
 
 25 October 2026. Image 68e enumerated the BCM4329 SDIO card with brcmfmac

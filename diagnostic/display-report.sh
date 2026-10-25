@@ -103,6 +103,25 @@ for directory in /system/etc/wifi /system/vendor/firmware /system/etc/firmware; 
  done
 done
 echo XOOM_WIFI_FILES_END
+echo XOOM_WIFI_STATE_BEGIN
+[ ! -r /run/xoom-wifi.log ] || /bin/busybox cat /run/xoom-wifi.log
+if [ -d /sys/module/dhd ]; then
+ echo "DHD_MODULE present"
+ for p in parameters/firmware_path parameters/nvram_path parameters/iface_name; do
+  [ ! -r "/sys/module/dhd/$p" ] || { echo "$p:"; /bin/busybox cat "/sys/module/dhd/$p"; }
+ done
+fi
+[ ! -r /proc/net/wireless ] || { echo "PROC_NET_WIRELESS"; /bin/busybox cat /proc/net/wireless; }
+for tool in /system/bin/iwconfig /system/xbin/iwconfig; do
+ if [ -x "$tool" ]; then
+  /bin/busybox timeout -s KILL 2 "$tool" wlan0 2>&1 | /bin/busybox head -c 4096
+  break
+ fi
+done
+if [ -x /system/bin/dumpsys ]; then
+ /bin/busybox timeout -s KILL 2 /system/bin/dumpsys wifi 2>&1 | /bin/busybox head -c 8192
+fi
+echo XOOM_WIFI_STATE_END
 echo XOOM_ANDROID_DISPLAY_BEGIN
 if [ -x /system/bin/dumpsys ]; then
  {
