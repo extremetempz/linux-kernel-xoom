@@ -1,3 +1,7 @@
+> **Superseded by Image 73e.** 73d's full log showed wpa stayed in
+> ASSOCIATING because the driver never reported WLC_E_ASSOC. Use
+> `android-gpu-73e-native.md`.
+
 # Image 73d: full WPA handshake logging
 
 25 October 2026. 73c associates and the AP sends repeated 4-way M1 frames,
