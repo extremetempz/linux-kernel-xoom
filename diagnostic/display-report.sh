@@ -73,6 +73,9 @@ if [ -r /sys/kernel/debug/tegradc.0/regs ]; then
  echo
 fi
 echo XOOM_DC_END
+echo XOOM_SCREEN_AWAKE_BEGIN
+[ ! -r /run/xoom-screen-awake.log ] || /bin/busybox cat /run/xoom-screen-awake.log
+echo XOOM_SCREEN_AWAKE_END
 echo XOOM_ANDROID_DISPLAY_BEGIN
 if [ -x /system/bin/dumpsys ]; then
  {

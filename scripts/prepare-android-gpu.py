@@ -11,6 +11,45 @@ spec=importlib.util.spec_from_file_location('android_pack',ROOT/'scripts/prepare
 base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
 RELEASE='4.4.147-wingray-android44-gpu'
 
+# The kernel has no suspend or power-key wake source yet.  Android's 120 s
+# screen timeout therefore leaves the panel dark with no way to wake it.
+# Keep this development runtime awake after boot so the UI remains usable;
+# remove this workaround once a PMIC/GPIO power-key wake path exists.
+AWAKE_SCRIPT=b'''#!/bin/busybox sh
+# Keep the display awake while the kernel exposes no power-key wake source.
+LOG=/run/xoom-screen-awake.log
+: > "$LOG"
+echo "screen-awake service started" >> "$LOG"
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+ echo "=== attempt $attempt ===" >> "$LOG"
+ /bin/busybox timeout -s KILL 5 /system/bin/settings put system screen_off_timeout 2147483647 >> "$LOG" 2>&1
+ echo "screen_off_timeout_rc=$?" >> "$LOG"
+ /bin/busybox timeout -s KILL 5 /system/bin/settings put global stay_on_while_plugged_in 7 >> "$LOG" 2>&1
+ echo "stay_on_rc=$?" >> "$LOG"
+ /bin/busybox timeout -s KILL 5 /system/bin/svc power stayon true >> "$LOG" 2>&1
+ echo "svc_stayon_rc=$?" >> "$LOG"
+ timeout_value=$(/bin/busybox timeout -s KILL 5 /system/bin/settings get system screen_off_timeout 2>/dev/null)
+ stay_value=$(/bin/busybox timeout -s KILL 5 /system/bin/settings get global stay_on_while_plugged_in 2>/dev/null)
+ echo "readback=$timeout_value/$stay_value" >> "$LOG"
+ [ "$timeout_value" = "2147483647" ] && [ "$stay_value" = "7" ] && exit 0
+ /bin/busybox sleep 2
+done
+echo "FAILED: display may still time out" >> "$LOG"
+exit 1
+'''
+
+AWAKE_RC=b'''# Development-only display wake workaround.  The kernel has no suspend or
+# power-key wake source, so keep the panel on after Android boots.
+on property:sys.boot_completed=1
+    start xoom-screen-awake
+
+service xoom-screen-awake /bin/xoom-screen-awake
+    class late_start
+    user root
+    oneshot
+    disabled
+'''
+
 def entries(runtime):
  config=(runtime/'kernel.config').read_bytes()
  for line in (b'CONFIG_LOCALVERSION="-wingray-android44-gpu"\n',b'CONFIG_ANDROID_BINDER_IPC_32BIT=y\n',b'CONFIG_FB_TEGRA_WINGRAY_LEGACY=y\n',b'CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y\n'):
@@ -30,7 +69,10 @@ def entries(runtime):
   'bin/display-report':'display-report.sh','bin/touch-report':'touch-report.sh','bin/soc-report':'soc-report.sh'}
  for name,source in helpers.items():
   path=ROOT/'diagnostic'/source;subprocess.run(['bash','-n',str(path)],check=True);files[name]=path.read_bytes()
+ files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  result=ramdisk_entries(original,files)
+ result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
+ result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\n')
  # Match the working original ROM's permissions only for the three GPU channels used.
  u=result['ueventd.stingray.rc'];perms=b'\n# Original Wingray NVIDIA channels; explicit paths, no block access.\n'+b''.join((name+' 0666 root root\n').encode() for name in ('/dev/nvhost-ctrl','/dev/nvhost-gr2d','/dev/nvhost-gr3d'))
  result[u.name]=dataclasses.replace(u,data=u.data+perms)
