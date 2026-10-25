@@ -36,6 +36,9 @@ assert 'CONFIG_LEGACY_BCMDHD=m' in CFG
 assert 'dhd.ko' in PREP
 assert 'bcmdhd-legacy' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
 assert 'kthread_create' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h').read_text()
+assert 'module_param_string(fwpath' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c').read_text()
+assert 'REGULATORY_CUSTOM_REG' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/wl_cfg80211.c').read_text()
+assert 'skb_mac_header(skb)' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_linux.c').read_text()
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'bcmdhd_sta.bin' in PREP

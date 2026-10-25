@@ -90,7 +90,8 @@ fi
 if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  echo "ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi" > /data/misc/wifi/wpa_supplicant.conf
  echo "update_config=1" >> /data/misc/wifi/wpa_supplicant.conf
- /bin/busybox chown 1010:1010 /data/misc/wifi/wpa_supplicant.conf
+ /bin/busybox chown 1000:1010 /data/misc/wifi/wpa_supplicant.conf
+ /bin/busybox chmod 0660 /data/misc/wifi/wpa_supplicant.conf
 fi
 /bin/busybox insmod /lib/modules/dhd.ko firmware_path=/system/etc/wifi/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
 rc=$?

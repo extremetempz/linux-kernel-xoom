@@ -1,3 +1,7 @@
+> **Superseded by Image 70e.** 70c loaded `dhd.ko` and created `wlan0`,
+> but WifiHW still lacked the `fwpath` sysfs parameter and a writable
+> supplicant config. Use `android-gpu-70e-bcmdhd-legacy.md`.
+
 # Image 70c: fix dhd module load on 4.4
 
 25 October 2026. The 70b report showed the module never loaded:
