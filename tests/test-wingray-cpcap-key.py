@@ -29,6 +29,9 @@ for needle in (
     "CPCAP_BIT_ON_S",
     "cpcap_pwrkey_work",
     "schedule_delayed_work(&cpcap->pwrkey_work",
+    "CPCAP INTS2=%04x",
+    "CPCAP INT2=%04x",
+    "CPCAP ON interrupt unmasked",
     "CPCAP power key polling registered",
     'of_machine_is_compatible("motorola,wingray")',
     "rev != 0",
@@ -36,6 +39,7 @@ for needle in (
     assert needle in MFD, needle
 
 assert "CPCAP_BIT_ON_S" in HDR
+assert "CPCAP_BIT_ON_I" in HDR
 for needle in (
     "CONFIG_SPI=y",
     "CONFIG_SPI_TEGRA20_SLINK=y",

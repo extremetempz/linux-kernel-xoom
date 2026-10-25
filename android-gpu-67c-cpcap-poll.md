@@ -1,3 +1,7 @@
+> **Superseded by Image 67d.** The 67c report showed `initial sense=0` and
+> no transitions. Image 67d explicitly unmasks ON and logs raw INT2/INTS2.
+> Use `android-gpu-67d-cpcap-key-raw.md`.
+
 # Image 67c: poll the CPCAP ON sense bit for the power key
 
 25 October 2026. Image 67b fixed CPCAP identification and created the
