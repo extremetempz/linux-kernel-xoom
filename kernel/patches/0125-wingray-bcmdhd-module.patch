@@ -1,0 +1,76 @@
+From 11d0f4be62596124fe8fe3b4d791f01c206edf0a Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 15:33:27 +1100
+Subject: [PATCH] ARM: wingray: build bcmdhd 4329 as a loadable dhd module
+
+The 4.4 donor bcmdhd already contains the BCM4329 SDIO device ID and is
+4.4-native; the 2.6 Xoom driver would require porting the full cfg80211 API.
+Build the donor driver with BCM4330 chip support as dhd.ko, set the original
+Xoom firmware and calibration paths, and disable brcmfmac so it does not
+claim the SDIO function.
+
+The module will be loaded by userspace after /system is mounted, using
+fw_bcmdhd.bin and bcm4329.cal directly.
+---
+ arch/arm/configs/wingray_android44_gpu_defconfig     | 12 ++++++++++--
+ .../configs/wingray_android44_gpu_fbmap_defconfig    | 12 ++++++++++--
+ drivers/net/wireless/bcmdhd/Makefile                 |  3 +++
+ 3 files changed, 23 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/configs/wingray_android44_gpu_defconfig b/arch/arm/configs/wingray_android44_gpu_defconfig
+index 26605261..457ae7f7 100644
+--- a/arch/arm/configs/wingray_android44_gpu_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_defconfig
+@@ -192,5 +192,13 @@ CONFIG_WLAN=y
+ CONFIG_CFG80211=y
+ CONFIG_CFG80211_WEXT=y
+ CONFIG_RFKILL=y
+-CONFIG_BRCMFMAC=y
+-CONFIG_BRCMFMAC_SDIO=y
++
++
++
++# Xoom bcmdhd 4329 module, loaded after /system is available.
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++CONFIG_BROADCOM_WIFI=y
++CONFIG_BCM4330=m
++CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
++CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
+diff --git a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+index dcd3dd3b..efc68f16 100644
+--- a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+@@ -192,5 +192,13 @@ CONFIG_WLAN=y
+ CONFIG_CFG80211=y
+ CONFIG_CFG80211_WEXT=y
+ CONFIG_RFKILL=y
+-CONFIG_BRCMFMAC=y
+-CONFIG_BRCMFMAC_SDIO=y
++
++
++
++# Xoom bcmdhd 4329 module, loaded after /system is available.
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++CONFIG_BROADCOM_WIFI=y
++CONFIG_BCM4330=m
++CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
++CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
+diff --git a/drivers/net/wireless/bcmdhd/Makefile b/drivers/net/wireless/bcmdhd/Makefile
+index 0c8c639a..bcd3f6f2 100755
+--- a/drivers/net/wireless/bcmdhd/Makefile
++++ b/drivers/net/wireless/bcmdhd/Makefile
+@@ -1046,6 +1046,9 @@ ifeq ($(CONFIG_BCM4330),y)
+   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
+   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
+   DRIVER_TYPE = y
++endif
++ifeq ($(CONFIG_BCM4330),m)
++  DRIVER_TYPE = m
+ endif
+   # Remove common feature for BCM4330
+   DHDCFLAGS :=$(filter-out -DSUPPORT_AMPDU_MPDU_CMD,$(DHDCFLAGS))
+-- 
+2.43.0
+

@@ -28,12 +28,19 @@ make "${args[@]}" "$defconfig"
 # Kconfig orders NETDEVICES before the NET symbol in this tree; force the
 # Wi-Fi dependency set after the initial defconfig and resolve it cleanly.
 "$build/source/scripts/config" --file "$build/out/.config" \
- --enable NETDEVICES --enable WLAN --enable BRCMFMAC --enable BRCMFMAC_SDIO
+ --enable NETDEVICES --enable WLAN --enable MODULES --enable MODULE_UNLOAD \
+ --enable BROADCOM_WIFI --module BCM4330 --disable BRCMFMAC --disable BRCMFMAC_SDIO \
+ --set-str BCMDHD_FW_PATH /system/vendor/firmware/fw_bcmdhd.bin \
+ --set-str BCMDHD_NVRAM_PATH /system/etc/wifi/bcm4329.cal
 make "${args[@]}" olddefconfig
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"
 done
+make "${args[@]}" -j"${JOBS:-4}" modules
+mkdir -p "$dest/modules"
+cp "$build/out/drivers/net/wireless/bcmdhd/dhd.ko" "$dest/modules/dhd.ko"
+"$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/dhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb

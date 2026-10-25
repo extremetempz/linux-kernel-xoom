@@ -50,6 +50,57 @@ service xoomawake /bin/xoom-screen-awake
     disabled
 '''
 
+WIFI_SCRIPT=b'''#!/bin/busybox sh
+# Load the 4329 bcmdhd module only after /system provides the ROM firmware
+# and calibration file.  This keeps the driver out of the early SDIO probe.
+LOG=/run/xoom-wifi.log
+: > "$LOG"
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+ [ -r /system/vendor/firmware/fw_bcmdhd.bin ] && [ -r /system/etc/wifi/bcm4329.cal ] && break
+ /bin/busybox sleep 1
+done
+/bin/busybox mkdir -p /data/misc/wifi/sockets /data/misc/dhcp
+/bin/busybox chown 1010:1010 /data/misc/wifi /data/misc/wifi/sockets
+/bin/busybox chmod 0770 /data/misc/wifi /data/misc/wifi/sockets
+/bin/busybox chown 1014:1014 /data/misc/dhcp
+/bin/busybox chmod 0770 /data/misc/dhcp
+if [ -r /system/etc/wifi/wpa_supplicant.conf ] && [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
+ /bin/busybox cp /system/etc/wifi/wpa_supplicant.conf /data/misc/wifi/wpa_supplicant.conf
+ /bin/busybox chown 1010:1010 /data/misc/wifi/wpa_supplicant.conf
+fi
+if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
+ echo "ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi" > /data/misc/wifi/wpa_supplicant.conf
+ echo "update_config=1" >> /data/misc/wifi/wpa_supplicant.conf
+ /bin/busybox chown 1010:1010 /data/misc/wifi/wpa_supplicant.conf
+fi
+/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/system/vendor/firmware/fw_bcmdhd.bin nvram_path=/system/etc/wifi/bcm4329.cal >> "$LOG" 2>&1
+echo "insmod_rc=$?" >> "$LOG"
+'''
+
+WIFI_RC=b'''on post-fs-data
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    start xoomwifi
+
+service xoomwifi /bin/xoom-wifi-load
+    class late_start
+    user root
+    oneshot
+    disabled
+
+service wpa_supplicant /system/bin/wpa_supplicant -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0
+    class main
+    socket wpa_wlan0 dgram 660 wifi wifi
+    disabled
+    oneshot
+
+service dhcpcd /system/bin/dhcpcd -aABKL
+    class main
+    disabled
+    oneshot
+'''
+
 def entries(runtime):
  config=(runtime/'kernel.config').read_bytes()
  for line in (b'CONFIG_LOCALVERSION="-wingray-android44-gpu"\n',b'CONFIG_ANDROID_BINDER_IPC_32BIT=y\n',b'CONFIG_FB_TEGRA_WINGRAY_LEGACY=y\n',b'CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y\n'):
@@ -70,17 +121,16 @@ def entries(runtime):
  for name,source in helpers.items():
   path=ROOT/'diagnostic'/source;subprocess.run(['bash','-n',str(path)],check=True);files[name]=path.read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
+ files['bin/xoom-wifi-load']=WIFI_SCRIPT
  result=ramdisk_entries(original,files)
- # BCM4329 fullmac firmware matching the in-kernel brcmfmac driver.
- # The Android bcmdhd image was downloaded but did not boot under brcmfmac.
- firmware=ROOT/'artifacts/hardware-private/wifi/bcm4329-fullmac-4.bin'
- assert firmware.is_file() and digest(firmware.read_bytes())=='ee87d73bc8b54aa29e343490297ca1294f71a1a4f66c845e6b301770c94082ee'
- for d in ('lib','lib/firmware','lib/firmware/brcm'):
+ module=runtime/'modules/dhd.ko'
+ assert module.is_file() and module.stat().st_size > 0
+ for d in ('lib','lib/modules'):
   result[d]=Entry(d,stat.S_IFDIR|0o755)
- result['lib/firmware/brcm/brcmfmac4329-sdio.bin']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.bin',stat.S_IFREG|0o644,firmware.read_bytes())
- result['lib/firmware/brcm/brcmfmac4329-sdio.txt']=Entry('lib/firmware/brcm/brcmfmac4329-sdio.txt',stat.S_IFREG|0o644,b'macaddr=02:00:00:00:00:01\n')
+ result['lib/modules/dhd.ko']=Entry('lib/modules/dhd.ko',stat.S_IFREG|0o644,module.read_bytes())
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
- result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\n')
+ result['init.xoom-wifi.rc']=Entry('init.xoom-wifi.rc',stat.S_IFREG|0o644,WIFI_RC)
+ result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\nimport /init.xoom-wifi.rc\n')
  # Match the working original ROM's permissions only for the three GPU channels used.
  u=result['ueventd.stingray.rc'];perms=b'\n# Original Wingray NVIDIA channels; explicit paths, no block access.\n'+b''.join((name+' 0666 root root\n').encode() for name in ('/dev/nvhost-ctrl','/dev/nvhost-gr2d','/dev/nvhost-gr3d'))
  result[u.name]=dataclasses.replace(u,data=u.data+perms)

@@ -24,15 +24,20 @@ for needle in (
     'CONFIG_NETDEVICES=y',
     'CONFIG_WLAN=y',
     'CONFIG_CFG80211=y',
-    'CONFIG_BRCMFMAC=y',
-    'CONFIG_BRCMFMAC_SDIO=y',
+    'CONFIG_BROADCOM_WIFI=y',
+    'CONFIG_BCM4330=m',
+    'CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"',
+    'CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"',
 ):
     assert needle in CFG, needle
 
 assert 'CONFIG_NETDEVICES is not set' not in CFG
-assert 'brcmfmac4329-sdio.bin' in PREP
-assert 'macaddr=02:00:00:00:00:01' in PREP
-assert 'service xoomawake' in PREP
-assert 'ee87d73bc8b54aa29e343490297ca1294f71a1a4f66c845e6b301770c94082ee' in PREP
-assert '--enable NETDEVICES --enable WLAN --enable BRCMFMAC --enable BRCMFMAC_SDIO' in BUILD
+assert 'CONFIG_MODULES=y' in CFG
+assert 'dhd.ko' in PREP
+assert 'xoom-wifi-load' in PREP
+assert 'xoomwifi' in PREP
+assert 'service wpa_supplicant' in PREP
+assert 'service dhcpcd' in PREP
+assert 'dhd.ko' in BUILD
+assert '--enable BROADCOM_WIFI --module BCM4330' in BUILD
 print('PASS BCM4329 Wi-Fi SDIO/config/firmware scope')
