@@ -1,5 +1,14 @@
 # Component status — 25 October 2026
 
+**Latest hardware result (Image 63):** Android 4.4.4 now displays on the
+Xoom through the NVIDIA GPU composition path. The setup wizard, status bar,
+navigation bar and wallpaper are visible, the Tegra DC scans out the
+GPU-composed 1280x800 framebuffer, and the LP8550 backlight is on. This is
+GPU/client-target composition, not HWC overlay composition
+(`numHwLayers=0`). One verified report is preserved in
+`artifacts/androidgpu63-report1`; original boot/recovery restoration is
+pending after this test. See [Image 63 result](android-gpu-63-result.md).
+
 **Latest GPU status:** [attempt 58](docs/gpu-render-test-58-result.md) physically passes NVIDIA Tegra OpenGL ES 2.0 offscreen rendering on Linux 4.4.147: two distinct frames have correct triangle/background readbacks and the child exits 0. Two fresh reports confirm the result. The original boot/recovery hashes match after restoration, and retained checkpoints confirm child completion without a recorded panic. Android accelerated window/compositor integration remains unproven. The next test boot must target combined accelerated Android with the previously tested display, touch, SMP, PL310, USB and storage; no further offscreen-only boot is planned.
 
 **Combined Android test:** image 59 reached USB, matching storage, Android ABI and two-core checks but stopped before Android at a missing framebuffer bus resource. [Image 60](docs/android-gpu-60-framebuffer-map.md) adds only the exact reserved fb0 bus window and a fresh trace cookie; its Android archive is byte-identical. It is flashed and under observation. Original restoration remains pending for this test; recovery/layout remain untouched. Combined accelerated Android is not yet proven.
