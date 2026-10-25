@@ -1,3 +1,7 @@
+> **Superseded by Image 72d.** 72c initialized WEXT but the kernel lacked
+> AF_PACKET and the supplicant lost CAP_NET_ADMIN. Use
+> `android-gpu-72d-wext.md`.
+
 # Image 72c: register the WEXT driver in wpa_supplicant
 
 25 October 2026. 72b proved the custom WEXT supplicant was present but

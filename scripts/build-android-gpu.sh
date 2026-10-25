@@ -29,7 +29,7 @@ make "${args[@]}" "$defconfig"
 # Wi-Fi dependency set after the initial defconfig and resolve it cleanly.
 "$build/source/scripts/config" --file "$build/out/.config" \
  --enable NETDEVICES --enable WLAN --enable MODULES --enable MODULE_UNLOAD \
- --enable CFG80211 --enable WIRELESS_EXT --disable RD_GZIP --disable RD_BZIP2 --disable RD_LZMA --disable RD_LZO --disable RD_LZ4 --enable RD_XZ --enable WEXT_CORE --enable WEXT_PROC --enable WEXT_PRIV \
+ --enable CFG80211 --enable WIRELESS_EXT --enable PACKET --disable RD_GZIP --disable RD_BZIP2 --disable RD_LZMA --disable RD_LZO --disable RD_LZ4 --enable RD_XZ --enable WEXT_CORE --enable WEXT_PROC --enable WEXT_PRIV \
  --module LEGACY_BCMDHD --disable BCMDHD_TF101 --disable BCM4330 --disable BROADCOM_WIFI --disable BRCMFMAC --disable BRCMFMAC_SDIO
 make "${args[@]}" olddefconfig
 cp "$build/out/.config" "$dest/kernel.config"
