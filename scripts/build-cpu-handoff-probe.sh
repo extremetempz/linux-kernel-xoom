@@ -6,7 +6,7 @@ dest="${XOOM_ARTIFACT_DIR:?New runtime directory required}"
 version=$(sed -n 's/^CONFIG_LOCALVERSION="\(.*\)"$/\1/p' "$dest/kernel.config")
 case "$version" in
  -wingray-android44-l2|-wingray-android44-smp) count=1;;
- -wingray-android44-smp2|-wingray-android44-smptrace) count=2;;
+ -wingray-android44-smp2|-wingray-android44-smptrace|-wingray-android44-gpu) count=2;;
  *) exit 1;;
 esac
 release="4.4.147$version"

@@ -13,7 +13,7 @@ def signed(n):
     return n-(1<<32) if n & (1<<31) else n
 
 def decode(data, system_map, cookie=COOKIE):
-    assert cookie in (COOKIE,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057)
+    assert cookie in (COOKIE,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057,0x584d0059,0x584d0060)
     assert len(data)==128, 'Require exactly one complete 128-byte snapshot'
     w=struct.unpack('<32I',data)
     assert w[:3]==(0x58534d50,1,cookie), 'Wrong/stale magic, version or build cookie'
@@ -42,7 +42,7 @@ def decode(data, system_map, cookie=COOKIE):
             4:'readiness printf returned success',5:'readiness printf returned failure'}.get(
                 result['usb_stage'], 'unrecognized USB stage')
         result['usb_reply_limit'] = 'Local write success does not prove USB queue/completion or host receipt. Missing return checkpoint can also mean process exit/reset.'
-    if cookie==0x584d0056:
+    if cookie in (0x584d0056,0x584d0057,0x584d0059,0x584d0060):
         for engine in ('gr2d','gr3d'):
             stage=result[engine+'_stage']
             if 0x500<=stage<0x600:
@@ -52,11 +52,13 @@ def decode(data, system_map, cookie=COOKIE):
             else:
                 names={0x400:'channel open entry',0x401:'channel acquired',0x402:'before context allocation',0x403:'open returned',0x4ff:'open failed',0x410:'channel write entry',0x411:'submit header processed',0x412:'write returned',0x41f:'write failed',0x420:'before job pin',0x421:'job pin returned',0x422:'before channel submit',0x423:'channel submit returned'}
                 if stage in names:result[engine+'_runtime']={'operation':names[stage]}
-    if cookie in (0x584d0055,0x584d0056,0x584d0057):
+    if cookie in (0x584d0055,0x584d0056,0x584d0057,0x584d0059,0x584d0060):
         result['limits']=result['limits'].replace('No GPU rendering is enabled.','A bounded userspace rendering probe is enabled; checkpoints alone do not prove GPU rendering.')
-    if cookie in (0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057):
+    if cookie in (0x584d0059,0x584d0060):
+        result['limits']='Accelerated Android candidate: checkpoints record progress, not rendering, display or boot-completion proof. Reset retention and timing can affect results.'
+    if cookie in (0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057,0x584d0059,0x584d0060):
         result['panic_prefix']=data[0x6c:0x80].split(b'\0',1)[0].decode('utf-8',errors='replace')
-        if cookie in (0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057) and result['panic_seen']:
+        if cookie in (0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057,0x584d0059,0x584d0060) and result['panic_seen']:
             import re
             pair=re.fullmatch(r'RD ([0-9a-f]{8}) ([0-9a-f]{8})',result['panic_prefix'])
             if pair:

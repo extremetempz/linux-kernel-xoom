@@ -4,18 +4,22 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 build="${XOOM_BUILD_ROOT:?Set XOOM_BUILD_ROOT to the completed display kernel build}"
 dest="${XOOM_ARTIFACT_DIR:?Set XOOM_ARTIFACT_DIR to its artifact directory}"
 test -f "$dest/kernel.config"
-grep -Eq '^CONFIG_LOCALVERSION="-wingray-(display|android44|android44-touch|android44-l2|android44-smp|android44-smp2|android44-smptrace)"$' "$dest/kernel.config"
+grep -Eq '^CONFIG_LOCALVERSION="-wingray-(display|android44|android44-touch|android44-l2|android44-smp|android44-smp2|android44-smptrace|android44-gpu)"$' "$dest/kernel.config"
 make -s -C "$build/source" O="$build/out" ARCH=arm \
     INSTALL_HDR_PATH="$build/headers" headers_install
 test ! -e "$dest/display-pattern"
-"$build/toolchain/bin/arm-linux-androideabi-gcc" \
+extra_flags=()
+if [ "$(sed -n 's/^CONFIG_LOCALVERSION="\(.*\)"$/\1/p' "$dest/kernel.config")" = -wingray-android44-gpu ]; then
+ extra_flags=(-DXOOM_LEGACY_DISPLAY=1)
+fi
+"$build/toolchain/bin/arm-linux-androideabi-gcc" "${extra_flags[@]}" \
     -nostdlib -static -marm -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 \
     -fomit-frame-pointer -fno-stack-protector -fno-builtin -fno-pic \
     -Wall -Wextra -Werror -O2 -Wl,-e,_start -Wl,--build-id=none \
     -isystem "$build/headers/include" "$root/diagnostic/display-pattern.c" \
     -o "$dest/display-pattern"
 readelf -hAlW "$dest/display-pattern" > "$dest/display-pattern-elf.txt"
-python3 - "$dest/display-pattern" "$root/diagnostic/display-pattern.c" <<'PY'
+python3 - "$dest/display-pattern" "$root/diagnostic/display-pattern.c" "$dest/kernel.config" <<'PY'
 from pathlib import Path
 import hashlib,json,subprocess,sys
 p=Path(sys.argv[1]); data=p.read_bytes()
@@ -27,6 +31,7 @@ assert 'INTERP' not in headers and '(NEEDED)' not in dynamic
 assert 'Tag_CPU_arch: v7' in attrs and 'Tag_Advanced_SIMD_arch:' not in attrs
 assert not subprocess.check_output(['nm','-u',str(p)],text=True).strip()
 (p.parent/'display-pattern-manifest.json').write_text(json.dumps({
+    'legacy_wingray_layout':'CONFIG_LOCALVERSION="-wingray-android44-gpu"\n' in Path(sys.argv[3]).read_text(),
     'sha256':hashlib.sha256(data).hexdigest(),
     'source_sha256':hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest(),
     'purpose':'one-shot color bars, fixed /dev/fb0, reapply the fixed validated mode; no persistent writes',

@@ -11,7 +11,7 @@ def startup_cookie(directory):
     import re
     text = (Path(directory)/'kernel.config').read_text()
     match = re.search(r'^CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=(0x[0-9a-f]+)$',text,re.M)
-    assert match and int(match[1],16) in (0x584d0049,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057)
+    assert match and int(match[1],16) in (0x584d0049,0x584d0050,0x584d0051,0x584d0052,0x584d0053,0x584d0054,0x584d0055,0x584d0056,0x584d0057,0x584d0059,0x584d0060)
     return int(match[1],16)
 
 def validate_artifacts(directory, *, startup_trace=False, trace_cookie=0x584d0049):

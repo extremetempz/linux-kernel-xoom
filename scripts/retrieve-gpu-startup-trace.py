@@ -20,7 +20,11 @@ def main():
  marker=out/'trace-mapping-attempted.txt';assert not marker.exists(),'Do not repeat a mapping attempt'
  from gpu_test import validate_artifacts,startup_cookie
  cookie=startup_cookie(a.kernel_dir)
- validate_artifacts(a.kernel_dir,startup_trace=True,trace_cookie=cookie)
+ if cookie in (0x584d0059,0x584d0060):
+  from android_gpu import validate_artifacts as validate_android
+  validate_android(a.kernel_dir)
+ else:
+  validate_artifacts(a.kernel_dir,startup_trace=True,trace_cookie=cookie)
  state=json.loads((out/'test-state-private.json').read_text())
  assert state.get('full_original_hashes_verified') and not state['original_restoration_pending']
  artifacts=json.loads((out/'kernel-artifact-verification.json').read_text())

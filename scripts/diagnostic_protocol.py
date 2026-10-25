@@ -182,7 +182,7 @@ def _android44_mount_policy(text, mounts):
         raise ProtocolError('Android report helper did not complete exactly once')
     policy = _section(text, 'XOOM_ANDROID44_POLICY_BEGIN_V1', 'XOOM_ANDROID44_POLICY_END_V1')
     releases = re.findall(r'^XOOM_ANDROID44_RELEASE (.*)$', policy, re.M)
-    if len(releases) != 1 or releases[0] not in ('4.4.147-wingray-android44', '4.4.147-wingray-android44-touch', '4.4.147-wingray-android44-l2', '4.4.147-wingray-android44-smp', '4.4.147-wingray-android44-smp2', '4.4.147-wingray-android44-smptrace'):
+    if len(releases) != 1 or releases[0] not in ('4.4.147-wingray-android44', '4.4.147-wingray-android44-touch', '4.4.147-wingray-android44-l2', '4.4.147-wingray-android44-smp', '4.4.147-wingray-android44-smp2', '4.4.147-wingray-android44-smptrace', '4.4.147-wingray-android44-gpu'):
         raise ProtocolError('Android read-only mode requires the exact Android44 kernel release')
     if re.findall(r'^XOOM_ANDROID44_BOARD (.*)$', policy, re.M) != ['motorola,wingray']:
         raise ProtocolError('Android read-only mode requires the Wingray board identity')

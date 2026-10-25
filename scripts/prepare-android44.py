@@ -41,7 +41,7 @@ def checked_runtime(directory, name, source, expected_release=None, kernel_confi
             raise ValueError('Runtime compiled for a different kernel release: ' + name)
     if kernel_config is not None and manifest.get('kernel_config_sha256') != digest(kernel_config):
         raise ValueError('ABI probe was not built against this kernel configuration')
-    if name == 'cpu-handoff-probe' and manifest.get('expected_cpu_count') != (2 if expected_release.endswith(('-smp2', '-smptrace')) else 1):
+    if name == 'cpu-handoff-probe' and manifest.get('expected_cpu_count') != (2 if expected_release.endswith(('-smp2', '-smptrace', '-gpu')) else 1):
         raise ValueError('Wrong CPU migration-test expectation')
     return data
 

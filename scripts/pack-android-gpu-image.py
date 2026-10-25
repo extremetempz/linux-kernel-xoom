@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+"""Pack only a matching built-in accelerated Android runtime; no device operations."""
+from pathlib import Path
+import argparse,gzip,hashlib,importlib.util,json,struct
+from android44_image import pack_newc,boot_image
+from android_gpu import validate_artifacts
+ROOT=Path(__file__).resolve().parents[1]
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--kernel-dir',type=Path,required=True);p.add_argument('--output-dir',type=Path,required=True);a=p.parse_args()
+k=a.kernel_dir.resolve();out=a.output_dir.resolve();assert k.is_relative_to(ROOT/'artifacts') and out.is_relative_to(ROOT/'artifacts') and not out.exists()
+spec=importlib.util.spec_from_file_location('runtime',ROOT/'scripts/prepare-android-gpu.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+validate_artifacts(k,require_framebuffer_translation=True)
+archive=pack_newc(m.entries(k));assert gzip.decompress((k/'builtin-initramfs.cpio.gz').read_bytes())==archive
+assert (k/'runtime-source.cpio').read_bytes()==archive
+kernel=(k/'zImage').read_bytes();dt=(k/'tegra20-motorola-wingray-android44-gpu-fbmap.dtb').read_bytes();combined=(k/'zImage-dtb').read_bytes()
+assert struct.unpack_from('<I',kernel,36)[0]==0x016f2818 and combined==kernel+dt
+ram=gzip.compress(pack_newc({}),mtime=0);image=boot_image(combined,ram);assert len(image)<8388608
+sha=lambda v:hashlib.sha256(v).hexdigest()
+out.mkdir();(out/'wingray-android44-gpu.img').write_bytes(image);(out/'ramdisk.cpio.gz').write_bytes(ram)
+manifest={'purpose':'combined RAM-data Android with original NVIDIA EGL/gralloc/HWC; hardware untested',
+ 'kernel_profile':'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
+ 'sha256':sha(image),'size':len(image),'kernel_sha256':sha(combined),'system_map_sha256':sha((k/'System.map').read_bytes()),
+ 'builtin_runtime':True,'runtime_archive_sha256':sha(archive),'ramdisk_sha256':sha(ram),
+ 'hardware_tested':False,'android_booted':False,'accelerated_android_proven':False,
+ 'system_mount':'fixed p8 ext4 ro,noload,nosuid,nodev','data_cache':'tmpfs only',
+ 'preserved_features':['SMP2','PL310','P3 touch wiring','USB serial','full eMMC/BigPart geometry','Motorola AUO/LP8550 wiring and timing'],
+ 'limits':['Legacy display replaces modern DRM; combined hardware behavior unverified.','Initial framebuffer posting supports synchronous linear packed RGB only.','No DVFS/suspend/Wi-Fi/Bluetooth/charging-control enablement.'],
+ 'source_sha256':{str(f.relative_to(ROOT)):sha(f.read_bytes()) for f in [Path(__file__),ROOT/'scripts/prepare-android-gpu.py',ROOT/'scripts/android_gpu.py',ROOT/'scripts/build-android-gpu.sh',ROOT/'scripts/prepare_android_gpu_inputs.py',ROOT/'scripts/android44_image.py',ROOT/'scripts/prepare-android44.py',*[ROOT/'diagnostic'/n for n in ['android44-gpu-bootstrap.sh','android44-gpu-report.sh','android44-init.sh','android-service-runner.sh','server.sh','usb-report-loop.sh','report.sh']]]}}
+(out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Prepared combined Android/NVIDIA image, NOT flashed:',len(image),'bytes SHA256',manifest['sha256'])
