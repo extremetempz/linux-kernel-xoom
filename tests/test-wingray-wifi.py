@@ -45,6 +45,7 @@ assert 'wl_bss_connect_done(cfg, ndev, e, data, true)' in CONNECT
 assert 'event == WLC_E_ASSOC' in CONNECT
 assert 'WL_CHANSPEC_BW_20' in CONNECT
 assert 'goto set_ssid' in CONNECT
+assert 'wldev_set_band(dev, WLC_BAND_2G)' in CONNECT
 assert 'WLC_SET_SSID' in CONNECT
 assert 'wldev_iovar_setbuf_bsscfg(dev, "join"' not in CONNECT
 assert 'wl_cfg80211_ulb_get_min_bw_chspec(cfg, dev->ieee80211_ptr, bssidx)' not in CONNECT
