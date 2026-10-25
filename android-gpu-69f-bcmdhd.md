@@ -1,3 +1,7 @@
+> **Superseded by Image 69g.** 69f downloaded firmware but the 4330-only
+> debug validator rejected the runtime 4329. Use
+> `android-gpu-69g-bcmdhd.md`.
+
 # Image 69f: accept the BCM4329 chip in bcmdhd
 
 25 October 2026. Image 69e reached the SDIO probe, then stopped with:
