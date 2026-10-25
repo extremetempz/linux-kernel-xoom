@@ -1,6 +1,23 @@
-# Component status — 25 October 2026
+# Component status — 26 October 2026
 
-**Latest hardware result (Image 63/64):** Android 4.4.4 now displays on the
+**Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
+BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz
+networks, completes WPA2 association and the four-way handshake, gets a DHCP
+lease, reconnects after disconnect and passes Internet traffic. The route uses
+the Xoom OEM NVRAM, Android's native `nl80211` supplicant, the legacy
+`WLC_SET_SSID` join on 2.4 GHz, the `WLC_E_ASSOC`/`WLC_E_AUTH` connect result,
+and the `dhcpcd_wlan0` init service.
+
+- Image: `artifacts/androidgpu73k-ready/wingray-android44-gpu.img`
+- Size: 4,122,624 bytes
+- SHA-256: `8152ad4b5fc7c9bf30760b354bf8f6973c6c82beaeac71874f52aeaf1073f94b`
+- Recovery: 70t and Image 66
+- Limit: 2.4 GHz station mode; 5 GHz, SoftAP and long suspend/resume soak
+  testing are not validated.
+
+See [the working Wi-Fi record](docs/wifi-working.md).
+
+**Previous GPU/touch result (Image 63/64):** Android 4.4.4 now displays on the
 Xoom through the NVIDIA GPU composition path. The setup wizard, status bar,
 navigation bar and wallpaper are visible, the Tegra DC scans out the
 GPU-composed 1280x800 framebuffer, and the LP8550 backlight is on. This is
@@ -26,6 +43,7 @@ two-core Android boots with PL310, with and without diagnostic tracing.
 
 | Component | What is done | What is not done | Verdict |
 |---|---|---|---|
+| Wi-Fi (BCM4329 / native bcmdhd) | Image 73k physically confirms scan, WPA2 association, four-way handshake, DHCP, disconnect/reconnect and Internet traffic; native 4.4 `bcmdhd`, Xoom OEM NVRAM, `nl80211` supplicant and `dhcpcd_wlan0` | 2.4 GHz station mode only; 5 GHz, SoftAP, roaming and long suspend/resume soak unvalidated | Station-mode Wi-Fi and DHCP confirmed |
 | Tegra 2 SMP / CPU bring-up | Images 37 (traced) and 38 (unchanged non-trace image 36) boot Android with both CPUs online; CPU probes and timer/reschedule-IPI progress pass | Earlier attempt-36 failure remains unexplained; broader repeatability, concurrent stress, hotplug and suspend unvalidated | Initial traced and non-traced two-core boots passed; not fully validated |
 | PL310 L2 | Images 34/35/37/38 boot Android with PL310 enabled, 1 MiB; CPU0 and bounded cross-CPU memory checks pass | Broader cache-capacity, RAM-pressure and endurance validation pending | Initial UP/SMP smoke tests passed; not fully validated |
 | CPU frequency / voltage | Clock acquisition/unwind, shared EMC failure/rollback reporting, PLL error propagation, voltage-unit correction and stock Wingray table cap implemented; fault tests and ARM object checks pass | Motorola OPP/rail coupling, installed-DRAM EMC tables, voltage-failure veto and complete transition sequencing unvalidated; scaling/voltage driver remain disabled in tested profiles | Prerequisites implemented; not operational |
@@ -33,12 +51,24 @@ two-core Android boots with PL310, with and without diagnostic tracing.
 | EGL / gralloc / HWC | Software graphics reaches Android Welcome; composer bounds/descriptor cleanup corrected; original framebuffer ABI restored with optional synchronous linear-RGB handlers, bounds/completion/lifetime tests and ARM on/off links; offscreen probe passes 13 host cases and now runs two correct NVIDIA Tegra ES2 frames on both the original 2.6.39 ROM and Linux 4.4.147 in attempt 58 | Tiled/YUV/scaled posting unsupported; matched accelerated Android image/HAL integration, actual posting/completion/concurrency and accelerated composition pending | Initial RGB compatibility implemented offline; accelerated integration incomplete |
 | Android 4.4 Binder / ashmem / logger / VM | Real framework startup, Binder protocol 7 check, logger v1/v2 round trips, private-page ashmem test and existing VM/LMK startup demonstrated physically; expanded pin/protection probe passes physically in images 34/35/37/38 | Full Binder transaction/FD, reclaim/OOM and endurance coverage pending; wallpaper RenderScript crashes and Play services ANRs unresolved | Basic KitKat support demonstrated; not fully validated |
 
-Do not count the six headings as six completed hardware features. The strongest
-validated milestone is Android 4.4.4 startup with display, touch, USB and storage.
-Non-trace SMP repeatability, broader L2 validation, DVFS and accelerated Android display integration remain separate work.
+Do not count the component headings as independently completed hardware
+features. The strongest validated milestone is Android 4.4.4 startup with
+display, touch, Wi-Fi, USB and storage. Non-trace SMP repeatability, broader
+L2 validation, DVFS and accelerated Android display integration remain
+separate work.
+
+## Final Wi-Fi image
+
+[Image 73k](artifacts/androidgpu73k-ready/wingray-android44-gpu.img) is the
+confirmed Wi-Fi release: 4,122,624 bytes, SHA-256
+`8152ad4b5fc7c9bf30760b354bf8f6973c6c82beaeac71874f52aeaf1073f94b`.
+The shipped stripped module matches the build. See
+[the working Wi-Fi record](docs/wifi-working.md) and
+[the native-driver test](tests/test-wingray-wifi.py).
 
 ## Source and evidence
 
+- [Working Wi-Fi record](docs/wifi-working.md)
 - [Image 33 physical results](docs/trace-boot-attempt-33.md)
 - [Image 34 PL310 results](docs/trace-boot-attempt-34.md)
 - [Image 35 SMP control results](docs/trace-boot-attempt-35.md)
@@ -56,17 +86,19 @@ Non-trace SMP repeatability, broader L2 validation, DVFS and accelerated Android
 - [Built Motorola carveout-only resource profile and original live heap observations](docs/wingray-legacy-resource-profile.md)
 - [Decatf reuse classifications and staged plan](docs/decatf-reuse-plan.md)
 
-Kernel corrections are separate exported commits through patch 0094; Android
+Kernel corrections are separate exported commits through the current series
+(including the native Wi-Fi patches 0137–0139); Android
 wrapper changes are separate patches under `android/patches`. Sources, tests
 and sanitized findings are committed; proprietary libraries, original device
 images, identifiers and raw hardware reports are excluded. Tested configurations
 and boot artifacts are preserved. No Samsung board power or display tables were
 imported by these stages.
 
-The next work order keeps the six areas above ahead of Wi-Fi, Bluetooth and
-charging. [Channel-publication correction and remaining gates](docs/graphics-channel-publication-43.md)
-records patch 0085, its fault tests and ARM link, and the runtime
-clock/EMC/submission gaps. Linux 4.4 acceleration remains unproven; no new flash.
+With Wi-Fi station mode delivered, Bluetooth, charging and the remaining
+display/graphics gates are future work. [Channel-publication correction and
+remaining gates](docs/graphics-channel-publication-43.md) records patch 0085,
+its fault tests and ARM link, and the runtime clock/EMC/submission gaps. Linux
+4.4 acceleration remains unproven; no new flash.
 
 [Runtime/submission integration](docs/graphics-runtime-integration-44.md) adds
 checked parent, EMC, clock and IRQ activation to the main submission path and
