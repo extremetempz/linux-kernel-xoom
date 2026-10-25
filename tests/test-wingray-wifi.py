@@ -84,6 +84,7 @@ if runtime.is_file():
     assert b'bcmdhd' in data
 
 SERIES = ROOT / 'kernel/patches'
+assert (SERIES / '0137-wingray-bcmdhd-native-defconfig.patch').is_file()
 assert (SERIES / '0138-wingray-bcmdhd-native-module.patch').is_file()
 assert (SERIES / '0139-wingray-bcmdhd-native-connect.patch').is_file()
 assert not list(SERIES.glob('*tf101*'))

@@ -1,0 +1,19 @@
+From: Justin <justinscollo@protonmail.com>
+Subject: [PATCH] wingray: default the native 4.4 bcmdhd driver
+
+The exported series should select the native driver by default, not the
+abandoned legacy/WEXT driver.
+
+--- a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+@@ -198,7 +198,9 @@
+ # Xoom bcmdhd 4329 module, loaded after /system is available.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
++
++# Native 4.4 bcmdhd, loaded after /system is available.
+ CONFIG_BROADCOM_WIFI=y
+-CONFIG_BCM4330=m
+ CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
+ CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
++# CONFIG_LEGACY_BCMDHD is not set
