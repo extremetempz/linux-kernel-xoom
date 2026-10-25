@@ -35,6 +35,7 @@ assert 'CONFIG_CFG80211=y' in CFG
 assert 'CONFIG_LEGACY_BCMDHD=m' in CFG
 assert 'dhd.ko' in PREP
 assert 'bcmdhd-legacy' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
+assert 'kthread_create' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h').read_text()
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'bcmdhd_sta.bin' in PREP

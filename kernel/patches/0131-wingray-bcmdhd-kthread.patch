@@ -1,0 +1,51 @@
+From 480c2b022e4fcd9d340ad7e9dc377dfa13ee6a5d Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 16:39:08 +1100
+Subject: [PATCH] bcmdhd-legacy: use kthread_create instead of kernel_thread
+
+The 4.4 kernel retains kernel_thread in System.map but no longer exports
+it, so dhd.ko failed to load with 'Unknown symbol kernel_thread'.  Start
+the driver threads with exported kthread_create/wake_up_process and record
+the task pid for the existing PROC_STOP logic.
+---
+ .../net/wireless/bcmdhd-legacy/include/linuxver.h    | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h b/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h
+index b7e8910b..c130eaaa 100644
+--- a/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h
++++ b/drivers/net/wireless/bcmdhd-legacy/include/linuxver.h
+@@ -132,6 +132,7 @@ typedef irqreturn_t(*FN_ISR) (int irq, void *dev_id, struct pt_regs *ptregs);
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
+ #include <linux/sched.h>
++#include <linux/kthread.h>
+ #endif
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+@@ -491,13 +492,20 @@ typedef struct {
+ 
+ #define PROC_START(thread_func, owner, tsk_ctl, flags) \
+ { \
++	struct task_struct *__dhd_task; \
+ 	sema_init(&((tsk_ctl)->sema), 0); \
+ 	init_completion(&((tsk_ctl)->completed)); \
+ 	(tsk_ctl)->parent = owner; \
+ 	(tsk_ctl)->terminated = FALSE; \
+-	(tsk_ctl)->thr_pid = kernel_thread(thread_func, tsk_ctl, flags); \
+-	if ((tsk_ctl)->thr_pid > 0) \
++	(void)(flags); \
++	__dhd_task = kthread_create(thread_func, tsk_ctl, "dhd_thread"); \
++	if (!IS_ERR(__dhd_task)) { \
++		(tsk_ctl)->thr_pid = task_pid_nr(__dhd_task); \
++		wake_up_process(__dhd_task); \
+ 		wait_for_completion(&((tsk_ctl)->completed)); \
++	} else { \
++		(tsk_ctl)->thr_pid = -1; \
++	} \
+ 	DBG_THR(("%s thr:%lx started\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
+ }
+ 
+-- 
+2.43.0
+

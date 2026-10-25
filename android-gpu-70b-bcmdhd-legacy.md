@@ -1,3 +1,6 @@
+> **Superseded by Image 70c.** 70b could not load dhd.ko because Linux 4.4
+> does not export kernel_thread. Use `android-gpu-70c-bcmdhd-legacy.md`.
+
 # Image 70b: original Xoom bcmdhd, ported to 4.4
 
 25 October 2026. The donor 4.4 bcmdhd reached `wlan0` only through chip-ID
