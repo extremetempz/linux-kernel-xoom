@@ -30,7 +30,7 @@ make "${args[@]}" "$defconfig"
 "$build/source/scripts/config" --file "$build/out/.config" \
  --enable NETDEVICES --enable WLAN --enable MODULES --enable MODULE_UNLOAD \
  --enable CFG80211 --enable WIRELESS_EXT --enable WEXT_CORE --enable WEXT_PROC --enable WEXT_PRIV \
- --module BCMDHD_TF101 --disable LEGACY_BCMDHD --disable BCM4330 --disable BROADCOM_WIFI --disable BRCMFMAC --disable BRCMFMAC_SDIO
+ --module LEGACY_BCMDHD --disable BCMDHD_TF101 --disable BCM4330 --disable BROADCOM_WIFI --disable BRCMFMAC --disable BRCMFMAC_SDIO
 make "${args[@]}" olddefconfig
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
@@ -38,7 +38,7 @@ for helper in build-android44-probe build-display-pattern build-touch-events bui
 done
 make "${args[@]}" -j"${JOBS:-4}" modules
 mkdir -p "$dest/modules"
-cp "$build/out/drivers/net/wireless/bcmdhd-tf101/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
+cp "$build/out/drivers/net/wireless/bcmdhd-legacy/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
 "$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/bcmdhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
