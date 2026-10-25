@@ -1,3 +1,6 @@
+> **Superseded by Image 72f.** 72e started scan but still used iscan result
+> handlers. Use `android-gpu-72f-wext.md`.
+
 # Image 72e: standard WEXT scan
 
 25 October 2026. 72d turned Wi-Fi on, but scans failed:
