@@ -1,3 +1,7 @@
+> **Superseded by Image 72a.** 71e did not change the nl80211 failure.
+> 72a switches to the stable 2.6 driver with WEXT. Use
+> `android-gpu-72a-wext.md`.
+
 # Image 71e: restore preload and make station SET_INTERFACE a no-op
 
 25 October 2026. 71d removed the preload so WifiHW could own the load. The
