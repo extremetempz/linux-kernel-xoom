@@ -1,0 +1,53 @@
+From c24df0e9eeb4792a7b8612188ef9c60585461c82 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Sun, 25 Oct 2026 12:41:11 +1100
+Subject: [PATCH] video: tegra: apply assigned clocks on the nvhost bus
+
+The nvhost bus calls driver probe directly instead of using the platform
+bus, so of_clk_set_defaults() was never applied to its devices.  The
+Wingray display controller depends on assigned-clock-rates to select the
+validated 598 MHz PLL_C parent.  Without it the bootloader's 650 MHz rate
+is retained, 66.4 MHz mode programming rounds to 65 MHz and is rejected by
+the -1/+9%% check, leaving the DC disabled with no interrupts.
+
+Apply the OF clock defaults before the nvhost driver probe.  This uses the
+existing device-tree value and does not change GPU clocks, which are
+parented to PLL_M, or any framebuffer mapping.
+---
+ drivers/staging/tegra/video/host/bus.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/drivers/staging/tegra/video/host/bus.c b/drivers/staging/tegra/video/host/bus.c
+index f0784ab0..b773fe95 100644
+--- a/drivers/staging/tegra/video/host/bus.c
++++ b/drivers/staging/tegra/video/host/bus.c
+@@ -22,6 +22,7 @@
+ #include <linux/nvhost.h>
+ #include <linux/of_address.h>
+ #include <linux/of_irq.h>
++#include <linux/clk/clk-conf.h>
+ 
+ #include "bus.h"
+ #include "dev.h"
+@@ -109,6 +110,18 @@ static int nvhost_drv_probe(struct device *_dev)
+ {
+ 	struct nvhost_driver *drv = to_nvhost_driver(_dev->driver);
+ 	struct nvhost_device *dev = to_nvhost_device(_dev);
++	int ret;
++
++	/*
++	 * nvhost is a custom bus, not a platform bus, so the standard OF
++	 * assigned-clock defaults are not applied automatically.  The Wingray
++	 * DC relies on its assigned-clock-rates entry to select the validated
++	 * 598 MHz PLL_C parent; without this the bootloader's 650 MHz rate is
++	 * retained and 66.4 MHz mode programming fails its tolerance check.
++	 */
++	ret = of_clk_set_defaults(_dev->of_node, false);
++	if (ret)
++		return ret;
+ 
+ 	if (drv && drv->probe) {
+ 		if (drv->id_table)
+-- 
+2.43.0
+
