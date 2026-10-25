@@ -1,3 +1,6 @@
+> **Superseded by Image 71c.** 71b fixed driver/timing but supplicant still
+> timed out without diagnostics. Use `android-gpu-71c-bcmdhd-tf101.md`.
+
 # Image 71b: combined TF101 driver, firmware, NVRAM and load timing
 
 25 October 2026. This combines the working pieces from all three driver
