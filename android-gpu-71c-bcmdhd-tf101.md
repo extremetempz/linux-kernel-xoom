@@ -1,3 +1,7 @@
+> **Superseded by Image 71d.** 71c identified the WifiHW reload race and
+> the exact `Failed to initialize driver interface`. Use
+> `android-gpu-71d-bcmdhd-tf101.md`.
+
 # Image 71c: capture why wpa_supplicant exits
 
 25 October 2026. 71b finally got the driver and timing right:
