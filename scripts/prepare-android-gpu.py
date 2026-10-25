@@ -132,7 +132,7 @@ echo "wpa wrapper: bringing wlan0 up" >> "$LOG"
 /system/bin/ifconfig wlan0 up >> "$LOG" 2>&1 || /bin/busybox ifconfig wlan0 up >> "$LOG" 2>&1
 echo "ifconfig_rc=$?" >> "$LOG"
 ( /bin/busybox sleep 3; /system/bin/logcat -d -v time -s wpa_supplicant:* > /run/wpa-logcat.txt 2>&1 ) &
-exec /system/bin/wpa_supplicant -dd -iwlan0 -Dwext -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0 2>> /run/wpa-stderr.log
+exec /bin/wpa_supplicant-wext -dd -iwlan0 -Dwext -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0 2>> /run/wpa-stderr.log
 '''
 
 WIFI_RC=b'''on boot
@@ -181,6 +181,9 @@ def entries(runtime):
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
+ wpa_wext=ROOT/'artifacts/hardware-private/system-bin/wpa_supplicant-wext'
+ assert wpa_wext.is_file() and digest(wpa_wext.read_bytes())=='e7bf416825f551f9f15baf8a5a4470c98d21c4f37908ca626bfa10cb823cb65a'
+ files['bin/wpa_supplicant-wext']=wpa_wext.read_bytes()
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
