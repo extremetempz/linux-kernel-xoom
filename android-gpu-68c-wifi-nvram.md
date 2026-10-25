@@ -1,3 +1,7 @@
+> **Superseded by Image 68d.** The NVRAM loaded, but the bcmdhd firmware
+> did not boot under brcmfmac (`HT Avail timeout`). Image 68d stages the
+> matching brcmfmac 4329 firmware. Use `android-gpu-68d-wifi-firmware.md`.
+
 # Image 68c: BCM4329 NVRAM for brcmfmac
 
 25 October 2026. Image 68b fixed the SDIO voltage and reached the chip:
