@@ -1,3 +1,7 @@
+> **Superseded by Image 69d.** 69d adds the WifiHW `/system` path overlays
+> and `wlan.driver.status=ok`, which are required for Android to skip its
+> stale insmod path. Use `android-gpu-69d-bcmdhd.md`.
+
 # Image 69b: bcmdhd 4329 connectivity candidate
 
 25 October 2026. Image 69 switched from brcmfmac to the 4.4 donor bcmdhd

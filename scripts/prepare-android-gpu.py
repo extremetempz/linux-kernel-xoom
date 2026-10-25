@@ -59,6 +59,28 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
  [ -r /system/vendor/firmware/fw_bcmdhd.bin ] && [ -r /system/etc/wifi/bcm4329.cal ] && break
  /bin/busybox sleep 1
 done
+# Android's WifiHW was built for paths under /system/etc/wifi.  Provide those
+# names in a RAM overlay without modifying the read-only system partition.
+/bin/busybox mkdir -p /run/xoom-wifi-orig
+[ ! -r /system/etc/wifi/bcm4329.cal ] || /bin/busybox cp /system/etc/wifi/bcm4329.cal /run/xoom-wifi-orig/
+[ ! -r /system/etc/wifi/wpa_supplicant.conf ] || /bin/busybox cp /system/etc/wifi/wpa_supplicant.conf /run/xoom-wifi-orig/
+/bin/busybox mount -t tmpfs -o mode=0755,size=4m tmpfs /system/etc/wifi >> "$LOG" 2>&1
+if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
+ /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/bcm4329.cal
+ /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/nvram_net.txt
+fi
+[ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
+[ ! -r /system/vendor/firmware/fw_bcmdhd.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
+[ ! -r /system/vendor/firmware/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_apsta.bin
+/bin/busybox chmod 0644 /system/etc/wifi/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_apsta.bin /system/etc/wifi/bcm4329.cal /system/etc/wifi/nvram_net.txt 2>/dev/null
+# WifiHW also insmods /system/lib/modules/dhd.ko on a disable/enable cycle.
+/bin/busybox mkdir -p /run/xoom-modules
+/bin/busybox cp /lib/modules/dhd.ko /run/xoom-modules/dhd.ko
+if [ -d /system/lib/modules ]; then
+ /bin/busybox mount -t tmpfs -o mode=0755,size=4m tmpfs /system/lib/modules >> "$LOG" 2>&1
+ /bin/busybox cp /run/xoom-modules/dhd.ko /system/lib/modules/dhd.ko
+ /bin/busybox chmod 0644 /system/lib/modules/dhd.ko
+fi
 /bin/busybox mkdir -p /data/misc/wifi/sockets /data/misc/dhcp
 /bin/busybox chown 1010:1010 /data/misc/wifi /data/misc/wifi/sockets
 /bin/busybox chmod 0770 /data/misc/wifi /data/misc/wifi/sockets
@@ -70,8 +92,12 @@ if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  echo "update_config=1" >> /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chown 1010:1010 /data/misc/wifi/wpa_supplicant.conf
 fi
-/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/system/vendor/firmware/fw_bcmdhd.bin nvram_path=/system/etc/wifi/bcm4329.cal >> "$LOG" 2>&1
-echo "insmod_rc=$?" >> "$LOG"
+/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/system/etc/wifi/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
+rc=$?
+echo "insmod_rc=$rc" >> "$LOG"
+if [ "$rc" -eq 0 ]; then
+ /system/bin/setprop wlan.driver.status ok 2>/dev/null || /bin/setprop wlan.driver.status ok 2>/dev/null
+fi
 '''
 
 WIFI_RC=b'''on post-fs-data
