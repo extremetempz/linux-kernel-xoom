@@ -43,6 +43,7 @@ assert 'module_param_string(firmware_path' in (DRV / 'dhd_linux.c').read_text()
 CONNECT = (DRV / 'wl_cfg80211.c').read_text()
 assert 'wl_bss_connect_done(cfg, ndev, e, data, true)' in CONNECT
 assert 'event == WLC_E_ASSOC' in CONNECT
+assert 'event == WLC_E_AUTH' in CONNECT
 assert 'WL_CHANSPEC_BW_20' in CONNECT
 assert 'goto set_ssid' in CONNECT
 assert 'wldev_set_band(dev, WLC_BAND_2G)' in CONNECT
