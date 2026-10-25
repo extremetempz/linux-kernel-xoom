@@ -70,14 +70,28 @@ if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
  /bin/busybox cp /run/xoom-wifi-orig/bcm4329.cal /system/etc/wifi/nvram_net.txt
 fi
 [ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
-if [ -r /system/vendor/firmware/fw_bcmdhd.bin ]; then
- /bin/busybox ln -sf /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
- echo "sta_fw=system_4.218:$(/bin/busybox wc -c < /system/vendor/firmware/fw_bcmdhd.bin)" >> "$LOG"
+# The ROM vendor firmware is the dual-band 264140 image.  The AOSP 2.4 GHz
+# bcm4329 image (246791) is the one postmarketOS uses with bcmdhd, renamed
+# to fw_bcmdhd.bin.  Overlay the vendor directory with that image in RAM.
+/bin/busybox mkdir -p /run/xoom-vendor-fw
+[ ! -r /system/vendor/firmware/fw_bcmdhd.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd.bin /run/xoom-vendor-fw/fw_bcmdhd.bin
+[ ! -r /system/vendor/firmware/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd_apsta.bin /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin
+/bin/busybox mount -t tmpfs -o mode=0755,size=2m tmpfs /system/vendor/firmware >> "$LOG" 2>&1
+if [ -r /bin/bcmdhd_sta.bin ]; then
+ /bin/busybox cp /bin/bcmdhd_sta.bin /system/vendor/firmware/fw_bcmdhd.bin
+ echo "sta_fw=aosp_246791:$(/bin/busybox wc -c < /bin/bcmdhd_sta.bin)" >> "$LOG"
 else
- echo "sta_fw=missing" >> "$LOG"
+ [ ! -r /run/xoom-vendor-fw/fw_bcmdhd.bin ] || /bin/busybox cp /run/xoom-vendor-fw/fw_bcmdhd.bin /system/vendor/firmware/fw_bcmdhd.bin
+ echo "sta_fw=system_fallback" >> "$LOG"
 fi
+if [ -r /bin/bcmdhd_apsta.bin ]; then
+ /bin/busybox cp /bin/bcmdhd_apsta.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin
+else
+ [ ! -r /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /run/xoom-vendor-fw/fw_bcmdhd_apsta.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin
+fi
+/bin/busybox ln -sf /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
 [ ! -r /system/vendor/firmware/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_apsta.bin
-/bin/busybox chmod 0644 /system/etc/wifi/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_apsta.bin /system/etc/wifi/bcm4329.cal /system/etc/wifi/nvram_net.txt 2>/dev/null
+/bin/busybox chmod 0644 /system/vendor/firmware/fw_bcmdhd.bin /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_apsta.bin /system/etc/wifi/bcm4329.cal /system/etc/wifi/nvram_net.txt 2>/dev/null
 # WifiHW also insmods /system/lib/modules/bcmdhd.ko on a disable/enable cycle.
 /bin/busybox mkdir -p /run/xoom-modules
 /bin/busybox cp /lib/modules/bcmdhd.ko /run/xoom-modules/bcmdhd.ko
@@ -162,6 +176,12 @@ def entries(runtime):
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
+ aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
+ aosp_ap=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329_apsta.bin'
+ assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
+ assert aosp_ap.is_file() and digest(aosp_ap.read_bytes())=='9c0b422e10dc25976352871b480605e232a64087d0b391540da615c17d23c288'
+ files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
+ files['bin/bcmdhd_apsta.bin']=aosp_ap.read_bytes()
  result=ramdisk_entries(original,files)
  module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0

@@ -1,3 +1,6 @@
+> **Superseded by Image 70q.** 70p predates the AOSP BCM4329 firmware
+> match from postmarketOS. Use `android-gpu-70q-bcmdhd-legacy.md`.
+
 # Image 70p: bring wlan0 up and record wpa_supplicant's real error
 
 25 October 2026. Image 70o revealed that this Android 4.4 init does not

@@ -39,7 +39,8 @@ assert 'xoom-wpa' in PREP
 assert 'ifconfig wlan0 up' in PREP
 assert 'WPA_LOG' in (ROOT / 'diagnostic/display-report.sh').read_text()
 assert 'ifconfig wlan0 up' in PREP
-assert 'system_4.218' in PREP
+assert 'aosp_246791' in PREP
+assert 'aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b' in PREP
 assert 'firmware_path=/system/vendor/firmware/fw_bcmdhd.bin' in PREP
 assert 'bcmdhd-legacy' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
 assert 'obj-$(CONFIG_LEGACY_BCMDHD) += bcmdhd.o' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
@@ -52,7 +53,8 @@ assert 'gpio_request(165' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/
 assert 'gpio_request(162' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c').read_text()
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
-assert 'system_4.218' in PREP
+assert 'aosp_246791' in PREP
+assert 'aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b' in PREP
 assert 'firmware_path=/system/vendor/firmware/fw_bcmdhd.bin' in PREP
 assert 'xoom-wifi-load' in PREP
 assert 'xoomwifi' in PREP
