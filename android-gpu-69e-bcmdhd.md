@@ -1,3 +1,6 @@
+> **Superseded by Image 69f.** 69e reached SDIO probe but the donor driver
+> rejected chip 0x4329. Use `android-gpu-69f-bcmdhd.md`.
+
 # Image 69e: make bcmdhd actually register the SDIO function
 
 25 October 2026. Image 69d loaded `dhd.ko` successfully:
