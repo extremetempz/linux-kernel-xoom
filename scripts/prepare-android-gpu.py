@@ -119,8 +119,9 @@ service xoomwifi /bin/xoom-wifi-load
     oneshot
     disabled
 
-service wpa_supplicant /system/bin/wpa_supplicant -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0
+service wpa_supplicant /system/bin/wpa_supplicant -dd -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0
     class main
+    capabilities NET_ADMIN NET_RAW
     socket wpa_wlan0 dgram 660 wifi wifi
     disabled
     oneshot

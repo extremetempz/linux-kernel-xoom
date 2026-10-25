@@ -1,3 +1,7 @@
+> **Superseded by Image 70o.** 70m tolerated preinit but supplicant still
+> failed interface UP; 70o adds NET_ADMIN/NET_RAW and debug. Use
+> `android-gpu-70o-bcmdhd-legacy.md`.
+
 # Image 70m: keep wlan0 up when old firmware lacks optional iovars
 
 25 October 2026. Image 70l fixed the biggest Android mismatch:
