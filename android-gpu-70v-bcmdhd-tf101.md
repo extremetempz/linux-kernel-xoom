@@ -1,3 +1,6 @@
+> **Superseded by Image 70x.** 70v loaded the module before SDIO created
+> `wlan0`. Use `android-gpu-70x-bcmdhd-tf101.md`.
+
 # Image 70v: TF101 5.90.125 driver with AOSP firmware and PMOS NVRAM
 
 25 October 2026. This replaces the 2.6-era bcmdhd 5.90.195 host driver with

@@ -131,7 +131,7 @@ echo "ifconfig_rc=$?" >> "$LOG"
 exec /system/bin/wpa_supplicant -dd -f /run/wpa.log -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0 2>> /run/wpa-stderr.log
 '''
 
-WIFI_RC=b'''on post-fs-data
+WIFI_RC=b'''on boot
     mkdir /data/misc/wifi 0770 wifi wifi
     mkdir /data/misc/wifi/sockets 0770 wifi wifi
     mkdir /data/misc/dhcp 0770 dhcp dhcp
