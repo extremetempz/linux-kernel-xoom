@@ -107,6 +107,15 @@ if [ "$rc" -eq 0 ]; then
 fi
 '''
 
+WPA_SCRIPT=b'''#!/bin/busybox sh
+LOG=/run/wpa.log
+: > "$LOG"
+echo "wpa wrapper: bringing wlan0 up" >> "$LOG"
+/system/bin/ifconfig wlan0 up >> "$LOG" 2>&1 || /bin/busybox ifconfig wlan0 up >> "$LOG" 2>&1
+echo "ifconfig_rc=$?" >> "$LOG"
+exec /system/bin/wpa_supplicant -dd -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0 >> "$LOG" 2>&1
+'''
+
 WIFI_RC=b'''on post-fs-data
     mkdir /data/misc/wifi 0770 wifi wifi
     mkdir /data/misc/wifi/sockets 0770 wifi wifi
@@ -119,9 +128,8 @@ service xoomwifi /bin/xoom-wifi-load
     oneshot
     disabled
 
-service wpa_supplicant /system/bin/wpa_supplicant -dd -iwlan0 -Dnl80211 -c/data/misc/wifi/wpa_supplicant.conf -O/data/misc/wifi/sockets -g@android:wpa_wlan0
+service wpa_supplicant /bin/xoom-wpa
     class main
-    capabilities NET_ADMIN NET_RAW
     socket wpa_wlan0 dgram 660 wifi wifi
     disabled
     oneshot
@@ -153,6 +161,7 @@ def entries(runtime):
   path=ROOT/'diagnostic'/source;subprocess.run(['bash','-n',str(path)],check=True);files[name]=path.read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
+ files['bin/xoom-wpa']=WPA_SCRIPT
  result=ramdisk_entries(original,files)
  module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0

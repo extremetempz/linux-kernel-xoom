@@ -105,10 +105,11 @@ done
 echo XOOM_WIFI_FILES_END
 echo XOOM_WIFI_STATE_BEGIN
 [ ! -r /run/xoom-wifi.log ] || /bin/busybox cat /run/xoom-wifi.log
-if [ -d /sys/module/dhd ]; then
+[ ! -r /run/wpa.log ] || { echo "WPA_LOG"; /bin/busybox tail -c 32768 /run/wpa.log; }
+if [ -d /sys/module/bcmdhd ]; then
  echo "DHD_MODULE present"
  for p in parameters/firmware_path parameters/nvram_path parameters/iface_name; do
-  [ ! -r "/sys/module/dhd/$p" ] || { echo "$p:"; /bin/busybox cat "/sys/module/dhd/$p"; }
+  [ ! -r "/sys/module/bcmdhd/$p" ] || { echo "$p:"; /bin/busybox cat "/sys/module/bcmdhd/$p"; }
  done
 fi
 [ ! -r /proc/net/wireless ] || { echo "PROC_NET_WIRELESS"; /bin/busybox cat /proc/net/wireless; }

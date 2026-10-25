@@ -1,3 +1,7 @@
+> **Superseded by Image 70p.** 70o used an unsupported `capabilities` init
+> option and did not capture wpa debug. Use
+> `android-gpu-70p-bcmdhd-legacy.md`.
+
 # Image 70o: grant wpa_supplicant network capabilities and capture debug
 
 25 October 2026. 70m kept the optional preinit failure from failing

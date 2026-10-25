@@ -35,7 +35,10 @@ assert 'CONFIG_CFG80211=y' in CFG
 assert 'CONFIG_LEGACY_BCMDHD=m' in CFG
 assert 'bcmdhd.ko' in PREP
 assert 'optional preinit ioctl failed' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/wl_android.c').read_text()
-assert 'capabilities NET_ADMIN NET_RAW' in PREP
+assert 'xoom-wpa' in PREP
+assert 'ifconfig wlan0 up' in PREP
+assert 'WPA_LOG' in (ROOT / 'diagnostic/display-report.sh').read_text()
+assert 'ifconfig wlan0 up' in PREP
 assert 'system_4.218' in PREP
 assert 'firmware_path=/system/vendor/firmware/fw_bcmdhd.bin' in PREP
 assert 'bcmdhd-legacy' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
