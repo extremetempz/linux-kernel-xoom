@@ -8,6 +8,7 @@ DTS = (DONOR / "arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts").read_t
 CFG = (DONOR / "arch/arm/configs/wingray_android44_gpu_fbmap_defconfig").read_text()
 PREP = (ROOT / "scripts/prepare-android-gpu.py").read_text()
 BUILD = (ROOT / "scripts/build-android-gpu.sh").read_text()
+MAKE = (DONOR / "drivers/net/wireless/bcmdhd/Makefile").read_text()
 
 for needle in (
     'sdhci@c8000200',
@@ -34,10 +35,14 @@ for needle in (
 assert 'CONFIG_NETDEVICES is not set' not in CFG
 assert 'CONFIG_MODULES=y' in CFG
 assert 'dhd.ko' in PREP
+assert 'wlan.driver.status' in PREP
+assert '/system/lib/modules' in PREP
+assert 'bcmdhd_sta.bin' in PREP
 assert 'xoom-wifi-load' in PREP
 assert 'xoomwifi' in PREP
 assert 'service wpa_supplicant' in PREP
 assert 'service dhcpcd' in PREP
 assert 'dhd.ko' in BUILD
 assert '--enable BROADCOM_WIFI --module BCM4330' in BUILD
+assert '\nEXTRA_CFLAGS += -DCONFIG_DTS\n' not in MAKE
 print('PASS BCM4329 Wi-Fi SDIO/config/firmware scope')

@@ -1,3 +1,7 @@
+> **Superseded by Image 69e.** 69d loaded the module but never registered
+> the SDIO function because bcmdhd was built with CONFIG_DTS and no
+> `android,bcmdhd_wlan` node existed. Use `android-gpu-69e-bcmdhd.md`.
+
 # Image 69d: WifiHW-compatible bcmdhd 4329 module
 
 25 October 2026. Android's `libhardware_legacy/wifi/wifi.c` requires both
