@@ -17,8 +17,7 @@ build object has a different hash.
 ## Reproduction
 
 - `sources/kernel-donor/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig`
-  now selects `CONFIG_BROADCOM_WIFI=y` and the native driver paths, not
-  `CONFIG_LEGACY_BCMDHD`.
+  now selects `CONFIG_BROADCOM_WIFI=y` and the native driver paths.
 - `scripts/build-android-gpu.sh` selects the native driver and copies
   `drivers/net/wireless/bcmdhd/bcmdhd.ko`.
 - `scripts/prepare-android-gpu.py` stages the Xoom OEM calibration, the
@@ -28,8 +27,8 @@ build object has a different hash.
   connect result, 20 MHz chanspec, `WLC_SET_SSID`, OEM NVRAM and the
   exported patch series.
 - `kernel/patches/0138-*` and `0139-*` export the native module name and
-  the final association/join code. The obsolete `bcmdhd-legacy` patches
-  are retired under `kernel/patches/retired/`.
+  the final association/join code. The obsolete legacy drivers and patches
+  have been removed.
 
 The series applies cleanly to the pinned donor
 `bbcece6d21c83b6280061a91d27566aff1951c94`.

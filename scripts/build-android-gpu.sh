@@ -30,7 +30,7 @@ make "${args[@]}" "$defconfig"
 "$build/source/scripts/config" --file "$build/out/.config" \
  --enable NETDEVICES --enable WLAN --enable MODULES --enable MODULE_UNLOAD \
  --enable CFG80211 --enable WIRELESS_EXT --enable PACKET --disable RD_GZIP --disable RD_BZIP2 --disable RD_LZMA --disable RD_LZO --disable RD_LZ4 --enable RD_XZ --enable WEXT_CORE --enable WEXT_PROC --enable WEXT_PRIV \
- --enable BROADCOM_WIFI --disable LEGACY_BCMDHD --disable BCMDHD_TF101 --disable BCM4330 --disable BRCMFMAC --disable BRCMFMAC_SDIO
+ --enable BROADCOM_WIFI --disable BCM4330 --disable BRCMFMAC --disable BRCMFMAC_SDIO
 make "${args[@]}" olddefconfig
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do

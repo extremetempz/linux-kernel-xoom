@@ -31,7 +31,7 @@ for needle in (
 ):
     assert needle in CFG, needle
 assert 'CONFIG_BCMDHD_TF101' not in CFG
-assert 'CONFIG_LEGACY_BCMDHD=m' not in CFG
+assert 'CONFIG_LEGACY_BCMDHD' not in CFG
 
 MAKEFILE = (DRV / 'Makefile').read_text()
 assert 'bcmdhd-y := $(DHDOFILES)' in MAKEFILE
@@ -74,8 +74,8 @@ assert 'WPA_LOG' in (ROOT / 'diagnostic/display-report.sh').read_text()
 
 assert 'bcmdhd.ko' in BUILD
 assert '--enable BROADCOM_WIFI' in BUILD
-assert '--disable LEGACY_BCMDHD' in BUILD
-assert '--disable BCMDHD_TF101' in BUILD
+assert 'LEGACY_BCMDHD' not in BUILD
+assert 'BCMDHD_TF101' not in BUILD
 assert 'drivers/net/wireless/bcmdhd/bcmdhd.ko' in BUILD
 assert 'bcmdhd-tf101/bcmdhd.ko' not in BUILD
 
