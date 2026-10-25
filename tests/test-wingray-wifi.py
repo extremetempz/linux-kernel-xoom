@@ -25,16 +25,16 @@ for needle in (
     'CONFIG_NETDEVICES=y',
     'CONFIG_WLAN=y',
     'CONFIG_CFG80211=y',
-    'CONFIG_BROADCOM_WIFI=y',
-    'CONFIG_BCM4330=m',
-    'CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"',
-    'CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"',
+    'CONFIG_LEGACY_BCMDHD=m',
 ):
     assert needle in CFG, needle
 
 assert 'CONFIG_NETDEVICES is not set' not in CFG
 assert 'CONFIG_MODULES=y' in CFG
+assert 'CONFIG_CFG80211=y' in CFG
+assert 'CONFIG_LEGACY_BCMDHD=m' in CFG
 assert 'dhd.ko' in PREP
+assert 'bcmdhd-legacy' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/Makefile').read_text()
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'bcmdhd_sta.bin' in PREP
@@ -43,6 +43,6 @@ assert 'xoomwifi' in PREP
 assert 'service wpa_supplicant' in PREP
 assert 'service dhcpcd' in PREP
 assert 'dhd.ko' in BUILD
-assert '--enable BROADCOM_WIFI --module BCM4330' in BUILD
+assert '--module LEGACY_BCMDHD' in BUILD
 assert '\nEXTRA_CFLAGS += -DCONFIG_DTS\n' not in MAKE
 print('PASS BCM4329 Wi-Fi SDIO/config/firmware scope')
