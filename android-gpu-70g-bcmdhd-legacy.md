@@ -1,3 +1,7 @@
+> **Superseded by Image 70h.** 70g still fell back to the 4.218 firmware
+> at `/system/etc/wifi/bcmdhd_sta.bin`. Use
+> `android-gpu-70h-bcmdhd-legacy.md`.
+
 # Image 70g: match the 2.6 driver to the Xoom firmware and WL_REG_ON
 
 25 October 2026. Image 70f proved the OOB path works:

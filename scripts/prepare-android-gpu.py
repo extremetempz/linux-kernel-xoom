@@ -71,9 +71,11 @@ if [ -r /run/xoom-wifi-orig/bcm4329.cal ]; then
 fi
 [ ! -r /run/xoom-wifi-orig/wpa_supplicant.conf ] || /bin/busybox cp /run/xoom-wifi-orig/wpa_supplicant.conf /system/etc/wifi/wpa_supplicant.conf
 if [ -r /lib/firmware/bcmdhd_sta.bin ]; then
- /bin/busybox cp /lib/firmware/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
+ /bin/busybox ln -sf /lib/firmware/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_sta.bin
+ echo "sta_fw=private:$(/bin/busybox wc -c < /lib/firmware/bcmdhd_sta.bin)" >> "$LOG"
 else
  [ ! -r /system/vendor/firmware/fw_bcmdhd.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd.bin /system/etc/wifi/bcmdhd_sta.bin
+ echo "sta_fw=system_fallback" >> "$LOG"
 fi
 [ ! -r /system/vendor/firmware/fw_bcmdhd_apsta.bin ] || /bin/busybox cp /system/vendor/firmware/fw_bcmdhd_apsta.bin /system/etc/wifi/bcmdhd_apsta.bin
 /bin/busybox chmod 0644 /system/etc/wifi/bcmdhd_sta.bin /system/etc/wifi/bcmdhd_apsta.bin /system/etc/wifi/bcm4329.cal /system/etc/wifi/nvram_net.txt 2>/dev/null
@@ -97,7 +99,7 @@ if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
  /bin/busybox chown 1000:1010 /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chmod 0660 /data/misc/wifi/wpa_supplicant.conf
 fi
-/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/system/etc/wifi/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
+/bin/busybox insmod /lib/modules/dhd.ko firmware_path=/lib/firmware/bcmdhd_sta.bin nvram_path=/system/etc/wifi/nvram_net.txt >> "$LOG" 2>&1
 rc=$?
 echo "insmod_rc=$rc" >> "$LOG"
 if [ "$rc" -eq 0 ]; then

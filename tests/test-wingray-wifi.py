@@ -43,6 +43,9 @@ assert 'OOB_INTR_ONLY' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcm
 assert 'gpio_request(165' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c').read_text()
 assert 'gpio_request(162' in (ROOT / 'sources/kernel-donor/drivers/net/wireless/bcmdhd-legacy/dhd_custom_gpio.c').read_text()
 assert '462e89e7bcf1f4fd701933d9cb80e795acca27a7c80300e42661d7e3bc6f5ea7' in PREP
+assert '/lib/firmware/bcmdhd_sta.bin' in PREP
+assert 'ln -sf /lib/firmware/bcmdhd_sta.bin' in PREP
+assert 'firmware_path=/lib/firmware/bcmdhd_sta.bin' in PREP
 assert 'wlan.driver.status' in PREP
 assert '/system/lib/modules' in PREP
 assert 'bcmdhd_sta.bin' in PREP
