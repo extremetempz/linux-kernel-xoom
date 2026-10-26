@@ -1,0 +1,29 @@
+From 5b6a079dc9def67a18543b847a98f7810b5de060 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 26 Oct 2026 19:19:27 +1100
+Subject: [PATCH] backlight: honor Wingray bl_power and framebuffer blank
+ requests in display test profile
+
+---
+ drivers/video/backlight/lp855x_bl.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/video/backlight/lp855x_bl.c b/drivers/video/backlight/lp855x_bl.c
+index 91c6b43e..f31e7f0f 100644
+--- a/drivers/video/backlight/lp855x_bl.c
++++ b/drivers/video/backlight/lp855x_bl.c
+@@ -355,7 +355,10 @@ static int lp855x_bl_update_status(struct backlight_device *bl)
+ 	struct lp855x *lp = bl_get_data(bl);
+ 	int brightness = bl->props.brightness;
+ 
+-	if (bl->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK))
++	if ((bl->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
++     (IS_ENABLED(CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM) && lp->wingray_p3 &&
++      (bl->props.power != FB_BLANK_UNBLANK ||
++       bl->props.fb_blank != FB_BLANK_UNBLANK)))
+ 		brightness = 0;
+ 
+ 	if (lp->wingray_p3)
+-- 
+2.43.0
+
