@@ -10,12 +10,11 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Display FBTEST — root path proven; HAL retry built:** FBTEST proved the
-kernel blank path in software/hardware (`Wingray display off: blank=4 dc=0`,
-resume dc=1), but Android's power button did not reach it. The rebuilt opt-in
-image switches the lights HAL to the proven sysfs blank route and grants the
-system user/group write access; hardware execution of that HAL path is pending.
-See [FBTEST diagnostic](android-display-80-fbtest.md).
+**DC resume candidate 81 — built, hardware-unverified:** Separate opt-in
+`displaydc` profile corrects native-mode round-trip loss and restores all
+legacy scanout windows under the flip lock. The validated `displaypm` profile
+remains backlight-only. No flash, reboot, suspend or regulator changes. See
+[analysis and test gates](docs/display-dc-resume-81.md).
 
 **Display power — backlight-only hardware pass:** Image
 `display80fbtest5` is hardware-validated. Power off/on extinguishes and
