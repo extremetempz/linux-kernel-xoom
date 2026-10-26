@@ -1,0 +1,42 @@
+From eadd70bf98e0eabc24b7fcc05b3186486ff538b2 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 26 Oct 2026 19:27:34 +1100
+Subject: [PATCH] backlight: record requested and effective LP8550 power
+ transitions in opt-in test
+
+---
+ drivers/video/backlight/lp855x_bl.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/video/backlight/lp855x_bl.c b/drivers/video/backlight/lp855x_bl.c
+index f31e7f0f..1d18162b 100644
+--- a/drivers/video/backlight/lp855x_bl.c
++++ b/drivers/video/backlight/lp855x_bl.c
+@@ -354,6 +354,7 @@ static int lp855x_bl_update_status(struct backlight_device *bl)
+ {
+ 	struct lp855x *lp = bl_get_data(bl);
+ 	int brightness = bl->props.brightness;
++ int ret;
+ 
+ 	if ((bl->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
+      (IS_ENABLED(CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM) && lp->wingray_p3 &&
+@@ -361,8 +362,14 @@ static int lp855x_bl_update_status(struct backlight_device *bl)
+        bl->props.fb_blank != FB_BLANK_UNBLANK)))
+ 		brightness = 0;
+ 
+-	if (lp->wingray_p3)
+-		return lp855x_wingray_brightness(lp, brightness);
++	if (lp->wingray_p3) {
++  ret = lp855x_wingray_brightness(lp, brightness);
++  if (IS_ENABLED(CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM))
++   dev_info(lp->dev, "P3 backlight requested=%d effective=%d power=%d fb=%d ret=%d\n",
++     bl->props.brightness, brightness, bl->props.power,
++     bl->props.fb_blank, ret);
++  return ret;
++ }
+ 
+ 	if (lp->mode == PWM_BASED)
+ 		lp855x_pwm_ctrl(lp, brightness, bl->props.max_brightness);
+-- 
+2.43.0
+

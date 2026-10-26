@@ -72,6 +72,11 @@ stage system_readonly_verified
 for name in gralloc.tegra hwcomposer.tegra audio.primary.default audio_policy.default power.default keystore.default local_time.default; do
  /bin/busybox cp "/system/lib/hw/$name.so" /run/xoom-hw/ || fail hal_copy
 done
+# The opt-in display profile has a backlight-class KitKat HAL. Do not copy
+# the old lights HAL: it uses LED-class paths and unrelated charger GPIOs.
+if [ -r /sys/firmware/devicetree/base/motorola,wingray-display-pm-test ]; then
+ /bin/busybox cp /bin/lights.stingray.so /run/xoom-hw/lights.stingray.so || fail lights_hal_copy
+fi
 # Only the separate Bluetooth profile exposes the original Android HAL.
 # Keep firmware/vendor library on the existing read-only system partition.
 if [ -r /sys/firmware/devicetree/base/bluetooth-power/compatible ]; then
