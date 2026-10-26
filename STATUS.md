@@ -10,6 +10,15 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
+**Power button — 76 rejected, 76a isolation only:** Image 76 changed CPCAP
+CS polarity and native32 framing together and caused significant screen
+flicker. 76a restores the previously stable CS-high polarity while keeping
+native32 framing; it is built and unit-tested but not hardware validated.
+Power-key polling and KEY_POWER mapping are unchanged. Controller/IRQ wake is
+not claimed. See [rejected 76](android-power-76.md) and
+[76a isolation](android-power-76a.md). 75b remains the working Bluetooth
+image and 73k the Wi-Fi baseline.
+
 **Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
 BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz
 networks, completes WPA2 association and the four-way handshake, gets a DHCP

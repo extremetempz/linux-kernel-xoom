@@ -22,6 +22,14 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
+**Power button:** candidate 76 (CPCAP CS + native32) caused significant
+screen flicker and is rejected. Candidate 76a isolates the native32 framing
+while restoring the previously stable CS polarity; it is built and tested but
+**not hardware validated**. Do not flash 76. See
+[the rejected 76 analysis](android-power-76.md) and
+[76a isolation candidate](android-power-76a.md). Bluetooth 75b and Wi-Fi 73k
+remain the working recovery baselines.
+
 See [the working Wi-Fi record](docs/wifi-working.md) and the updated
 [component status](STATUS.md).
 

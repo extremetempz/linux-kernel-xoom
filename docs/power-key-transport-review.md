@@ -57,18 +57,20 @@ The CS polarity mismatch is a concrete defect and the strongest identified
 transport-level explanation. **No physical test of this correction has been
 performed, so it is not proven that this is the only reason the button fails.**
 There is no independently validated raw VERSC1 value from the original ROM
-in the reviewed evidence. The new zero/all-ones identity rejection is a
-conservative bring-up gate, not a claim that every possible old chip revision
-has been exhaustively characterized.
+in the reviewed evidence. The new zero/all-ones identity check logs an explicit transport warning and
+continues booting; it is a diagnostic gate, not a reason to brick the working
+display/Wi-Fi/Bluetooth image. A zero identity falls through to the legacy
+revision-field path.
 
 ## Separate correction: patch 0141
 
 - On Wingray only, use active-low CS0 and one native 32-bit full-duplex
   transfer matching the original Motorola driver. Existing regmap addresses
   already incorporate the legacy word-address shift; do not shift twice.
-- Log the full raw VERSC1 before revision decoding. Reject zero/all-ones
-  identities before regmap IRQ setup writes PMIC masks or starts polling.
-  Keep the old-revision-field allowance for otherwise plausible identities.
+- Log the full raw VERSC1 before revision decoding. Warn on zero/all-ones
+  identities but continue booting for the first diagnostic test; a zero
+  identity takes the legacy revision-field path. Keep the old-revision-field
+  allowance for otherwise plausible identities.
 - Remove the active-high CS flag in both Wingray DT descriptions.
 - Leave other boards' transport branch, ON bit, current GIC route, Wi-Fi,
   Bluetooth, display, regulators, charging and volume-down mapping alone.
@@ -78,7 +80,7 @@ has been exhaustively characterized.
 The actual transfer/setup/identity functions are compiled into a host fixture:
 32-bit single full-duplex transfers, command words for VERSC1/INTS2/INTM2,
 low-half response extraction, register/value bounds, SPI setup/read failures,
-unchanged non-Wingray mode and zero/all-ones identity rejection all pass.
+unchanged non-Wingray mode and identity validation helper all pass.
 
 The corrected CPCAP object and Bluetooth-profile DT compile with the pinned
 ARM toolchain and 75b configuration. Comparing the compiled DT against the
@@ -99,7 +101,7 @@ python3 tests/test-wingray-wifi.py
 
 Keep the working 75b and volume-down fallback. In a separate boot-only test,
 first obtain a stable, non-idle raw VERSC1 identity and inspect ON sense while
-holding/releasing the actual button. If the new guard rejects the identity,
+holding/releasing the actual button. If the log reports an invalid identity,
 stop changing input bits or IRQs and check CS0/MISO/clock/pinmux against the
 original working ROM. If sense transitions work, verify evdev KEY_POWER
 press/release, then Android screen behavior. Repair the IRQ domain/handler
