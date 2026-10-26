@@ -145,9 +145,15 @@ only and are not committed or bundled as new proprietary libraries.
   61%, Charging, 7.97392 V, +1.529531 A, 27.7 C; Android reports AC powered,
   status 2 and level 61. See [Test A](battery-79-testA.md) and
   [Test B](battery-79-testB.md).
-- **Test C/D evidence missing:** no post-disconnect report3 exists yet; the
-  B→C transition and extended monitoring are not captured. Full/not-charging
-  states and the charging icon should be confirmed in that capture.
+- **Test C/D observed:** report3 records four alternating Android
+  `isPlugged=false/true` transitions without reboot, and an extended connected
+  snapshot at 432 s. Capacity moved 61–62%, current changed from -358906 uA to
+  +1531718 uA, voltage/current/temperature stayed plausible, and OWR showed no
+  read errors. The final snapshot is connected again; an explicit disconnected
+  sysfs snapshot during Test C is still desirable. See
+  [Test C/D](battery-79-testC-D.md).
+- **Remaining gaps:** `health`/`technology` sysfs properties are not exported;
+  the pre-existing CPCAP IRQ 59 storm/disable remains unrelated to battery.
 - Preserved 78 image SHA-256 remains `e8a698405f65b9a6b408d66bbf864662bf9830cdc155670d4808474f60dee49d`.
 
 The PR's earlier image hash `2b9faae1…` was not the actual local build: that build

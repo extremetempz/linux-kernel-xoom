@@ -31,8 +31,12 @@ bootstrap to stop Android instead of degrading to a warning.
 - **Test B, charger connected:** 61%, Charging, 7.97392 V, +1.529531 A,
   27.7 C, ac online 1. Android reports AC powered, status 2 (charging),
   level 61. See [Test B](docs/battery-79-testB.md).
-- **Test C/D:** no post-disconnect report3 exists yet. The B→C transition,
-  full/not-charging state and extended monitoring still need that capture.
+- **Test C/D:** report3 records four alternating Android `isPlugged`
+  false/true transitions without reboot and an extended 432 s connected
+  snapshot. Capacity 61–62%, current -358906 → +1531718 uA, no OWR errors or
+  crashes. The final snapshot is connected again; an explicit disconnected
+  sysfs snapshot is the remaining test-C detail. See
+  [Test C/D](docs/battery-79-testC-D.md).
 
 ## Image identity
 
