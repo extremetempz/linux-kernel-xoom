@@ -46,10 +46,12 @@ No arbitrary command is evaluated.
 - SHA-256: `02ab70c2595fff650b71eb00e920bb3a3a8c8afaeed69c4421398563aa155591`
 - Kernel donor head: `f61aaf75`
 - Profile: display80 plus FBTEST, sysfs blank HAL and backlight-only fb blank
-- **Not flashed or hardware validated**
+- **Hardware-validated** on 27 October 2026: power off/on works, backlight
+  extinguishes and restores, and the DC stays at `dc=1`.
 
 The DC blank experiment was rolled back after the panel failed to restore.
-See [DC rollback](docs/display-power-80-dc-rollback.md).
+See [Test 5 result](docs/display-power-80-test5-result.md) and
+[DC rollback](docs/display-power-80-dc-rollback.md).
 
 The FBTEST image proved that Android can reach the blank path, but also proved
 that disabling the DC leaves the panel dark with a scan line after re-enable.

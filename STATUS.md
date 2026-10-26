@@ -17,16 +17,15 @@ image switches the lights HAL to the proven sysfs blank route and grants the
 system user/group write access; hardware execution of that HAL path is pending.
 See [FBTEST diagnostic](android-display-80-fbtest.md).
 
-**Display power — backlight-only stable; DC rolled back:** Ten physical
-off/on cycles produced complete darkness and restored brightness. A later
-sysfs-HAL test made the kernel disable/re-enable the DC; logs reached `dc=0`
-and `dc=1` but the panel stayed dark with a scan line. The DC sequence is
-therefore unsafe and has been rolled back: the fb blank path now keeps the DC
-enabled and controls only the LP8550 backlight. The rebuilt image needs a
-physical recovery test. All eight light IDs are safely opened. Suspend/wake/
-DVFS remain disabled. See [candidate 80](android-display-80.md),
+**Display power — backlight-only hardware pass:** Image
+`display80fbtest5` is hardware-validated. Power off/on extinguishes and
+restores the LP8550 backlight with `dc=1`; the panel returns without a line.
+The DC power-down experiment reached `dc=0`/`dc=1` but left the panel dark and
+is rolled back. All eight light IDs are safely opened. Suspend-to-RAM/deep
+sleep and DVFS remain disabled, gated on a proper panel reset/power sequence
+and hardware wake validation. See [Test 5](docs/display-power-80-test5-result.md),
 [DC rollback](docs/display-power-80-dc-rollback.md),
-[Test A/B result](docs/display-power-80-result.md) and
+[candidate 80](android-display-80.md) and
 [test protocol](docs/display-power-80-test.md).
 
 **Battery monitor — Tests A/B/C/D pass at framework level:** The opt-in

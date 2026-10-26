@@ -49,8 +49,12 @@ Wingray backlight on
 The HAL still writes `fb0/blank`; the fb path maps that to backlight-only.
 FBTEST is retained as a bounded backlight transition test, not a DC test.
 
-## Recovery
+## Recovery confirmed
 
-Flash the rebuilt backlight-only image. On boot the panel initializes normally;
-the stuck line should disappear. Do not re-enable DC blank until the panel
-reset/power sequence has hardware evidence.
+The backlight-only image (`display80fbtest5`, SHA-256 `02ab70c2595f…`) was
+flashed on 27 October 2026. Power off/on works, the panel returns without a
+line, and the DC remains at `dc=1` throughout. See
+[Test 5 result](display-power-80-test5-result.md).
+
+Do not re-enable DC blank until the panel reset/power sequence has hardware
+evidence.
