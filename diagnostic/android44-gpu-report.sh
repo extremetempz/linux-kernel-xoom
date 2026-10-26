@@ -166,4 +166,5 @@ else
  echo XOOM_ANDROID44_TOMBSTONES_DENIED_DATA
 fi
 [ ! -x /bin/battery-report ] || /bin/battery-report
+[ ! -x /bin/power-report ] || /bin/power-report
 echo XOOM_ANDROID44_REPORT_DONE_V1
