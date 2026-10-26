@@ -181,6 +181,11 @@ def entries(runtime):
   'bin/display-report':'display-report.sh','bin/touch-report':'touch-report.sh','bin/soc-report':'soc-report.sh'}
  for name,source in helpers.items():
   path=ROOT/'diagnostic'/source;subprocess.run(['bash','-n',str(path)],check=True);files[name]=path.read_bytes()
+ if b'CONFIG_RFKILL_WINGRAY_BT=y\n' in config:
+  for name in ('bluetooth-setup.sh','bluetooth-report.sh'):
+   source=ROOT/'diagnostic'/name
+   subprocess.run(['bash','-n',str(source)],check=True)
+   files['bin/'+name[:-3]]=source.read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
@@ -196,6 +201,19 @@ def entries(runtime):
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
  result['init.xoom-wifi.rc']=Entry('init.xoom-wifi.rc',stat.S_IFREG|0o644,WIFI_RC)
  result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\nimport /init.xoom-wifi.rc\n')
+ if b'CONFIG_RFKILL_WINGRAY_BT=y\n' in config:
+  bt_rc=b"""on boot
+    start xoombtsetup
+
+service xoombtsetup /bin/bluetooth-setup
+    class late_start
+    user root
+    disabled
+    oneshot
+"""
+  result['init.xoom-bluetooth.rc']=Entry('init.xoom-bluetooth.rc',stat.S_IFREG|0o644,bt_rc)
+  result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-bluetooth.rc\n')
+
  # Match the working original ROM's permissions only for the three GPU channels used.
  u=result['ueventd.stingray.rc'];perms=b'\n# Original Wingray NVIDIA channels; explicit paths, no block access.\n'+b''.join((name+' 0666 root root\n').encode() for name in ('/dev/nvhost-ctrl','/dev/nvhost-gr2d','/dev/nvhost-gr3d'))
  result[u.name]=dataclasses.replace(u,data=u.data+perms)
