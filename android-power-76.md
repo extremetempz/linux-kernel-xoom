@@ -1,8 +1,7 @@
-# Power-button candidate 76
+# Power-button candidate 76 — REJECTED
 
-26 October 2026. **Built and checked, not flashed or hardware validated.**
-This candidate is based on the working Bluetooth 75b profile and adds the
-reviewed Motorola CPCAP transport correction.
+26 October 2026. **Physical result: significant screen flicker.** Do not use
+this image. It has been replaced by the isolated 76a experiment below.
 
 ## CPCAP changes
 
@@ -18,6 +17,14 @@ reviewed Motorola CPCAP transport correction.
   transport experiment into a display/Wi-Fi/Bluetooth boot failure.
 - The ON-sense polling path, KEY_POWER mapping and volume-down fallback are
   unchanged.
+
+## Why it is rejected
+
+This was the only functional delta from the otherwise stable Bluetooth 75b
+image: every CPCAP register access changed to active-low CS0 and native
+32-bit framing. CPCAP supplies PMIC/regulator and display-adjacent power, so
+a wrong transaction can destabilise the panel while leaving early boot alive.
+The non-fatal identity guard is logging-only and cannot cause flicker.
 
 ## Image identity
 

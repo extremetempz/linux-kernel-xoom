@@ -1,37 +1,11 @@
 From: Justin <justinscollo@protonmail.com>
-Subject: [PATCH] mfd: cpcap: restore Motorola Wingray SPI polarity and native32 framing
+Subject: [PATCH] mfd: cpcap: test native32 CPCAP transport with the prior CS polarity
 
-Use active-low CS0, a native 32-bit full-duplex SLINK word and the
-Motorola command/reply format. Keep booting with an inconclusive identity
-so the first transport test preserves display, Wi-Fi and Bluetooth.
-diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
-index ce286849..d6f6c4f5 100644
---- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
-+++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
-@@ -62,7 +62,7 @@
- 			compatible = "motorola,cpcap";
- 			reg = <0>;
- 			spi-max-frequency = <10000000>;
--			spi-cs-high;
-+			/* Motorola CS0 is active low; no spi-cs-high property. */
- 			interrupt-parent = <&intc>;
- 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
- 		};
-diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
-index c6a5d525..e65f6e4d 100644
---- a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
-+++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
-@@ -83,7 +83,7 @@
- 			compatible = "motorola,cpcap";
- 			reg = <0>;
- 			spi-max-frequency = <10000000>;
--			spi-cs-high;
-+			/* Motorola CS0 is active low; no spi-cs-high property. */
- 			interrupt-parent = <&intc>;
- 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
- 			regulator-controller {
+Keep the previously stable active-high CS while testing the native
+32-bit Motorola framing. The full CS0 polarity change remains a separate
+variable after the display stays stable.
 diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
-index 061208f7..5b9352aa 100644
+index 061208f7..cc94b7d7 100644
 --- a/drivers/mfd/motorola-cpcap.c
 +++ b/drivers/mfd/motorola-cpcap.c
 @@ -69,11 +69,33 @@ int cpcap_sense_virq(struct regmap *regmap, int virq)
@@ -149,16 +123,19 @@ index 061208f7..5b9352aa 100644
  	return spi_write(spi, data, sizeof(data));
  }
  
-@@ -393,6 +451,20 @@ static void cpcap_depopulate(void *dev)
+@@ -393,6 +451,23 @@ static void cpcap_depopulate(void *dev)
  	of_platform_depopulate(dev);
  }
  
 +static int cpcap_setup_transport(struct spi_device *spi)
 +{
 +	if (of_machine_is_compatible("motorola,wingray")) {
-+		/* board-stingray-power.c uses active-low CS0, SPI mode 0. */
++		/* Keep the previously stable 4.4 SLINK CS polarity while testing
++		 * the native 32-bit transfer.  Restore CS0 to active-low only
++		 * after the power path is validated separately.
++		 */
 +		spi->bits_per_word = 32;
-+		spi->mode = SPI_MODE_0;
++		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
 +	} else {
 +		spi->bits_per_word = 16;
 +		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
@@ -170,7 +147,7 @@ index 061208f7..5b9352aa 100644
  static int cpcap_probe(struct spi_device *spi)
  {
  	const struct of_device_id *match;
-@@ -410,10 +482,7 @@ static int cpcap_probe(struct spi_device *spi)
+@@ -410,10 +485,7 @@ static int cpcap_probe(struct spi_device *spi)
  	cpcap->spi = spi;
  	spi_set_drvdata(spi, cpcap);
  
