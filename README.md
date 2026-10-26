@@ -22,13 +22,14 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
-**Power button:** Image 77 fixed the screen flicker with CPCAP on the correct
-SPI2 controller, but the button still did not work (`VERSC1=0000`, all-zero
-sense banks). Candidate 78 changes only CS polarity to CS-high on that
-correct bus; it is built and tested but **not hardware validated**. See
-[77 findings](docs/power-key-77-findings.md) and
-[candidate 78](android-power-78.md). Volume-down remains the working fallback;
-Bluetooth 75b and Wi-Fi 73k remain stable.
+**Power button:** Image 78 is hardware-validated. CPCAP now reports
+`VERSC1=0012` / ST rev 2.2, and the back button produces press/release events;
+short press toggles the screen and long press opens the power menu. The source
+tree retires the volume-down `KEY_POWER` fallback and restores normal volume
+keys. No rebuild was performed, so the already-flashed 78 image still carries
+the old fallback mapping. See [power-button result](docs/power-key-78-result.md)
+and [candidate 78](android-power-78.md). Bluetooth 75b and Wi-Fi 73k remain
+stable baselines.
 
 See [the working Wi-Fi record](docs/wifi-working.md) and the updated
 [component status](STATUS.md).
