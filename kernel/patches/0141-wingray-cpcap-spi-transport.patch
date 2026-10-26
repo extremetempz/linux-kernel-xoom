@@ -1,0 +1,190 @@
+From ff9188dedc0bb3985e5ba9356c7e68224a70ebea Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 26 Oct 2026 17:14:44 +1100
+Subject: [PATCH] mfd: cpcap: restore Motorola Wingray SPI polarity and
+ native32 framing
+
+---
+ .../dts/tegra20-motorola-wingray-gpu-test.dts |  2 +-
+ .../tegra20-motorola-wingray-peripherals.dtsi |  2 +-
+ drivers/mfd/motorola-cpcap.c                  | 84 +++++++++++++++++--
+ 3 files changed, 77 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index ce286849..d6f6c4f5 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -62,7 +62,7 @@
+ 			compatible = "motorola,cpcap";
+ 			reg = <0>;
+ 			spi-max-frequency = <10000000>;
+-			spi-cs-high;
++			/* Motorola CS0 is active low; no spi-cs-high property. */
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 		};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+index c6a5d525..e65f6e4d 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+@@ -83,7 +83,7 @@
+ 			compatible = "motorola,cpcap";
+ 			reg = <0>;
+ 			spi-max-frequency = <10000000>;
+-			spi-cs-high;
++			/* Motorola CS0 is active low; no spi-cs-high property. */
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 			regulator-controller {
+diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
+index 061208f7..f9638caf 100644
+--- a/drivers/mfd/motorola-cpcap.c
++++ b/drivers/mfd/motorola-cpcap.c
+@@ -69,11 +69,30 @@ int cpcap_sense_virq(struct regmap *regmap, int virq)
+ }
+ EXPORT_SYMBOL_GPL(cpcap_sense_virq);
+ 
++static bool cpcap_wingray_identity_valid(unsigned int raw)
++{
++	/* A successful SPI syscall with an idle MISO line is not detection. */
++	return raw != 0 && raw != 0xffff;
++}
++
+ static int cpcap_check_revision(struct cpcap_ddata *cpcap)
+ {
+ 	u16 vendor, rev;
++	unsigned int raw;
+ 	int ret;
+ 
++	if (of_machine_is_compatible("motorola,wingray")) {
++		ret = regmap_read(cpcap->regmap, CPCAP_REG_VERSC1, &raw);
++		if (ret)
++			return ret;
++		dev_info(&cpcap->spi->dev, "Wingray CPCAP VERSC1=%04x\n", raw);
++		if (!cpcap_wingray_identity_valid(raw)) {
++			dev_err(&cpcap->spi->dev,
++				"Unvalidated CPCAP identity; check SPI transport\n");
++			return -ENODEV;
++		}
++	}
++
+ 	ret = cpcap_get_vendor(&cpcap->spi->dev, cpcap->regmap, &vendor);
+ 	if (ret)
+ 		return ret;
+@@ -88,7 +107,9 @@ static int cpcap_check_revision(struct cpcap_ddata *cpcap)
+ 		 rev);
+ 
+ 	/*
+-	 * Wingray's ST CPCAP 1.0 reports a raw revision of zero.  The
++	 * An older CPCAP may have a zero revision FIELD. The full raw identity
++	 * has been checked separately on Wingray; an all-zero reply does not
++	 * establish a vendor or revision. The
+ 	 * registers and ON interrupt used by this board are compatible with
+ 	 * the older part; only the regulator/charger features are omitted.
+ 	 */
+@@ -313,10 +334,10 @@ static int cpcap_register_pwrkey(struct cpcap_ddata *cpcap)
+ 	regmap_write(cpcap->regmap, CPCAP_REG_INT2, CPCAP_BIT_ON_I);
+ 
+ 	/*
+-	 * The CPCAP interrupt line is not reaching the GIC on this board even
+-	 * though the SPI sense registers are readable.  Poll the ON sense bit
+-	 * as a development fallback; the IRQ mapping can be revisited once the
+-	 * key path is proven.
++	 * Earlier tests returned zero sense registers and no GIC interrupts.
++	 * Polling is a development diagnostic, not proof that transport or
++	 * IRQ delivery works. Validate the corrected SPI transport and ON
++	 * transitions before revisiting the IRQ-driven input path.
+ 	 */
+ 	for (i = 0; i < 4; i++) {
+ 		if (!regmap_read(cpcap->regmap, CPCAP_REG_INTS1 + i * 4, &val)) {
+@@ -346,6 +367,36 @@ static const struct of_device_id cpcap_of_match[] = {
+ };
+ MODULE_DEVICE_TABLE(of, cpcap_of_match);
+ 
++/* Original Motorola register_access: one native-endian 32-bit SLINK word,
++ * MSB first, command in bits 31:16, simultaneous reply in bits 15:0.
++ * Register constants here already contain the legacy word-address << 2.
++ * No bit shifts, byte swaps or generic regmap formatting are applied twice.
++ */
++static int cpcap_wingray_transfer(struct spi_device *spi, unsigned int reg,
++				 unsigned int value, bool write,
++				 unsigned int *result)
++{
++	u32 tx, rx = 0;
++	struct spi_transfer transfer = {
++		.tx_buf = &tx,
++		.rx_buf = &rx,
++		.len = sizeof(tx),
++		.bits_per_word = 32,
++	};
++	struct spi_message message;
++	int ret;
++
++	if ((reg & 3) || reg > CPCAP_REG_ST_TEST2 || value > 0xffff)
++		return -EINVAL;
++	tx = ((reg | (write ? 0x8000 : 0)) << 16) | value;
++	spi_message_init(&message);
++	spi_message_add_tail(&transfer, &message);
++	ret = spi_sync(spi, &message);
++	if (!ret && result)
++		*result = rx & 0xffff;
++	return ret;
++}
++
+ /* Linux 4.4 regmap only supports an 8-bit SPI flag mask. CPCAP's
+  * write bit is bit 15 of its little-endian 16-bit address word.
+  * Use single-register callbacks to preserve the upstream wire format.
+@@ -357,6 +408,8 @@ static int cpcap_spi_read(void *context, unsigned int reg, unsigned int *val)
+ 	__le16 data;
+ 	int ret;
+ 
++	if (of_machine_is_compatible("motorola,wingray"))
++		return cpcap_wingray_transfer(spi, reg, 0, false, val);
+ 	ret = spi_write_then_read(spi, &address, sizeof(address),
+ 				 &data, sizeof(data));
+ 	if (!ret)
+@@ -369,6 +422,8 @@ static int cpcap_spi_write(void *context, unsigned int reg, unsigned int val)
+ 	struct spi_device *spi = context;
+ 	__le16 data[2] = { cpu_to_le16(reg | 0x8000), cpu_to_le16(val) };
+ 
++	if (of_machine_is_compatible("motorola,wingray"))
++		return cpcap_wingray_transfer(spi, reg, val, true, NULL);
+ 	return spi_write(spi, data, sizeof(data));
+ }
+ 
+@@ -393,6 +448,20 @@ static void cpcap_depopulate(void *dev)
+ 	of_platform_depopulate(dev);
+ }
+ 
++static int cpcap_setup_transport(struct spi_device *spi)
++{
++	if (of_machine_is_compatible("motorola,wingray")) {
++		/* board-stingray-power.c uses active-low CS0, SPI mode 0. */
++		spi->bits_per_word = 32;
++		spi->mode = SPI_MODE_0;
++	} else {
++		spi->bits_per_word = 16;
++		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
++	}
++
++	return spi_setup(spi);
++}
++
+ static int cpcap_probe(struct spi_device *spi)
+ {
+ 	const struct of_device_id *match;
+@@ -410,10 +479,7 @@ static int cpcap_probe(struct spi_device *spi)
+ 	cpcap->spi = spi;
+ 	spi_set_drvdata(spi, cpcap);
+ 
+-	spi->bits_per_word = 16;
+-	spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
+-
+-	ret = spi_setup(spi);
++	ret = cpcap_setup_transport(spi);
+ 	if (ret)
+ 		return ret;
+ 
+-- 
+2.43.0
+
