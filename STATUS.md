@@ -10,15 +10,16 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Battery monitor — Test A passes; charger transitions pending:** The opt-in
+**Battery monitor — Tests A/B pass; C/D transitions pending:** The opt-in
 profile exposes the real P3 DS2781 gauge over Tegra OWR and BQ24617
-STAT1/STAT2/DETECT inputs as standard `battery` and `ac` supplies. With the
-charger disconnected, hardware reports 62%, 7.64208 V, -358906 uA, 27.5 C,
-Discharging and ac offline; Android BatteryService and healthd show the same
-level. Charger-connected, full/not-charging, reconnect and the charging icon
-remain unvalidated. `health`/`technology` sysfs properties are not yet
-exported, producing healthd fallback warnings. See
-[candidate 79](android-battery-79.md), [Test A](docs/battery-79-testA.md) and
+STAT1/STAT2/DETECT inputs as standard `battery` and `ac` supplies.
+Disconnected: 62%, 7.64208 V, -358906 uA, 27.5 C, Discharging, ac offline.
+Charger connected: 61%, Charging, 7.97392 V, +1.529531 A, ac online; Android
+reports AC powered and status 2. No post-disconnect report3 exists yet, so
+the B→C transition, full/not-charging state and extended monitoring remain
+unvalidated. `health`/`technology` sysfs properties are not exported, producing
+healthd fallback warnings. See [candidate 79](android-battery-79.md),
+[Test A](docs/battery-79-testA.md), [Test B](docs/battery-79-testB.md) and
 [monitor protocol](docs/battery-monitor-79.md). No charger/voltage/current
 control or calibration writes are enabled.
 

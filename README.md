@@ -22,12 +22,12 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
-**Battery monitor:** candidate 79 now passes **Test A** on hardware: with the
-charger disconnected it reports the real gauge's 62%, 7.64208 V, -358906 uA,
-27.5 C, Discharging and ac offline; Android BatteryService sees the same
-values. Charger-connected/full and reconnect transitions remain unvalidated.
-See [battery candidate 79](android-battery-79.md),
-[Test A findings](docs/battery-79-testA.md) and
+**Battery monitor:** candidate 79 passes **Test A** (disconnected: 62%,
+7.64208 V, -358906 uA, 27.5 C, ac offline) and **Test B** (connected: 61%,
+Charging, 7.97392 V, +1.529531 A, ac online, Android AC powered/status 2).
+No post-disconnect report3 exists yet, so the B→C transition and extended
+monitoring remain unvalidated. See [battery candidate 79](android-battery-79.md),
+[Test A](docs/battery-79-testA.md), [Test B](docs/battery-79-testB.md) and
 [the detailed protocol](docs/battery-monitor-79.md). No charging controls or
 battery writes are enabled.
 

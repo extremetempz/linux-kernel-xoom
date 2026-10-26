@@ -140,9 +140,14 @@ only and are not committed or bundled as new proprietary libraries.
 - Kernel source head: `777a6b1f` (source patches 0143–0145 plus prior fallback retirement).
 - **Test A hardware-validated:** charger disconnected reports 62%, 7.64208 V,
   -358906 uA, 27.5 C, Discharging and ac offline; Android BatteryService shows
-  level 62 and healthd is running. Charger-connected/full/not-charging
-  transitions and the charging icon remain unvalidated. See
-  [Test A result](battery-79-testA.md).
+  level 62 and healthd is running.
+- **Test B hardware-validated:** charger connected reports ac online 1,
+  61%, Charging, 7.97392 V, +1.529531 A, 27.7 C; Android reports AC powered,
+  status 2 and level 61. See [Test A](battery-79-testA.md) and
+  [Test B](battery-79-testB.md).
+- **Test C/D evidence missing:** no post-disconnect report3 exists yet; the
+  B→C transition and extended monitoring are not captured. Full/not-charging
+  states and the charging icon should be confirmed in that capture.
 - Preserved 78 image SHA-256 remains `e8a698405f65b9a6b408d66bbf864662bf9830cdc155670d4808474f60dee49d`.
 
 The PR's earlier image hash `2b9faae1…` was not the actual local build: that build

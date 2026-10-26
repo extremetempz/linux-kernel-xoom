@@ -23,9 +23,16 @@ the build were infrastructure, not hardware identification: the battery DTB
 was missing from the build/copy list, and a missing monitor caused the
 bootstrap to stop Android instead of degrading to a warning.
 
-## Test A hardware result
+## Hardware results
 
-With the charger disconnected, the monitor reports **62%**, **7.64208 V**, **-358906 uA**, **27.5 C**, **Discharging**, and **ac online 0**. Android `dumpsys battery` shows the same level/voltage/current/temperature, with `healthd` running. Charger-connected, full/not-charging and the charging icon remain to be tested. See [Test A findings](docs/battery-79-testA.md).
+- **Test A, disconnected:** 62%, 7.64208 V, -358906 uA, 27.5 C,
+  Discharging, ac offline. Android shows the same level and healthd is
+  running. See [Test A](docs/battery-79-testA.md).
+- **Test B, charger connected:** 61%, Charging, 7.97392 V, +1.529531 A,
+  27.7 C, ac online 1. Android reports AC powered, status 2 (charging),
+  level 61. See [Test B](docs/battery-79-testB.md).
+- **Test C/D:** no post-disconnect report3 exists yet. The B→C transition,
+  full/not-charging state and extended monitoring still need that capture.
 
 ## Image identity
 
