@@ -165,4 +165,5 @@ if /bin/busybox awk '$2=="/data" {count++; valid=($3=="tmpfs")} END {exit !(coun
 else
  echo XOOM_ANDROID44_TOMBSTONES_DENIED_DATA
 fi
+[ ! -x /bin/battery-report ] || /bin/battery-report
 echo XOOM_ANDROID44_REPORT_DONE_V1
