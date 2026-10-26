@@ -22,6 +22,10 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
+**Display diagnostic:** a fixed-request FBTEST image is built for the missing
+DC-blank test; it writes only fb0/blank and restores it, with no shell. See
+[FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
+
 **Display power:** display 80 is hardware-validated for the **LP8550
 backlight**: ten off/on cycles gave complete darkness and restored brightness.
 **Display-controller blank is not proven**: the log still shows `power=0 fb=0`

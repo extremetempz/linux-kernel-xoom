@@ -197,6 +197,7 @@ def entries(runtime):
   files['bin/lights.stingray.so']=lights
   files['bin/power-report']=(ROOT/'diagnostic/power-report.sh').read_bytes()
   files['bin/display-backlight-cycle']=(ROOT/'diagnostic/display-backlight-cycle.sh').read_bytes()
+  files['bin/fb-blank-test']=(ROOT/'diagnostic/fb-blank-test.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
