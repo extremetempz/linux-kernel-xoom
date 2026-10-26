@@ -1,6 +1,9 @@
 # Power-button candidate 77 — CPCAP on SPI2
 
-26 October 2026. **Built and checked; not flashed or hardware validated.**
+26 October 2026. **Physical result: screen flicker fixed; power button still
+not working.** The controller mapping was real and necessary, but CPCAP still
+returns `VERSC1=0000` and all ON-sense banks are zero. See
+[the detailed 77 findings](docs/power-key-77-findings.md).
 
 ## Confirmed mapping error
 
@@ -44,7 +47,14 @@ PASS compiled Bluetooth DT and configuration
 The compiled DT now has the CPCAP node under `spi@7000d600`, the SPI2 pin
 group, and `spi@7000d400` disabled.
 
-## Flash and test
+## Remaining blocker
+
+`cpcap-pwrkey` is registered and polling, but the sense bit never transitions;
+the CPCAP parent IRQ is later disabled as "nobody cared". The next controlled
+test is CS polarity on the corrected SPI2 bus, then split-16-bit framing, one
+variable at a time.
+
+## Flash and test (for reference only)
 
 Restore 75b first if needed. Then:
 
