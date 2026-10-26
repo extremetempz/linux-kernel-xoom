@@ -76,6 +76,14 @@ this is resolved.
 - Display-controller blank/unblank: **not proven**
 - Suspend/deep sleep: **not implemented**
 
+## DC rollback
+
+The later sysfs HAL made Android actually disable the DC. Every log said
+`dc=1` after re-enable, but the panel stayed dark with a scan line — both on
+Android cycles and on FBTEST. The DC disable/enable sequence is therefore not
+a valid panel power-down for this board. It has been rolled back to
+backlight-only. See [DC rollback](display-power-80-dc-rollback.md).
+
 ## Root FBTEST result
 
 The fixed root FBTEST proved the kernel side works:

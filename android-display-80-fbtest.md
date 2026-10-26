@@ -41,17 +41,21 @@ No arbitrary command is evaluated.
 
 ## Image identity
 
-- Path: `artifacts/display80fbtest3-ready/wingray-android44-gpu.img`
-- Size: 4,147,200 bytes
-- SHA-256: `2d0b16dbd2875c0b8628b1dfa513272de559d7742471b64969403bffe7b4e9ba`
-- Kernel donor head: `e038c692`
-- Profile: display80 plus fixed FBTEST helper and sysfs-blank lights HAL
+- Path: `artifacts/display80fbtest5-ready/wingray-android44-gpu.img`
+- Size: 4,149,248 bytes
+- SHA-256: `02ab70c2595fff650b71eb00e920bb3a3a8c8afaeed69c4421398563aa155591`
+- Kernel donor head: `f61aaf75`
+- Profile: display80 plus FBTEST, sysfs blank HAL and backlight-only fb blank
 - **Not flashed or hardware validated**
 
-The earlier FBTEST image (`2672682f…`) proved the kernel path but showed that
-Android was not reaching it. This rebuilt image changes the HAL to use the
-same `/sys/class/graphics/fb0/blank` path that the root test proved, and grants
-the system user/group write access in the opt-in display profile.
+The DC blank experiment was rolled back after the panel failed to restore.
+See [DC rollback](docs/display-power-80-dc-rollback.md).
+
+The FBTEST image proved that Android can reach the blank path, but also proved
+that disabling the DC leaves the panel dark with a scan line after re-enable.
+This rebuilt image therefore keeps the DC running and blanks only the LP8550
+backlight. The HAL uses the sysfs blank path, and the opt-in profile grants the
+system user/group write access.
 
 This is a diagnostic image, not a new display-power feature. The known-good
 display80 backlight test image remains
@@ -77,20 +81,17 @@ python3 scripts/run-fb-blank-test.py \
 The screen may go dark for about one second. The command prints the captured
 state/log and saves `fb-blank-test.txt`.
 
-Before running it, press the physical power button off and on once. Then the
-captured dmesg should contain:
+Before running it, press the physical power button off and on once. The screen
+should go dark and return normally. Then FBTEST should show backlight-only
+transitions:
 
 ```text
-Wingray display off: blank=4 dc=0   # from the Android power-button cycle
-Wingray display on: dc=1
-Wingray display off: blank=4 dc=0   # from the manual FBTEST
-Wingray display on: dc=1
+Wingray backlight off: blank=4 dc=1
+Wingray backlight on: dc=1
 ```
 
-`fb0/state` is not authoritative for every blank transition; the decisive
-evidence is the `Wingray display off/on` dmesg pairs. If only the LP8550
-`power=4`/brightness lines appear, the HAL is still not invoking the sysfs
-blank path.
+The DC remains enabled. If the screen does not return, stop and report the
+full FBTEST file; do not attempt DC power-down again.
 
 ## Safety
 

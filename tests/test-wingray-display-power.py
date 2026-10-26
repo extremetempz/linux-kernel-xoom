@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the actual Wingray fb blank state machine with fault injection."""
+"""Run the actual Wingray fb backlight blank state with fault injection."""
 from pathlib import Path
 import subprocess,tempfile
 ROOT=Path(__file__).resolve().parents[1];K=ROOT/'sources/kernel-donor'
@@ -14,29 +14,18 @@ code=r'''
 #include <errno.h>
 #define FB_BLANK_UNBLANK 0
 #define FB_BLANK_POWERDOWN 4
-#define TEGRA_WIN_FLAG_ENABLED 1
 #define dev_info(...) ((void)0)
-struct tegra_dc {int enabled,disable_work;};
+struct tegra_dc {int enabled;};
 struct tegra_dc_win {struct tegra_dc *dc;unsigned flags;};
 struct tegra_fb_info {struct tegra_dc_win *win;};
-static int calls[32],count,bl_error,enable_fail,update_error,sync_result=5;
-static void cancel_delayed_work_sync(int *p){(void)p;calls[count++]=1;}
+static int calls[8],count,bl_error;
 static int tegra_wingray_backlight_power(struct tegra_dc *dc,int mode){(void)dc;calls[count++]=mode?2:7;return bl_error;}
-static void tegra_dc_disable(struct tegra_dc *dc){calls[count++]=3;dc->enabled=0;}
-static void tegra_dc_enable(struct tegra_dc *dc){calls[count++]=4;dc->enabled=!enable_fail;}
-static int tegra_dc_update_windows(struct tegra_dc_win **w,int n){(void)w;assert(n==1);calls[count++]=5;return update_error;}
-static int tegra_dc_sync_windows(struct tegra_dc_win **w,int n){(void)w;assert(n==1);calls[count++]=6;return sync_result;}
 '''+function(s,'tegra_fb_wingray_blank')+r'''
-int main(void){struct tegra_dc dc={1,0};struct tegra_dc_win win={&dc,0};struct tegra_fb_info fb={&win};
- assert(!tegra_fb_wingray_blank(4,&fb)&&!dc.enabled);assert(count==3&&calls[0]==1&&calls[1]==2&&calls[2]==3);
- count=0;assert(!tegra_fb_wingray_blank(0,&fb)&&dc.enabled&&(win.flags&1));
- assert(count==5&&calls[0]==1&&calls[1]==4&&calls[2]==5&&calls[3]==6&&calls[4]==7);
- count=0;bl_error=-5;assert(tegra_fb_wingray_blank(4,&fb)==-5&&dc.enabled&&count==2);bl_error=0;
- sync_result=0;assert(tegra_fb_wingray_blank(0,&fb)==-ETIMEDOUT&&!dc.enabled);
- sync_result=-4;assert(tegra_fb_wingray_blank(0,&fb)==-4&&!dc.enabled);
- sync_result=5;update_error=-5;assert(tegra_fb_wingray_blank(0,&fb)==-5&&!dc.enabled);update_error=0;
- enable_fail=1;assert(tegra_fb_wingray_blank(0,&fb)==-EIO&&!dc.enabled);enable_fail=0;
- for(int n=0;n<10;n++){count=0;assert(!tegra_fb_wingray_blank(0,&fb));assert(!tegra_fb_wingray_blank(4,&fb));}
+int main(void){struct tegra_dc dc={1};struct tegra_dc_win win={&dc,0};struct tegra_fb_info fb={&win};
+ count=0;assert(!tegra_fb_wingray_blank(4,&fb)&&dc.enabled&&count==1&&calls[0]==2);
+ count=0;assert(!tegra_fb_wingray_blank(0,&fb)&&dc.enabled&&count==1&&calls[0]==7);
+ bl_error=-5;count=0;assert(tegra_fb_wingray_blank(4,&fb)==-5&&count==1);bl_error=0;
+ for(int n=0;n<10;n++){assert(!tegra_fb_wingray_blank(0,&fb));assert(!tegra_fb_wingray_blank(4,&fb));assert(dc.enabled);}
  return 0;}
 '''
 with tempfile.TemporaryDirectory() as d:
@@ -79,4 +68,4 @@ with tempfile.TemporaryDirectory() as d:
  p=Path(d);(p/'test.c').write_text(code)
  subprocess.run(['cc','-std=gnu99','-Wall','-Wextra','-Werror',str(p/'test.c'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
-print('PASS actual fb/LP8550 callbacks: blank sequencing, timeout/IO/enable rollback, ten software cycles, retained brightness and power flags (not hardware validation)')
+print('PASS actual fb/LP8550 callbacks: backlight-only blank/unblank, IO rollback, ten software cycles, retained brightness and power flags (no DC power-down; not hardware validation)')

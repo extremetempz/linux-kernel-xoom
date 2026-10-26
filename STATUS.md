@@ -17,15 +17,15 @@ image switches the lights HAL to the proven sysfs blank route and grants the
 system user/group write access; hardware execution of that HAL path is pending.
 See [FBTEST diagnostic](android-display-80-fbtest.md).
 
-**Display power — backlight validated, DC blank unproven:** Ten physical
-off/on cycles produced complete darkness and restored brightness; the LP8550
-zero/restore path and KitKat lights HAL are hardware-validated. The framework
-kept running and power-key/touch/Wi-Fi/BT/battery remained alive. However the
-log still reports `power=0 fb=0` at effective zero and no `Wingray display
-off/on` messages, so display-controller power-down/resume is **not proven**.
-All eight light IDs are safely opened after fixing a definite system_server
-NULL-slot bug. Suspend/wake/DVFS remain disabled. See
-[candidate 80](android-display-80.md),
+**Display power — backlight-only stable; DC rolled back:** Ten physical
+off/on cycles produced complete darkness and restored brightness. A later
+sysfs-HAL test made the kernel disable/re-enable the DC; logs reached `dc=0`
+and `dc=1` but the panel stayed dark with a scan line. The DC sequence is
+therefore unsafe and has been rolled back: the fb blank path now keeps the DC
+enabled and controls only the LP8550 backlight. The rebuilt image needs a
+physical recovery test. All eight light IDs are safely opened. Suspend/wake/
+DVFS remain disabled. See [candidate 80](android-display-80.md),
+[DC rollback](docs/display-power-80-dc-rollback.md),
 [Test A/B result](docs/display-power-80-result.md) and
 [test protocol](docs/display-power-80-test.md).
 

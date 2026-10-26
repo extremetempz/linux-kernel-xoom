@@ -28,11 +28,13 @@ it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
 with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
-**Display power:** display 80 is hardware-validated for the **LP8550
-backlight**: ten off/on cycles gave complete darkness and restored brightness.
-**Display-controller blank is not proven**: the log still shows `power=0 fb=0`
-at effective zero and no `Wingray display off` messages. Suspend, wake and
-DVFS remain disabled. See [display candidate 80](android-display-80.md),
+**Display power:** backlight-only blank is the stable path. Ten physical
+off/on cycles gave complete darkness and restored brightness. A later DC
+power-down experiment made Android reach `dc=0`/`dc=1`, but the panel stayed
+dark with a scan line after re-enable; that sequence is rolled back. Suspend,
+wake and DVFS remain disabled. See
+[display candidate 80](android-display-80.md),
+[DC rollback](docs/display-power-80-dc-rollback.md),
 [Test A/B result](docs/display-power-80-result.md) and
 [the stage A/B test protocol](docs/display-power-80-test.md).
 
