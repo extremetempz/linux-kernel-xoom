@@ -10,7 +10,7 @@ HDR = (DONOR / "include/linux/mfd/motorola-cpcap.h").read_text()
 CFG = (DONOR / "arch/arm/configs/wingray_android44_gpu_fbmap_defconfig").read_text()
 
 for needle in (
-    'spi@7000d400',
+    'spi@7000d600',
     'status = "okay"',
     'pinctrl-0 = <&wingray_cpcap_spi>',
     'compatible = "motorola,cpcap"',
@@ -19,9 +19,9 @@ for needle in (
 ):
     assert needle in DTS, needle
 
-for pin in ("spid", "spie", "spif"):
+for pin in ("spia", "spib", "spic", "spig"):
     assert f'nvidia,pins = "{pin}"' in DTS
-    assert 'nvidia,function = "spi1"' in DTS
+    assert 'nvidia,function = "spi2"' in DTS
 
 for needle in (
     "cpcap_register_pwrkey",

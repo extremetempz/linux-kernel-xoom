@@ -22,13 +22,14 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
-**Power button:** candidate 76 (CPCAP CS + native32) caused significant
-screen flicker and is rejected. Candidate 76a isolates the native32 framing
-while restoring the previously stable CS polarity; it is built and tested but
-**not hardware validated**. Do not flash 76. See
-[the rejected 76 analysis](android-power-76.md) and
-[76a isolation candidate](android-power-76a.md). Bluetooth 75b and Wi-Fi 73k
-remain the working recovery baselines.
+**Power button:** Image 77 fixed the screen flicker by moving CPCAP to
+Motorola's SPI2 controller (`0x7000d600`, SPIA/SPIB/SPIC/SPIG). The physical
+button still does not work: CPCAP returns `VERSC1=0000`, all ON-sense banks
+are zero, and the parent IRQ is disabled as "nobody cared". Volume-down
+remains the working fallback. See
+[77 findings](docs/power-key-77-findings.md) and
+[rejected 76 analysis](android-power-76.md). Bluetooth 75b and Wi-Fi 73k
+remain the stable baselines.
 
 See [the working Wi-Fi record](docs/wifi-working.md) and the updated
 [component status](STATUS.md).

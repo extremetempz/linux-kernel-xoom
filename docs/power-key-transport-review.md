@@ -1,5 +1,10 @@
 # Wingray power-key failure: transport review and unflashed correction
 
+**Correction 77 — controller mapping:** Motorola's original `bus_num=1` is
+`tegra_spi_device2` (SPI2, 0x7000d600), using SPIA/SPIB/SPIC/SPIG. The port
+used SPI1 at 0x7000d400 and SPID/SPIE/SPIF. Candidate 77 fixes that mapping
+before testing power-key theory further.
+
 26 October 2026. The user reports Bluetooth pairing/connection working on 75b;
 main records a Sony headset connection while Wi-Fi remained connected. Audio,
 factory address and long coexistence validation remain separate milestones.

@@ -10,14 +10,16 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Power button — 76 rejected, 76a isolation only:** Image 76 changed CPCAP
-CS polarity and native32 framing together and caused significant screen
-flicker. 76a restores the previously stable CS-high polarity while keeping
-native32 framing; it is built and unit-tested but not hardware validated.
-Power-key polling and KEY_POWER mapping are unchanged. Controller/IRQ wake is
-not claimed. See [rejected 76](android-power-76.md) and
-[76a isolation](android-power-76a.md). 75b remains the working Bluetooth
-image and 73k the Wi-Fi baseline.
+**Power button — 77 screen stable, button unresolved:** Image 77 fixed the
+screen flicker by moving CPCAP to Motorola's SPI2 controller (0x7000d600) and
+SPI2 pins (SPIA/SPIB/SPIC/SPIG). The physical button still does nothing:
+CPCAP returns `VERSC1=0000`, every ON-sense/status bank is zero, and the
+parent IRQ is later disabled as "nobody cared". `cpcap-pwrkey` exists and
+polling runs, but no KEY_POWER event is produced. The next controlled test is
+CS polarity on SPI2, then split-16-bit framing; do not change both together.
+See [77 findings](docs/power-key-77-findings.md), [rejected 76](android-power-76.md)
+and [rejected 76a](android-power-76a.md). Volume-down remains the working
+power fallback; 75b and 73k remain the stable baselines.
 
 **Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
 BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz

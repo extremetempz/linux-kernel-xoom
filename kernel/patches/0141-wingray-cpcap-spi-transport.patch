@@ -1,11 +1,104 @@
 From: Justin <justinscollo@protonmail.com>
-Subject: [PATCH] mfd: cpcap: test native32 CPCAP transport with the prior CS polarity
+Subject: [PATCH] mfd: cpcap: move Wingray PMIC to the original SPI2 controller
 
-Keep the previously stable active-high CS while testing the native
-32-bit Motorola framing. The full CS0 polarity change remains a separate
-variable after the display stays stable.
+Motorola registers CPCAP on bus_num=1, which is tegra_spi_device2 at
+0x7000d600, using the SPI2 pin group. The port bound it to SPI1
+(0x7000d400) and SPI1 pins. Correct the controller, alias and pinmux,
+then use the original active-low CS0 and native32 transfer.
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index ce286849..51cf4cc9 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -30,31 +30,38 @@
+ 			line-name = "wingray-keypad-column";
+ 		};
+ 	};
+-	/* The early-boot base omits the full peripherals include.  Add only the
+-	 * SPI1/CPCAP path needed for the PMIC power-key interrupt. */
++	/* The early-boot base omits the full peripherals include.  Motorola's
++	 * original bus_num=1 is tegra_spi_device2 (SPI2 at 0x7000d600), using
++	 * the SPI2 pin group.  Add only that CPCAP path. */
+ 	pinmux@70000014 {
+ 		wingray_cpcap_spi: cpcap-spi {
+-			spid {
+-				nvidia,pins = "spid";
+-				nvidia,function = "spi1";
++			spia {
++				nvidia,pins = "spia";
++				nvidia,function = "spi2";
+ 				nvidia,tristate = <0>;
+ 				nvidia,pull = <0>;
+ 			};
+-			spie {
+-				nvidia,pins = "spie";
+-				nvidia,function = "spi1";
++			spib {
++				nvidia,pins = "spib";
++				nvidia,function = "spi2";
+ 				nvidia,tristate = <0>;
+ 				nvidia,pull = <0>;
+ 			};
+-			spif {
+-				nvidia,pins = "spif";
+-				nvidia,function = "spi1";
++			spic {
++				nvidia,pins = "spic";
++				nvidia,function = "spi2";
+ 				nvidia,tristate = <0>;
+-				nvidia,pull = <0>;
++				nvidia,pull = <1>;
++			};
++			spig {
++				nvidia,pins = "spig";
++				nvidia,function = "spi2";
++				nvidia,tristate = <0>;
++				nvidia,pull = <1>;
+ 			};
+ 		};
+ 	};
+-	spi@7000d400 {
++	spi@7000d600 {
+ 		status = "okay";
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&wingray_cpcap_spi>;
+@@ -62,7 +69,6 @@
+ 			compatible = "motorola,cpcap";
+ 			reg = <0>;
+ 			spi-max-frequency = <10000000>;
+-			spi-cs-high;
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 		};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+index c6a5d525..b6dd2ddb 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+@@ -6,7 +6,7 @@
+ 		i2c1 = "/i2c@7000c400";
+ 		i2c2 = "/i2c@7000c500";
+ 		i2c3 = "/i2c@7000d000";
+-		spi1 = "/spi@7000d400";
++		spi1 = "/spi@7000d600";
+ 	};
+ 	panel_power: panel-power {
+ 		compatible = "regulator-fixed";
+@@ -77,13 +77,12 @@
+ 			regulator-always-on;
+ 		};
+ 	};
+-	spi@7000d400 {
++	spi@7000d600 {
+ 		status = "okay";
+ 		cpcap: pmic@0 {
+ 			compatible = "motorola,cpcap";
+ 			reg = <0>;
+ 			spi-max-frequency = <10000000>;
+-			spi-cs-high;
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+ 			regulator-controller {
 diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
-index 061208f7..cc94b7d7 100644
+index 061208f7..943101d0 100644
 --- a/drivers/mfd/motorola-cpcap.c
 +++ b/drivers/mfd/motorola-cpcap.c
 @@ -69,11 +69,33 @@ int cpcap_sense_virq(struct regmap *regmap, int virq)
@@ -123,19 +216,18 @@ index 061208f7..cc94b7d7 100644
  	return spi_write(spi, data, sizeof(data));
  }
  
-@@ -393,6 +451,23 @@ static void cpcap_depopulate(void *dev)
+@@ -393,6 +451,22 @@ static void cpcap_depopulate(void *dev)
  	of_platform_depopulate(dev);
  }
  
 +static int cpcap_setup_transport(struct spi_device *spi)
 +{
 +	if (of_machine_is_compatible("motorola,wingray")) {
-+		/* Keep the previously stable 4.4 SLINK CS polarity while testing
-+		 * the native 32-bit transfer.  Restore CS0 to active-low only
-+		 * after the power path is validated separately.
++		/* Motorola bus_num=1 is SPI2; its board data uses SPI mode 0
++		 * and active-low CS0.
 +		 */
 +		spi->bits_per_word = 32;
-+		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
++		spi->mode = SPI_MODE_0;
 +	} else {
 +		spi->bits_per_word = 16;
 +		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
@@ -147,7 +239,7 @@ index 061208f7..cc94b7d7 100644
  static int cpcap_probe(struct spi_device *spi)
  {
  	const struct of_device_id *match;
-@@ -410,10 +485,7 @@ static int cpcap_probe(struct spi_device *spi)
+@@ -410,10 +484,7 @@ static int cpcap_probe(struct spi_device *spi)
  	cpcap->spi = spi;
  	spi_set_drvdata(spi, cpcap);
  

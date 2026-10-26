@@ -38,7 +38,7 @@ static int spi_setup(struct spi_device *spi){(void)spi;return setup_error;}
 '''
 code+=function('cpcap_wingray_identity_valid')+function('cpcap_wingray_transfer')+function('cpcap_setup_transport')
 code+='''int main(void){struct spi_device spi={0};unsigned int out=0xdead;
-assert(!cpcap_setup_transport(&spi));assert(spi.bits_per_word==32&&spi.mode==(SPI_MODE_0|SPI_CS_HIGH));
+assert(!cpcap_setup_transport(&spi));assert(spi.bits_per_word==32&&spi.mode==SPI_MODE_0);
 wingray=0;assert(!cpcap_setup_transport(&spi));assert(spi.bits_per_word==16&&spi.mode==(SPI_MODE_0|SPI_CS_HIGH));
 setup_error=-5;assert(cpcap_setup_transport(&spi)==-5);
 reply=0xabcd1234;assert(!cpcap_wingray_transfer(&spi,0x24,0,false,&out));
