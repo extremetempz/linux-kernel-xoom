@@ -10,6 +10,24 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
+**Display FBTEST — diagnostic image built:** A fixed `FBTEST` USB request
+writes only `/sys/class/graphics/fb0/blank` (4 then 0), captures state/log and
+always restores unblank. It is an opt-in diagnostic image, not a shell.
+Hardware execution is pending; see
+[FBTEST diagnostic](android-display-80-fbtest.md).
+
+**Display power — backlight validated, DC blank unproven:** Ten physical
+off/on cycles produced complete darkness and restored brightness; the LP8550
+zero/restore path and KitKat lights HAL are hardware-validated. The framework
+kept running and power-key/touch/Wi-Fi/BT/battery remained alive. However the
+log still reports `power=0 fb=0` at effective zero and no `Wingray display
+off/on` messages, so display-controller power-down/resume is **not proven**.
+All eight light IDs are safely opened after fixing a definite system_server
+NULL-slot bug. Suspend/wake/DVFS remain disabled. See
+[candidate 80](android-display-80.md),
+[Test A/B result](docs/display-power-80-result.md) and
+[test protocol](docs/display-power-80-test.md).
+
 **Battery monitor — Tests A/B/C/D pass at framework level:** The opt-in
 profile exposes the real P3 DS2781 gauge over Tegra OWR and BQ24617
 STAT1/STAT2/DETECT inputs as standard `battery` and `ac` supplies.

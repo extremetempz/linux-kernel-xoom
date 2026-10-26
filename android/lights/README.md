@@ -5,12 +5,16 @@ from AOSP hardware/libhardware include/hardware/{hardware,lights}.h
 (Apache-2.0); compile-time checks enforce module/device/state sizes. Source
 reference: https://android.googlesource.com/platform/hardware/libhardware/+/android-4.4.4_r2/include/hardware/
 
-Only LIGHT_ID_BACKLIGHT is supported. Framework brightness zero writes the
-fixed backlight sysfs node, then blanks fixed fb0; the next nonzero request
-unblanks fb0 before restoring brightness. Nonzero dimming changes do not repost
-the display. LightsService serializes requests for its backlight object.
-No notification/battery LED, charger GPIO, GPU-channel, rail or SoC suspend
-control is provided. Unsupported IDs return ENOSYS; IO errors are propagated.
+All eight KitKat light IDs are opened. Only LIGHT_ID_BACKLIGHT touches
+hardware: framework brightness zero writes the fixed backlight sysfs node,
+then blanks fixed fb0; the next nonzero request unblanks fb0 before restoring
+brightness. The keyboard/buttons/battery/notifications/attention/Bluetooth/
+Wi-Fi IDs are accepted as no-ops because KitKat opens every slot and later
+calls set_light without a NULL check. Unknown IDs still return ENOSYS.
+Nonzero dimming changes do not repost the display; LightsService serializes its
+backlight object. No notification/battery LED, charger GPIO, GPU-channel, rail
+or SoC suspend control is provided. IO errors on the backlight path are
+propagated.
 
 Standalone build uses ARM EABI Linux syscalls and no libc/NDK dependency. The
 Android.mk also permits a normal Android module build. Original proprietary

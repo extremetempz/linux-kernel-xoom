@@ -1,4 +1,4 @@
-"""Bounded, nonce-correlated diagnostic transport. No device writes beyond fixed requests."""
+"""Bounded, nonce-correlated diagnostic transport. FBTEST is a fixed framebuffer write test."""
 import base64
 import binascii
 from collections import Counter
@@ -22,8 +22,8 @@ def _nonce(value):
     return value.encode('ascii')
 
 def write_request(fd, verb, nonce, timeout=2):
-    if verb not in ('PING', 'REPORT'):
-        raise ProtocolError('Only PING and REPORT are permitted')
+    if verb not in ('PING', 'REPORT', 'FBTEST'):
+        raise ProtocolError('Only PING, REPORT and FBTEST are permitted')
     data = verb.encode() + b' ' + _nonce(nonce) + b'\n'
     deadline = time.monotonic() + timeout
     while data:
