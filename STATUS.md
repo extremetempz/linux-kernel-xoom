@@ -10,15 +10,15 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Power button — 78 CS-high test, not flashed:** Image 77 fixed the screen
-flicker with CPCAP on the correct SPI2 controller but still returned
-`VERSC1=0000` and all-zero ON-sense banks. Candidate 78 keeps the corrected
-SPI2 mapping, changes only CS polarity to the previously stable CS-high
-setting, and retains native32 framing. It passes all offline checks but is
-not hardware validated. If identity is still zero, split-16-bit framing is
-the next isolated variable; do not change both together. See
-[77 findings](docs/power-key-77-findings.md) and [candidate 78](android-power-78.md).
-Volume-down remains the working power fallback; 75b and 73k remain stable.
+**Power button — hardware-validated on Image 78:** CPCAP now returns
+`VERSC1=0012` / ST rev 2.2. The physical back button emits press/release
+events; short press toggles the screen and long press opens the power menu.
+The source tree retires the interim volume-down `KEY_POWER` fallback and
+restores normal `KEY_VOLUMEDOWN`/`KEY_VOLUMEUP` keys. No rebuild was
+performed, so the currently flashed 78 image still has the old fallback
+mapping. See [power-button result](docs/power-key-78-result.md),
+[77 findings](docs/power-key-77-findings.md) and
+[candidate 78](android-power-78.md). 75b and 73k remain stable baselines.
 
 **Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
 BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz
