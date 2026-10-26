@@ -1,4 +1,4 @@
-# Wingray P3 battery/charger monitor — image 79 prepared, NOT flashed
+# Wingray P3 battery/charger monitor — image 79 built, NOT flashed
 
 26 October 2026. Root baseline: main `d14be8f`. This is an opt-in,
 monitoring-only Linux 4.4.147 / Android 4.4.4 candidate, not a hardware pass.
@@ -136,10 +136,17 @@ only and are not committed or bundled as new proprietary libraries.
 
 - `artifacts/androidbattery79-ready/wingray-android44-gpu.img`
 - 4,145,152 bytes
-- SHA-256 `2b9faae1ffb81f36e48001707d352ba322e2040327da07e6ccdff981e00e79c8`
-- Kernel source head: `bd7b87c7` (new source patches 0143–0145, plus the prior fallback retirement).
+- SHA-256 `580cb7a243d5274bd455ae520e3af879b53fe98e3db1dc11a467ed1645c9e135`
+- Kernel source head: `777a6b1f` (source patches 0143–0145 plus prior fallback retirement).
 - **NOT FLASHED. No Linux 4.4 battery measurement, charger transition or Android battery icon has been hardware-validated.**
 - Preserved 78 image SHA-256 remains `e8a698405f65b9a6b408d66bbf864662bf9830cdc155670d4808474f60dee49d`.
+
+The PR's earlier image hash `2b9faae1…` was not the actual local build: that build
+script omitted `tegra20-motorola-wingray-android44-battery.dtb` from the make
+and copy steps. The corrected build includes the battery DTB and produces the
+hash above. The bootstrap also now logs `WARN_battery_monitor_missing` and
+continues to Android instead of refusing to boot if the monitor does not
+enumerate.
 
 ## Hardware test protocol — only after explicit flash approval
 
