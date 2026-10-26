@@ -1,8 +1,7 @@
-# Power-button isolation candidate 76a
+# Power-button isolation candidate 76a — REJECTED
 
-26 October 2026. **Built and checked; not flashed or hardware validated.**
-This is the one-variable follow-up after Image 76 caused significant screen
-flicker.
+26 October 2026. **Physical result: screen flickered again.** Do not use.
+The remaining suspect was the CPCAP controller/pin mapping, not CS polarity.
 
 Image 76 changed two CPCAP variables at once:
 

@@ -22,12 +22,12 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
-**Power button:** candidate 76 (CPCAP CS + native32) caused significant
-screen flicker and is rejected. Candidate 76a isolates the native32 framing
-while restoring the previously stable CS polarity; it is built and tested but
-**not hardware validated**. Do not flash 76. See
-[the rejected 76 analysis](android-power-76.md) and
-[76a isolation candidate](android-power-76a.md). Bluetooth 75b and Wi-Fi 73k
+**Power button:** Images 76 and 76a caused screen flicker and are rejected.
+Candidate 77 fixes the actual mapping error: Motorola's bus_num=1 CPCAP is
+**SPI2 at 0x7000d600 with SPIA/SPIB/SPIC/SPIG**, not the SPI1 pins at
+0x7000d400. It is built and tested but **not hardware validated**. See
+[the SPI2 correction](android-power-77.md) and
+[rejected 76 analysis](android-power-76.md). Bluetooth 75b and Wi-Fi 73k
 remain the working recovery baselines.
 
 See [the working Wi-Fi record](docs/wifi-working.md) and the updated
