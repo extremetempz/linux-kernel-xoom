@@ -15,6 +15,13 @@ wake are preserved.
 - **Known limit:** station mode is deliberately limited to 2.4 GHz; 5 GHz,
   SoftAP and long suspend/resume soak testing are not part of this result.
 
+**Bluetooth development:** an opt-in candidate (75b) adds an awake-only
+Motorola UARTC/rfkill profile while preserving the working Wi-Fi and display
+paths. It is built and unit-tested but **not flashed or hardware validated**;
+controller startup, pairing, audio and coexistence remain open. See
+[Bluetooth candidate 75b](android-bluetooth-75.md). The 73k image remains the
+hardware-tested baseline.
+
 See [the working Wi-Fi record](docs/wifi-working.md) and the updated
 [component status](STATUS.md).
 

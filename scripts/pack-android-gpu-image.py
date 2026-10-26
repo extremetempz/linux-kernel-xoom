@@ -17,7 +17,7 @@ ram=lzma.compress(pack_newc({}),format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32);im
 sha=lambda v:hashlib.sha256(v).hexdigest()
 out.mkdir();(out/'wingray-android44-gpu.img').write_bytes(image);(out/'ramdisk.cpio.xz').write_bytes(ram)
 manifest={'purpose':'combined RAM-data Android with original NVIDIA EGL/gralloc/HWC; hardware untested',
- 'kernel_profile':'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
+ 'kernel_profile':'android44-bluetooth' if dtname.endswith('bluetooth') else 'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
  'sha256':sha(image),'size':len(image),'kernel_sha256':sha(combined),'system_map_sha256':sha((k/'System.map').read_bytes()),
  'device_tree':dtname,'builtin_runtime':True,'runtime_archive_sha256':sha(archive),'ramdisk_sha256':sha(ram),
  'bluetooth_experimental':dtname.endswith('bluetooth'),'bluetooth_hardware_tested':False,'hardware_tested':False,'android_booted':False,'accelerated_android_proven':False,

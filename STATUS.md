@@ -1,12 +1,13 @@
 # Component status — 26 October 2026
 
-**Bluetooth development — not flashed:** An opt-in awake-only UARTC/rfkill
-profile now builds on 73k, preserves the shared Wi-Fi regulator, exposes the
-original Android Bluetooth HAL and adds bounded diagnostics. Full ARM build,
-power-failure fixtures and compiled DT ownership checks pass. Controller
-startup, factory address, pairing, audio and coexistence remain unvalidated.
-See [Bluetooth preparation and staged test gates](docs/bluetooth-74-prepared.md).
-The 73k Wi-Fi image remains the hardware-tested baseline.
+**Bluetooth development — candidate 75b, not flashed:** The opt-in
+awake-only UARTC/rfkill profile now waits for UART, rfkill, HAL and firmware,
+retries after `sys.boot_completed`, and adds documented rail/reset settling
+delays. Full ARM build, power-failure fixtures, setup checks and compiled DT
+ownership checks pass. Controller startup, factory address, pairing, audio
+and coexistence remain unvalidated. See
+[Bluetooth candidate 75b](android-bluetooth-75.md). The 73k Wi-Fi image
+remains the hardware-tested baseline.
 
 **Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
 BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz
