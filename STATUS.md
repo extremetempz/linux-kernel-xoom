@@ -10,6 +10,14 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
+**Power button — candidate 76, not flashed:** an opt-in Bluetooth-profile
+candidate restores Motorola's active-low CS0 and native 32-bit CPCAP
+full-duplex transport, logs raw VERSC1, and keeps booting when the identity is
+inconclusive. Power-key polling and KEY_POWER mapping are unchanged.
+Controller/IRQ wake is not claimed. See
+[Power-button candidate 76](android-power-76.md). 75b remains the working
+Bluetooth image and 73k the Wi-Fi baseline.
+
 **Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
 BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz
 networks, completes WPA2 association and the four-way handshake, gets a DHCP
