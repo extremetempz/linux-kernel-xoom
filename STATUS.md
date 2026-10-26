@@ -1,13 +1,14 @@
 # Component status — 26 October 2026
 
-**Bluetooth development — candidate 75b, not flashed:** The opt-in
-awake-only UARTC/rfkill profile now waits for UART, rfkill, HAL and firmware,
-retries after `sys.boot_completed`, and adds documented rail/reset settling
-delays. Full ARM build, power-failure fixtures, setup checks and compiled DT
-ownership checks pass. Controller startup, factory address, pairing, audio
-and coexistence remain unvalidated. See
-[Bluetooth candidate 75b](android-bluetooth-75.md). The 73k Wi-Fi image
-remains the hardware-tested baseline.
+**Bluetooth — hardware-tested (Image 75b):** The opt-in awake-only
+UARTC/rfkill profile paired and connected a Sony WH-1000XM5 headset while
+Wi-Fi stayed connected. Setup waits for UART, rfkill, HAL and firmware,
+retries after `sys.boot_completed`, and uses rail/reset settling delays.
+Full ARM build, power-failure fixtures, setup checks and compiled DT
+ownership checks pass. Audio routing, microphone/SCO, suspend/reconnect,
+factory address and long coexistence remain unvalidated. See
+[Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
+remains the default hardware-tested baseline.
 
 **Latest hardware result — Wi-Fi (Image 73k):** Native 4.4 `bcmdhd` on the
 BCM4329 now works for station mode on Android 4.4.4. Image 73k scans 2.4 GHz
@@ -53,6 +54,7 @@ two-core Android boots with PL310, with and without diagnostic tracing.
 | Component | What is done | What is not done | Verdict |
 |---|---|---|---|
 | Wi-Fi (BCM4329 / native bcmdhd) | Image 73k physically confirms scan, WPA2 association, four-way handshake, DHCP, disconnect/reconnect and Internet traffic; native 4.4 `bcmdhd`, Xoom OEM NVRAM, `nl80211` supplicant and `dhcpcd_wlan0` | 2.4 GHz station mode only; 5 GHz, SoftAP, roaming and long suspend/resume soak unvalidated | Station-mode Wi-Fi and DHCP confirmed |
+| Bluetooth (BCM4329 / native rfkill) | Image 75b pairs/connects a Sony WH-1000XM5; `ttyHS2`, rfkill, HCI traffic, Android Bluetooth service and Wi-Fi coexistence confirmed | A2DP/SCO audio, mic, suspend/reconnect, factory address and long coexistence unvalidated | Pairing and connection confirmed; awake-only profile |
 | Tegra 2 SMP / CPU bring-up | Images 37 (traced) and 38 (unchanged non-trace image 36) boot Android with both CPUs online; CPU probes and timer/reschedule-IPI progress pass | Earlier attempt-36 failure remains unexplained; broader repeatability, concurrent stress, hotplug and suspend unvalidated | Initial traced and non-traced two-core boots passed; not fully validated |
 | PL310 L2 | Images 34/35/37/38 boot Android with PL310 enabled, 1 MiB; CPU0 and bounded cross-CPU memory checks pass | Broader cache-capacity, RAM-pressure and endurance validation pending | Initial UP/SMP smoke tests passed; not fully validated |
 | CPU frequency / voltage | Clock acquisition/unwind, shared EMC failure/rollback reporting, PLL error propagation, voltage-unit correction and stock Wingray table cap implemented; fault tests and ARM object checks pass | Motorola OPP/rail coupling, installed-DRAM EMC tables, voltage-failure veto and complete transition sequencing unvalidated; scaling/voltage driver remain disabled in tested profiles | Prerequisites implemented; not operational |
