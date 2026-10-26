@@ -9,11 +9,15 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  corrected='CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0060\n' in config
  name='tegra20-motorola-wingray-android44-gpu-fbmap' if corrected else 'tegra20-motorola-wingray-android44-gpu'
  bluetooth='CONFIG_RFKILL_WINGRAY_BT=y\n' in config
- selected='tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
+ battery='CONFIG_BATTERY_WINGRAY_MONITOR=y\n' in config
+ selected='tegra20-motorola-wingray-android44-battery' if battery else 'tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
  assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+selected+'"\n' in config
  if bluetooth:
   from bluetooth_profile import validate_bluetooth_artifacts
   validate_bluetooth_artifacts(p)
+ if battery:
+  from battery_profile import validate_battery_artifacts
+  validate_battery_artifacts(p)
  if require_framebuffer_translation:assert corrected,'Known failed image59 has no fbmem bus translation'
  a=parse_dtb((p/'tegra20-motorola-wingray-gpu-test.dtb').read_bytes());b=parse_dtb((p/(name+'.dtb')).read_bytes())
  root='/host1x@50000000/dc@54200000'

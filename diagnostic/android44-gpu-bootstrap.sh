@@ -87,6 +87,17 @@ done
 /bin/busybox mount -o bind /run/xoom-egl /system/lib/egl || fail egl_bind
 /bin/busybox mount -o remount,bind,ro,nosuid,nodev /run/xoom-egl /system/lib/egl || fail egl_bind_ro
 stage ram_graphics_overlays_ready
+# healthd discovers supply paths once, at startup. Opt-in monitor must
+# enumerate before Android init; failure leaves the diagnostic USB available.
+if [ -r /sys/firmware/devicetree/base/wingray_battery_monitor/compatible ]; then
+ waited=0
+ while ! /bin/busybox cat /sys/class/power_supply/battery/capacity >/dev/null 2>&1 || ! /bin/busybox cat /sys/class/power_supply/ac/online >/dev/null 2>&1; do
+  [ "$waited" -lt 30 ] || fail battery_monitor_missing
+  /bin/busybox sleep 1
+  waited=$((waited + 1))
+ done
+ stage battery_monitor_enumerated
+fi
 # Android init must be PID1 to create its property workspace and reap services.
 stage exec_original_android_init
 exec /init.android

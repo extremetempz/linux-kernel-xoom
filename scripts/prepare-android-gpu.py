@@ -186,6 +186,8 @@ def entries(runtime):
    source=ROOT/'diagnostic'/name
    subprocess.run(['bash','-n',str(source)],check=True)
    files['bin/'+name[:-3]]=source.read_bytes()
+ if b'CONFIG_BATTERY_WINGRAY_MONITOR=y\n' in config:
+  files['bin/battery-report']=(ROOT/'diagnostic/battery-report.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT

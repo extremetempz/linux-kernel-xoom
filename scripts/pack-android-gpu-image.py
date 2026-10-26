@@ -11,18 +11,19 @@ spec=importlib.util.spec_from_file_location('runtime',ROOT/'scripts/prepare-andr
 validate_artifacts(k,require_framebuffer_translation=True)
 archive=pack_newc(m.entries(k));assert gzip.decompress((k/'builtin-initramfs.cpio.gz').read_bytes())==archive
 assert (k/'runtime-source.cpio').read_bytes()==archive
-kernel=(k/'zImage').read_bytes();dtname='tegra20-motorola-wingray-android44-bluetooth' if 'CONFIG_RFKILL_WINGRAY_BT=y\n' in (k/'kernel.config').read_text() else 'tegra20-motorola-wingray-android44-gpu-fbmap';dt=(k/(dtname+'.dtb')).read_bytes();combined=(k/'zImage-dtb').read_bytes()
+kernel=(k/'zImage').read_bytes();dtname='tegra20-motorola-wingray-android44-battery' if 'CONFIG_BATTERY_WINGRAY_MONITOR=y\n' in (k/'kernel.config').read_text() else 'tegra20-motorola-wingray-android44-bluetooth' if 'CONFIG_RFKILL_WINGRAY_BT=y\n' in (k/'kernel.config').read_text() else 'tegra20-motorola-wingray-android44-gpu-fbmap';dt=(k/(dtname+'.dtb')).read_bytes();combined=(k/'zImage-dtb').read_bytes()
 assert struct.unpack_from('<I',kernel,36)[0]==0x016f2818 and combined==kernel+dt
 ram=lzma.compress(pack_newc({}),format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32);image=boot_image(combined,ram);assert len(image)<8388608
 sha=lambda v:hashlib.sha256(v).hexdigest()
 out.mkdir();(out/'wingray-android44-gpu.img').write_bytes(image);(out/'ramdisk.cpio.xz').write_bytes(ram)
 manifest={'purpose':'combined RAM-data Android with original NVIDIA EGL/gralloc/HWC; hardware untested',
- 'kernel_profile':'android44-bluetooth' if dtname.endswith('bluetooth') else 'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
+ 'battery_monitoring_only':dtname.endswith('battery'),'battery_hardware_tested':False,
+ 'kernel_profile':'android44-battery' if dtname.endswith('battery') else 'android44-bluetooth' if dtname.endswith('bluetooth') else 'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
  'sha256':sha(image),'size':len(image),'kernel_sha256':sha(combined),'system_map_sha256':sha((k/'System.map').read_bytes()),
  'device_tree':dtname,'builtin_runtime':True,'runtime_archive_sha256':sha(archive),'ramdisk_sha256':sha(ram),
- 'bluetooth_experimental':dtname.endswith('bluetooth'),'bluetooth_hardware_tested':False,'hardware_tested':False,'android_booted':False,'accelerated_android_proven':False,
+ 'bluetooth_experimental':'CONFIG_RFKILL_WINGRAY_BT=y\n' in (k/'kernel.config').read_text(),'bluetooth_hardware_tested':False,'hardware_tested':False,'android_booted':False,'accelerated_android_proven':False,
  'system_mount':'fixed p8 ext4 ro,noload,nosuid,nodev','data_cache':'tmpfs only',
  'preserved_features':['SMP2','PL310','P3 touch wiring','USB serial','full eMMC/BigPart geometry','Motorola AUO/LP8550 wiring and timing'],
  'limits':['Legacy display replaces modern DRM; combined hardware behavior unverified.','Initial framebuffer posting supports synchronous linear packed RGB only.','Wi-Fi follows 73k; Bluetooth is opt-in and hardware unvalidated; no DVFS/suspend/charging-control enablement.'],
- 'source_sha256':{str(f.relative_to(ROOT)):sha(f.read_bytes()) for f in [Path(__file__),ROOT/'scripts/prepare-android-gpu.py',ROOT/'scripts/android_gpu.py',ROOT/'scripts/build-android-gpu.sh',ROOT/'scripts/prepare_android_gpu_inputs.py',ROOT/'scripts/bluetooth_profile.py',ROOT/'scripts/android44_image.py',ROOT/'scripts/prepare-android44.py',*[ROOT/'diagnostic'/n for n in ['android44-gpu-bootstrap.sh','android44-gpu-report.sh','bluetooth-setup.sh','bluetooth-report.sh','android44-init.sh','android-service-runner.sh','server.sh','usb-report-loop.sh','report.sh']]]}}
+ 'source_sha256':{str(f.relative_to(ROOT)):sha(f.read_bytes()) for f in [Path(__file__),ROOT/'scripts/prepare-android-gpu.py',ROOT/'scripts/android_gpu.py',ROOT/'scripts/build-android-gpu.sh',ROOT/'scripts/prepare_android_gpu_inputs.py',ROOT/'scripts/bluetooth_profile.py',ROOT/'scripts/battery_profile.py',ROOT/'scripts/android44_image.py',ROOT/'scripts/prepare-android44.py',*[ROOT/'diagnostic'/n for n in ['android44-gpu-bootstrap.sh','android44-gpu-report.sh','bluetooth-setup.sh','bluetooth-report.sh','battery-report.sh','android44-init.sh','android-service-runner.sh','server.sh','usb-report-loop.sh','report.sh']]]}}
 (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Prepared combined Android/NVIDIA image, NOT flashed:',len(image),'bytes SHA256',manifest['sha256'])
