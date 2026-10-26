@@ -1,0 +1,77 @@
+From f61aaf75f97d32bffa1e51e0232c8b37b2fac2bd Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 27 Oct 2026 05:05:13 +1100
+Subject: [PATCH] fb: keep Wingray DC running across backlight blank
+
+---
+ drivers/staging/tegra/video/fb.c | 52 ++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/staging/tegra/video/fb.c b/drivers/staging/tegra/video/fb.c
+index a8a4ecbc..c09f6218 100644
+--- a/drivers/staging/tegra/video/fb.c
++++ b/drivers/staging/tegra/video/fb.c
+@@ -295,40 +295,28 @@ static int tegra_fb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
+ 	return 0;
+ }
+ 
+-/* Stage A/B only: synchronous DC/backlight power, never SoC suspend. */
++/* Stage A/B only: backlight-only blank.  DC disable/enable was observed to
++ * leave the panel dark with a scan line after re-enable, so controller
++ * power-down is deliberately deferred until the panel power/reset sequence
++ * is proven. Never enters SoC suspend. */
+ static int tegra_fb_wingray_blank(int blank, struct tegra_fb_info *fb)
+ {
+- struct tegra_dc *dc = fb->win->dc;
+- int ret;
+- cancel_delayed_work_sync(&dc->disable_work);
+- if (blank != FB_BLANK_UNBLANK) {
+-  ret = tegra_wingray_backlight_power(dc, FB_BLANK_POWERDOWN);
+-  if (ret)
+-   return ret;
+-  tegra_dc_disable(dc);
+-  dev_info(&fb->ndev->dev, "Wingray display off: blank=%d dc=%d\n",
+-    blank, dc->enabled);
+-  return 0;
+- }
+- tegra_dc_enable(dc);
+- if (!dc->enabled)
+-  return -EIO;
+- fb->win->flags |= TEGRA_WIN_FLAG_ENABLED;
+- ret = tegra_dc_update_windows(&fb->win, 1);
+- if (!ret) {
+-  ret = tegra_dc_sync_windows(&fb->win, 1);
+-  /* wait_event returns positive remaining jiffies on success. */
+-  ret = ret > 0 ? 0 : ret == 0 ? -ETIMEDOUT : ret;
+- }
+- if (!ret)
+-  ret = tegra_wingray_backlight_power(dc, FB_BLANK_UNBLANK);
+- if (ret) {
+-  tegra_wingray_backlight_power(dc, FB_BLANK_POWERDOWN);
+-  tegra_dc_disable(dc);
+-  return ret;
+- }
+- dev_info(&fb->ndev->dev, "Wingray display on: dc=%d\n", dc->enabled);
+- return 0;
++	struct tegra_dc *dc = fb->win->dc;
++	int ret;
++
++	if (blank != FB_BLANK_UNBLANK) {
++		ret = tegra_wingray_backlight_power(dc, FB_BLANK_POWERDOWN);
++		if (ret)
++			return ret;
++		dev_info(&fb->ndev->dev, "Wingray backlight off: blank=%d dc=%d\n",
++			blank, dc->enabled);
++		return 0;
++	}
++	ret = tegra_wingray_backlight_power(dc, FB_BLANK_UNBLANK);
++	if (ret)
++		return ret;
++	dev_info(&fb->ndev->dev, "Wingray backlight on: dc=%d\n", dc->enabled);
++	return 0;
+ }
+ 
+ static int tegra_fb_blank(int blank, struct fb_info *info)
+-- 
+2.43.0
+

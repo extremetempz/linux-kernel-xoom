@@ -4,6 +4,26 @@
 request because the tablet has no interactive USB root shell and no physical
 UART console is available.
 
+## Root-path result already proven
+
+The first FBTEST run returned:
+
+```text
+FB_BLANK_WRITE4_RC 0
+FB_BLANK_STATE_OFF 0
+[   92.442517] tegradc tegradc.0: Wingray display off: blank=4 dc=0
+
+FB_BLANK_WRITE0_RC 0
+FB_BLANK_STATE_ON 0
+[   93.737144] tegradc tegradc.0: Wingray display on: dc=1
+```
+
+So the kernel DC blank/unblank path works. `fb0/state` remains 0 on this
+driver and is not authoritative; the `Wingray display off/on` messages are.
+The Android power-button path did not produce those messages, so the HAL was
+still not invoking the blank path. This image addresses that by using the
+already-proven sysfs route.
+
 ## What is new
 
 `FBTEST <nonce>` is an additional fixed request in the existing diagnostic
@@ -21,12 +41,23 @@ No arbitrary command is evaluated.
 
 ## Image identity
 
-- Path: `artifacts/display80fbtest-ready/wingray-android44-gpu.img`
+- Path: `artifacts/display80fbtest5-ready/wingray-android44-gpu.img`
 - Size: 4,149,248 bytes
-- SHA-256: `2672682ff35e394a91b383157ea6f8aba803e9a0e29ae2a78637676e18e83dbf`
-- Kernel donor head: `3be7bf77`
-- Profile: display80 plus fixed FBTEST helper
-- **Not flashed or hardware validated**
+- SHA-256: `02ab70c2595fff650b71eb00e920bb3a3a8c8afaeed69c4421398563aa155591`
+- Kernel donor head: `f61aaf75`
+- Profile: display80 plus FBTEST, sysfs blank HAL and backlight-only fb blank
+- **Hardware-validated** on 27 October 2026: power off/on works, backlight
+  extinguishes and restores, and the DC stays at `dc=1`.
+
+The DC blank experiment was rolled back after the panel failed to restore.
+See [Test 5 result](docs/display-power-80-test5-result.md) and
+[DC rollback](docs/display-power-80-dc-rollback.md).
+
+The FBTEST image proved that Android can reach the blank path, but also proved
+that disabling the DC leaves the panel dark with a scan line after re-enable.
+This rebuilt image therefore keeps the DC running and blanks only the LP8550
+backlight. The HAL uses the sysfs blank path, and the opt-in profile grants the
+system user/group write access.
 
 This is a diagnostic image, not a new display-power feature. The known-good
 display80 backlight test image remains
@@ -38,7 +69,7 @@ Flash only this diagnostic boot image after retaining the working 78/79
 images and recovery path:
 
 ```sh
-fastboot flash boot /home/justin/linux-kernel-xoom/artifacts/display80fbtest-ready/wingray-android44-gpu.img
+fastboot flash boot /home/justin/linux-kernel-xoom/artifacts/display80fbtest3-ready/wingray-android44-gpu.img
 fastboot reboot
 ```
 
@@ -52,20 +83,17 @@ python3 scripts/run-fb-blank-test.py \
 The screen may go dark for about one second. The command prints the captured
 state/log and saves `fb-blank-test.txt`.
 
-Expected if the kernel DC path works:
+Before running it, press the physical power button off and on once. The screen
+should go dark and return normally. Then FBTEST should show backlight-only
+transitions:
 
 ```text
-FB_BLANK_STATE_BEFORE 0
-FB_BLANK_STATE_OFF 1
-Wingray display off: blank=4 dc=0
-FB_BLANK_STATE_ON 0
-Wingray display on: dc=1
+Wingray backlight off: blank=4 dc=1
+Wingray backlight on: dc=1
 ```
 
-`fb0/state` is not authoritative for every blank transition; the decisive
-evidence is the `Wingray display off/on` dmesg pair. If only the LP8550
-`power=4`/brightness lines appear, the `FBIOBLANK` path is still not reaching
-the DC helper.
+The DC remains enabled. If the screen does not return, stop and report the
+full FBTEST file; do not attempt DC power-down again.
 
 ## Safety
 

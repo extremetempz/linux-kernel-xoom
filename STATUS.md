@@ -10,22 +10,22 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Display FBTEST — diagnostic image built:** A fixed `FBTEST` USB request
-writes only `/sys/class/graphics/fb0/blank` (4 then 0), captures state/log and
-always restores unblank. It is an opt-in diagnostic image, not a shell.
-Hardware execution is pending; see
-[FBTEST diagnostic](android-display-80-fbtest.md).
+**Display FBTEST — root path proven; HAL retry built:** FBTEST proved the
+kernel blank path in software/hardware (`Wingray display off: blank=4 dc=0`,
+resume dc=1), but Android's power button did not reach it. The rebuilt opt-in
+image switches the lights HAL to the proven sysfs blank route and grants the
+system user/group write access; hardware execution of that HAL path is pending.
+See [FBTEST diagnostic](android-display-80-fbtest.md).
 
-**Display power — backlight validated, DC blank unproven:** Ten physical
-off/on cycles produced complete darkness and restored brightness; the LP8550
-zero/restore path and KitKat lights HAL are hardware-validated. The framework
-kept running and power-key/touch/Wi-Fi/BT/battery remained alive. However the
-log still reports `power=0 fb=0` at effective zero and no `Wingray display
-off/on` messages, so display-controller power-down/resume is **not proven**.
-All eight light IDs are safely opened after fixing a definite system_server
-NULL-slot bug. Suspend/wake/DVFS remain disabled. See
-[candidate 80](android-display-80.md),
-[Test A/B result](docs/display-power-80-result.md) and
+**Display power — backlight-only hardware pass:** Image
+`display80fbtest5` is hardware-validated. Power off/on extinguishes and
+restores the LP8550 backlight with `dc=1`; the panel returns without a line.
+The DC power-down experiment reached `dc=0`/`dc=1` but left the panel dark and
+is rolled back. All eight light IDs are safely opened. Suspend-to-RAM/deep
+sleep and DVFS remain disabled, gated on a proper panel reset/power sequence
+and hardware wake validation. See [Test 5](docs/display-power-80-test5-result.md),
+[DC rollback](docs/display-power-80-dc-rollback.md),
+[candidate 80](android-display-80.md) and
 [test protocol](docs/display-power-80-test.md).
 
 **Battery monitor — Tests A/B/C/D pass at framework level:** The opt-in

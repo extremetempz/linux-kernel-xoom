@@ -76,6 +76,29 @@ this is resolved.
 - Display-controller blank/unblank: **not proven**
 - Suspend/deep sleep: **not implemented**
 
+## DC rollback
+
+The later sysfs HAL made Android actually disable the DC. Every log said
+`dc=1` after re-enable, but the panel stayed dark with a scan line — both on
+Android cycles and on FBTEST. The DC disable/enable sequence is therefore not
+a valid panel power-down for this board. It has been rolled back to
+backlight-only. See [DC rollback](display-power-80-dc-rollback.md).
+
+## Root FBTEST result
+
+The fixed root FBTEST proved the kernel side works:
+
+```text
+FB_BLANK_WRITE4_RC 0
+[92.442517] tegradc tegradc.0: Wingray display off: blank=4 dc=0
+FB_BLANK_WRITE0_RC 0
+[93.737144] tegradc tegradc.0: Wingray display on: dc=1
+```
+
+`fb0/state` stayed 0, so it is not authoritative. The missing piece was the
+Android HAL path. The next diagnostic image uses the same sysfs blank route
+and grants the system user/group write access.
+
 ## Host-vs-tablet command note
 
 The attempted `echo 4 > /sys/class/graphics/fb0/blank` was run on the Ubuntu

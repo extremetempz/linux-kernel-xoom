@@ -1,0 +1,30 @@
+From e038c692b3156437286fff1721da11c9d6bf5fdc Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 26 Oct 2026 20:09:20 +1100
+Subject: [PATCH] fb: allow opt-in Wingray blank attribute for lights HAL
+
+---
+ drivers/video/fbdev/core/fbsysfs.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/video/fbdev/core/fbsysfs.c b/drivers/video/fbdev/core/fbsysfs.c
+index 15755ce1..b077f0a9 100644
+--- a/drivers/video/fbdev/core/fbsysfs.c
++++ b/drivers/video/fbdev/core/fbsysfs.c
+@@ -498,7 +498,13 @@ static ssize_t show_bl_curve(struct device *device,
+  * fbdev to use configfs instead of sysfs */
+ static struct device_attribute device_attrs[] = {
+ 	__ATTR(bits_per_pixel, S_IRUGO|S_IWUSR, show_bpp, store_bpp),
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM
++	/* Opt-in display test only: system_server's lights HAL needs this
++	 * attribute. Normal profiles retain the restrictive sysfs mode. */
++	__ATTR(blank, S_IRUGO|S_IWUSR|S_IWGRP, show_blank, store_blank),
++#else
+ 	__ATTR(blank, S_IRUGO|S_IWUSR, show_blank, store_blank),
++#endif
+ 	__ATTR(console, S_IRUGO|S_IWUSR, show_console, store_console),
+ 	__ATTR(cursor, S_IRUGO|S_IWUSR, show_cursor, store_cursor),
+ 	__ATTR(mode, S_IRUGO|S_IWUSR, show_mode, store_mode),
+-- 
+2.43.0
+

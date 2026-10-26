@@ -13,7 +13,7 @@ assert 'FBTEST\\ *)' in server
 assert 'XOOM_FBTEST_V1' in server and 'XOOM_FBTEST_END_V1' in server
 assert 'fb-blank-test' in server
 assert 'echo 4 > $FB' in test and 'echo 0 > $FB' in test
-assert 'trap restore EXIT' in test
+assert 'trap restore EXIT' in test and 'Wingray (display|backlight)' in test
 assert 'eval ' not in server and 'eval ' not in test
 assert "('PING', 'REPORT', 'FBTEST')" in protocol
 assert 'FBTEST' in sender and 'fb-blank-test.txt' in sender
