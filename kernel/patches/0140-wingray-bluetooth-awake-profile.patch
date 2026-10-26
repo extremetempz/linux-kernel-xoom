@@ -1,21 +1,10 @@
-From 276189735d38212f60108a2ba0cb92a03c119ec8 Mon Sep 17 00:00:00 2001
-From: JUstin <justinscollo@protonmail.com>
-Date: Mon, 26 Oct 2026 05:18:53 +1100
-Subject: [PATCH] ARM: wingray: add opt-in awake-only Bluetooth UART and rfkill
- adapter
+From: Justin <justinscollo@protonmail.com>
+Subject: [PATCH] ARM: wingray: add opt-in awake-only Bluetooth UART and rfkill adapter
 
----
- .../net/motorola,wingray-bcm4329-bt.txt       |  19 ++
- ...0-motorola-wingray-android44-bluetooth.dts |  31 +++
- .../wingray_android44_bluetooth_defconfig     | 211 ++++++++++++++++++
- net/rfkill/Kconfig                            |   8 +
- net/rfkill/Makefile                           |   1 +
- net/rfkill/rfkill-wingray-bt.c                | 130 +++++++++++
- 6 files changed, 400 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/motorola,wingray-bcm4329-bt.txt
- create mode 100644 arch/arm/boot/dts/tegra20-motorola-wingray-android44-bluetooth.dts
- create mode 100644 arch/arm/configs/wingray_android44_bluetooth_defconfig
- create mode 100644 net/rfkill/rfkill-wingray-bt.c
+Add the Motorola BCM4329 Bluetooth power/rfkill adapter, UARTC
+serial2 alias, opt-in Bluetooth defconfig and bounded Android setup.
+The shared Wi-Fi rail is refcounted, reset is delayed after power-up,
+and setup waits for UART, rfkill and HAL dependencies.
 
 diff --git a/Documentation/devicetree/bindings/net/motorola,wingray-bcm4329-bt.txt b/Documentation/devicetree/bindings/net/motorola,wingray-bcm4329-bt.txt
 new file mode 100644
@@ -81,10 +70,10 @@ index 00000000..a11bd19b
 +};
 diff --git a/arch/arm/configs/wingray_android44_bluetooth_defconfig b/arch/arm/configs/wingray_android44_bluetooth_defconfig
 new file mode 100644
-index 00000000..12c2a181
+index 00000000..146f55af
 --- /dev/null
 +++ b/arch/arm/configs/wingray_android44_bluetooth_defconfig
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,210 @@
 +CONFIG_LOCALVERSION="-wingray-android44-gpu"
 +# CONFIG_LOCALVERSION_AUTO is not set
 +CONFIG_IKCONFIG=y
@@ -293,7 +282,6 @@ index 00000000..12c2a181
 +
 +# Android Bluedroid owns HCI over ttyHS2, not Linux HCI line discipline.
 +CONFIG_SERIAL_TEGRA=y
-+CONFIG_RFKILL=y
 +CONFIG_RFKILL_WINGRAY_BT=y
 +# CONFIG_BT is not set
 diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
@@ -323,10 +311,10 @@ index 31176878..76f13a7e 100644
 +obj-$(CONFIG_RFKILL_WINGRAY_BT) += rfkill-wingray-bt.o
 diff --git a/net/rfkill/rfkill-wingray-bt.c b/net/rfkill/rfkill-wingray-bt.c
 new file mode 100644
-index 00000000..f9e6bc7b
+index 00000000..70b1208a
 --- /dev/null
 +++ b/net/rfkill/rfkill-wingray-bt.c
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,135 @@
 +/*
 + * Motorola Wingray BCM4329 power adapter for Linux 4.4.
 + * GPIO sequence adapted from Google's/Motorola's board-stingray-bluetooth.c
@@ -339,6 +327,7 @@ index 00000000..f9e6bc7b
 +#include <linux/gpio/consumer.h>
 +#include <linux/regulator/consumer.h>
 +#include <linux/rfkill.h>
++#include <linux/delay.h>
 +#include <linux/slab.h>
 +
 +struct wingray_bt {
@@ -361,11 +350,15 @@ index 00000000..f9e6bc7b
 +			if (ret)
 +				return ret;
 +			bt->rail_enabled = true;
++			/* Let the shared combo rail settle before releasing reset. */
++			msleep(20);
 +		}
 +		gpiod_set_value_cansleep(bt->shutdown, 0);
 +		/* No UART low-power callbacks in this first profile. */
 +		gpiod_set_value_cansleep(bt->wake, 1);
 +		gpiod_set_value_cansleep(bt->reset, 1);
++		/* Keep reset asserted briefly after power-up. */
++		msleep(20);
 +		return 0;
 +	}
 +	gpiod_set_value_cansleep(bt->reset, 0);
@@ -457,6 +450,3 @@ index 00000000..f9e6bc7b
 +module_platform_driver(wingray_bt_driver);
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("Motorola Wingray awake-only BCM4329 Bluetooth power");
--- 
-2.43.0
-

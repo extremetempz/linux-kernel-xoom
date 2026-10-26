@@ -205,6 +205,9 @@ def entries(runtime):
   bt_rc=b"""on boot
     start xoombtsetup
 
+on property:sys.boot_completed=1
+    start xoombtsetup
+
 service xoombtsetup /bin/bluetooth-setup
     class late_start
     user root

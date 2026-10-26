@@ -13,6 +13,7 @@ struct wingray_bt {struct gpio_desc *reset,*shutdown,*wake,*host_wake;struct reg
 static int regulator_enable(struct regulator *r){r->enables++;if(r->enable_error)return r->enable_error;r->refs++;return 0;}
 static int regulator_disable(struct regulator *r){r->disables++;if(r->disable_error)return r->disable_error;r->refs--;return 0;}
 static void gpiod_set_value_cansleep(struct gpio_desc *p,int v){p->value=v;}
+static void msleep(unsigned int ms){(void)ms;}
 '''
 test='''int main(void){
 struct gpio_desc reset={0},shutdown={0},wake={0};
