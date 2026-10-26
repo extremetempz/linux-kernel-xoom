@@ -54,9 +54,16 @@ battery monitor, CPCAP, Bluetooth, Wi-Fi regressions
 full ARM kernel, modules, lights HAL, DT and boot-image build
 ```
 
-The image is under the fastboot limit. Hardware loading of the new HAL, visible
-backlight extinction, DC power-down/resume, touch after resume, Wi-Fi/BT after
-display cycles and repeated blank/unblank remain **physically unvalidated**.
+The image is under the fastboot limit. **Test A/B hardware result:** the user
+pressed off/on ten times and confirmed the backlight is fully dark and restores
+each time. The log shows repeated `requested=0 effective=0` / `requested=79
+effective=79` transitions with no framework restart.
+
+**However, DC blank is not proven.** The backlight log still shows `power=0
+fb=0` at effective zero, and no `Wingray display off/on` messages are present.
+The visible darkness is therefore consistent with LP8550 zero brightness while
+the display controller remains enabled. See
+[Test A/B result](docs/display-power-80-result.md).
 
 ## Test after explicit flash approval
 

@@ -10,14 +10,16 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Display power — candidate 80, not flashed:** Opt-in LP8550 zero-brightness
-and DC blank/unblank path plus a minimal KitKat backlight HAL. During review a
-definite ABI bug was fixed: all eight light IDs are now opened, with non-
-backlight IDs as safe no-ops, preventing a system_server NULL dereference.
-Offline kernel/DT/HAL/regression tests pass; visible darkness, DC power-down,
-touch/GPU/Wi-Fi/BT recovery and repeated blank/unblank are not hardware-
-validated. Suspend/wake/DVFS remain disabled. See
-[candidate 80](android-display-80.md) and
+**Display power — backlight validated, DC blank unproven:** Ten physical
+off/on cycles produced complete darkness and restored brightness; the LP8550
+zero/restore path and KitKat lights HAL are hardware-validated. The framework
+kept running and power-key/touch/Wi-Fi/BT/battery remained alive. However the
+log still reports `power=0 fb=0` at effective zero and no `Wingray display
+off/on` messages, so display-controller power-down/resume is **not proven**.
+All eight light IDs are safely opened after fixing a definite system_server
+NULL-slot bug. Suspend/wake/DVFS remain disabled. See
+[candidate 80](android-display-80.md),
+[Test A/B result](docs/display-power-80-result.md) and
 [test protocol](docs/display-power-80-test.md).
 
 **Battery monitor — Tests A/B/C/D pass at framework level:** The opt-in
