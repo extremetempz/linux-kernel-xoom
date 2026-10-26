@@ -24,7 +24,8 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  fbmap) defconfig=wingray_android44_gpu_fbmap_defconfig; dt=tegra20-motorola-wingray-android44-gpu-fbmap;;
  bluetooth) defconfig=wingray_android44_bluetooth_defconfig; dt=tegra20-motorola-wingray-android44-bluetooth;;
  battery) defconfig=wingray_android44_battery_defconfig; dt=tegra20-motorola-wingray-android44-battery;;
- *) echo 'Choose fbmap, bluetooth or the opt-in battery profile.' >&2; exit 1;;
+ displaypm) defconfig=wingray_android44_displaypm_defconfig; dt=tegra20-motorola-wingray-android44-displaypm;;
+ *) echo 'Choose fbmap, bluetooth, battery or displaypm.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
 # Kconfig orders NETDEVICES before the NET symbol in this tree; force the
@@ -38,6 +39,9 @@ cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"
 done
+if [ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm ]; then
+ XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/build-display-lights.sh"
+fi
 make "${args[@]}" -j"${JOBS:-4}" modules
 mkdir -p "$dest/modules"
 cp "$build/out/drivers/net/wireless/bcmdhd/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
@@ -45,11 +49,12 @@ cp "$build/out/drivers/net/wireless/bcmdhd/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
-make "${args[@]}" tegra20-motorola-wingray-android44-battery.dtb tegra20-motorola-wingray-android44-bluetooth.dtb tegra20-motorola-wingray-gpu-test.dtb tegra20-motorola-wingray-android44-smp2.dtb tegra20-motorola-wingray-android44-gpu-fbmap.dtb
+make "${args[@]}" tegra20-motorola-wingray-android44-displaypm.dtb tegra20-motorola-wingray-android44-battery.dtb tegra20-motorola-wingray-android44-bluetooth.dtb tegra20-motorola-wingray-gpu-test.dtb tegra20-motorola-wingray-android44-smp2.dtb tegra20-motorola-wingray-android44-gpu-fbmap.dtb
 cp "$build/out/arch/arm/boot/"{zImage,zImage-dtb} "$dest/"
 cp "$build/out/arch/arm/boot/dts/$dt.dtb" "$build/out/arch/arm/boot/dts/"tegra20-motorola-wingray-{gpu-test,android44-smp2}.dtb "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-gpu-fbmap.dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-bluetooth.dtb" "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-battery.dtb" "$dest/"
+cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-displaypm.dtb" "$dest/"
 cp "$build/out/System.map" "$dest/"
 for f in "$build/out/usr/initramfs_data.cpio.xz" "$build/out/usr/initramfs_data.cpio.lz4" "$build/out/usr/initramfs_data.cpio.gz"; do
   [ ! -f "$f" ] || { cp "$f" "$dest/builtin-initramfs.cpio.${f##*.}"; break; }

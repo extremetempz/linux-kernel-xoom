@@ -188,6 +188,15 @@ def entries(runtime):
    files['bin/'+name[:-3]]=source.read_bytes()
  if b'CONFIG_BATTERY_WINGRAY_MONITOR=y\n' in config:
   files['bin/battery-report']=(ROOT/'diagnostic/battery-report.sh').read_bytes()
+ if b'CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in config:
+  manifest=json.loads((runtime/'lights-manifest.json').read_text())
+  lights=(runtime/'lights.stingray.so').read_bytes()
+  assert digest(lights)==manifest['sha256']
+  for name,sha in manifest['source_sha256'].items():
+   assert digest((ROOT/name).read_bytes())==sha,name
+  files['bin/lights.stingray.so']=lights
+  files['bin/power-report']=(ROOT/'diagnostic/power-report.sh').read_bytes()
+  files['bin/display-backlight-cycle']=(ROOT/'diagnostic/display-backlight-cycle.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
@@ -202,7 +211,17 @@ def entries(runtime):
  result['lib/modules/bcmdhd.ko']=Entry('lib/modules/bcmdhd.ko',stat.S_IFREG|0o644,module.read_bytes())
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
  result['init.xoom-wifi.rc']=Entry('init.xoom-wifi.rc',stat.S_IFREG|0o644,WIFI_RC)
- result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+b'\nimport /init.xoom-awake.rc\nimport /init.xoom-wifi.rc\n')
+ if b'CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in config:
+  # Preserve the fixed-clock awake SoC; remove only the old forced-screen-on service.
+  pm_rc=b"""on post-fs
+    chown system system /sys/class/backlight/lcd-backlight/brightness
+    chmod 0660 /sys/class/backlight/lcd-backlight/brightness
+"""
+  result['init.xoom-displaypm.rc']=Entry('init.xoom-displaypm.rc',stat.S_IFREG|0o644,pm_rc)
+  imports=b'\nimport /init.xoom-displaypm.rc\nimport /init.xoom-wifi.rc\n'
+ else:
+  imports=b'\nimport /init.xoom-awake.rc\nimport /init.xoom-wifi.rc\n'
+ result['init.rc']=dataclasses.replace(result['init.rc'],data=result['init.rc'].data+imports)
  if b'CONFIG_RFKILL_WINGRAY_BT=y\n' in config:
   bt_rc=b"""on boot
     start xoombtsetup
