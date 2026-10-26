@@ -4,6 +4,26 @@
 request because the tablet has no interactive USB root shell and no physical
 UART console is available.
 
+## Root-path result already proven
+
+The first FBTEST run returned:
+
+```text
+FB_BLANK_WRITE4_RC 0
+FB_BLANK_STATE_OFF 0
+[   92.442517] tegradc tegradc.0: Wingray display off: blank=4 dc=0
+
+FB_BLANK_WRITE0_RC 0
+FB_BLANK_STATE_ON 0
+[   93.737144] tegradc tegradc.0: Wingray display on: dc=1
+```
+
+So the kernel DC blank/unblank path works. `fb0/state` remains 0 on this
+driver and is not authoritative; the `Wingray display off/on` messages are.
+The Android power-button path did not produce those messages, so the HAL was
+still not invoking the blank path. This image addresses that by using the
+already-proven sysfs route.
+
 ## What is new
 
 `FBTEST <nonce>` is an additional fixed request in the existing diagnostic
@@ -21,12 +41,17 @@ No arbitrary command is evaluated.
 
 ## Image identity
 
-- Path: `artifacts/display80fbtest-ready/wingray-android44-gpu.img`
-- Size: 4,149,248 bytes
-- SHA-256: `2672682ff35e394a91b383157ea6f8aba803e9a0e29ae2a78637676e18e83dbf`
-- Kernel donor head: `3be7bf77`
-- Profile: display80 plus fixed FBTEST helper
+- Path: `artifacts/display80fbtest3-ready/wingray-android44-gpu.img`
+- Size: 4,147,200 bytes
+- SHA-256: `2d0b16dbd2875c0b8628b1dfa513272de559d7742471b64969403bffe7b4e9ba`
+- Kernel donor head: `e038c692`
+- Profile: display80 plus fixed FBTEST helper and sysfs-blank lights HAL
 - **Not flashed or hardware validated**
+
+The earlier FBTEST image (`2672682f…`) proved the kernel path but showed that
+Android was not reaching it. This rebuilt image changes the HAL to use the
+same `/sys/class/graphics/fb0/blank` path that the root test proved, and grants
+the system user/group write access in the opt-in display profile.
 
 This is a diagnostic image, not a new display-power feature. The known-good
 display80 backlight test image remains
@@ -38,7 +63,7 @@ Flash only this diagnostic boot image after retaining the working 78/79
 images and recovery path:
 
 ```sh
-fastboot flash boot /home/justin/linux-kernel-xoom/artifacts/display80fbtest-ready/wingray-android44-gpu.img
+fastboot flash boot /home/justin/linux-kernel-xoom/artifacts/display80fbtest3-ready/wingray-android44-gpu.img
 fastboot reboot
 ```
 
@@ -52,20 +77,20 @@ python3 scripts/run-fb-blank-test.py \
 The screen may go dark for about one second. The command prints the captured
 state/log and saves `fb-blank-test.txt`.
 
-Expected if the kernel DC path works:
+Before running it, press the physical power button off and on once. Then the
+captured dmesg should contain:
 
 ```text
-FB_BLANK_STATE_BEFORE 0
-FB_BLANK_STATE_OFF 1
-Wingray display off: blank=4 dc=0
-FB_BLANK_STATE_ON 0
+Wingray display off: blank=4 dc=0   # from the Android power-button cycle
+Wingray display on: dc=1
+Wingray display off: blank=4 dc=0   # from the manual FBTEST
 Wingray display on: dc=1
 ```
 
 `fb0/state` is not authoritative for every blank transition; the decisive
-evidence is the `Wingray display off/on` dmesg pair. If only the LP8550
-`power=4`/brightness lines appear, the `FBIOBLANK` path is still not reaching
-the DC helper.
+evidence is the `Wingray display off/on` dmesg pairs. If only the LP8550
+`power=4`/brightness lines appear, the HAL is still not invoking the sysfs
+blank path.
 
 ## Safety
 

@@ -4,11 +4,11 @@
  */
 #include "kitkat_lights_abi.h"
 #define BRIGHTNESS_PATH "/sys/class/backlight/lcd-backlight/brightness"
+#define BLANK_PATH "/sys/class/graphics/fb0/blank"
 #ifdef XOOM_LIGHTS_TEST
 extern int xoom_open(const char *, int);
 extern int xoom_write(int, const void *, unsigned int);
 extern int xoom_close(int);
-extern int xoom_ioctl(int, unsigned int, unsigned int);
 #else
 /* ARM EABI direct syscalls: no dependency on host or Android libc. */
 static int xoom_call(int nr, int a, int b, unsigned int c)
@@ -23,7 +23,6 @@ static int xoom_call(int nr, int a, int b, unsigned int c)
 static int xoom_open(const char *p, int flags) { return xoom_call(5,(int)p,flags,0); }
 static int xoom_write(int fd, const void *p, unsigned int n) { return xoom_call(4,fd,(int)p,n); }
 static int xoom_close(int fd) { return xoom_call(6,fd,0,0); }
-static int xoom_ioctl(int fd,unsigned int cmd,unsigned int arg) { return xoom_call(54,fd,cmd,arg); }
 #endif
 
 enum {
@@ -53,12 +52,20 @@ static const char *const light_ids[LIGHT_ID_COUNT] = {
 static int display_blanked;
 static int display_power(unsigned int blank)
 {
- int fd,ret,closed;
- do { fd=xoom_open("/dev/graphics/fb0",2|02000000); } while(fd==-4);
- if(fd<0)return fd;
- do { ret=xoom_ioctl(fd,0x4611,blank); } while(ret==-4); /* FBIOBLANK */
+ char data[2];
+ int fd, ret, closed;
+ data[0]='0'+(blank%10);
+ data[1]='\n';
+ do { fd=xoom_open(BLANK_PATH,1|02000000); } while(fd==-4);
+ if (fd<0)
+  return fd;
+ do { ret=xoom_write(fd,data,2); } while(ret==-4);
  closed=xoom_close(fd);
- return ret<0?ret:closed<0?closed:0;
+ if (ret<0)
+  return ret;
+ if (ret!=2)
+  return -5;
+ return closed<0?closed:0;
 }
 
 static int set_backlight(struct light_device_t *dev, const struct light_state_t *state)

@@ -22,8 +22,10 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
-**Display diagnostic:** a fixed-request FBTEST image is built for the missing
-DC-blank test; it writes only fb0/blank and restores it, with no shell. See
+**Display diagnostic:** the FBTEST image proved the kernel DC path
+(`Wingray display off: blank=4 dc=0`) but also showed Android was not reaching
+it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
+with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
 **Display power:** display 80 is hardware-validated for the **LP8550

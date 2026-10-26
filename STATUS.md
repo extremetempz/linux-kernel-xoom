@@ -10,11 +10,12 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Display FBTEST — diagnostic image built:** A fixed `FBTEST` USB request
-writes only `/sys/class/graphics/fb0/blank` (4 then 0), captures state/log and
-always restores unblank. It is an opt-in diagnostic image, not a shell.
-Hardware execution is pending; see
-[FBTEST diagnostic](android-display-80-fbtest.md).
+**Display FBTEST — root path proven; HAL retry built:** FBTEST proved the
+kernel blank path in software/hardware (`Wingray display off: blank=4 dc=0`,
+resume dc=1), but Android's power button did not reach it. The rebuilt opt-in
+image switches the lights HAL to the proven sysfs blank route and grants the
+system user/group write access; hardware execution of that HAL path is pending.
+See [FBTEST diagnostic](android-display-80-fbtest.md).
 
 **Display power — backlight validated, DC blank unproven:** Ten physical
 off/on cycles produced complete darkness and restored brightness; the LP8550

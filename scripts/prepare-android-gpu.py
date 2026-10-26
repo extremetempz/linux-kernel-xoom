@@ -217,6 +217,8 @@ def entries(runtime):
   pm_rc=b"""on post-fs
     chown system system /sys/class/backlight/lcd-backlight/brightness
     chmod 0660 /sys/class/backlight/lcd-backlight/brightness
+    chown system system /sys/class/graphics/fb0/blank
+    chmod 0660 /sys/class/graphics/fb0/blank
 """
   result['init.xoom-displaypm.rc']=Entry('init.xoom-displaypm.rc',stat.S_IFREG|0o644,pm_rc)
   imports=b'\nimport /init.xoom-displaypm.rc\nimport /init.xoom-wifi.rc\n'
