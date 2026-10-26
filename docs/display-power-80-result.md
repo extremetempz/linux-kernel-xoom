@@ -75,3 +75,23 @@ this is resolved.
 - Android power-key off/on: **hardware-validated**
 - Display-controller blank/unblank: **not proven**
 - Suspend/deep sleep: **not implemented**
+
+## Host-vs-tablet command note
+
+The attempted `echo 4 > /sys/class/graphics/fb0/blank` was run on the Ubuntu
+host (`justin@justin-VMware-Virtual-Platform`), not on the tablet. Its
+`/sys/class/graphics/fb0` is the host VM framebuffer, the write is denied, and
+host `dmesg` is restricted. It says nothing about the Xoom.
+
+The tablet's `/dev/ttyACM0` diagnostic gadget is **not a shell**. Its
+`diagnostic/server.sh` accepts only fixed `PING <nonce>` and `REPORT <nonce>`
+frames; arbitrary commands are deliberately ignored. The current image
+therefore has no interactive USB root console for this sort of manual sysfs
+test.
+
+To settle DC blanking, either use the physical `ttyS0` UART console (115200)
+or add a fixed, bounded `FBTEST` request or one-shot diagnostic service to a
+new opt-in image. The latter should write `4` then `0` to
+`/sys/class/graphics/fb0/blank`, read `fb0/state`, and capture
+`dmesg | grep Wingray`. No arbitrary shell is needed. Do not treat the host
+permission error as a display failure.
