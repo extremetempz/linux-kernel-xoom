@@ -1,0 +1,79 @@
+From bd7b87c779d1d97749a7eb2884f898187f9b432f Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 26 Oct 2026 18:29:10 +1100
+Subject: [PATCH] power: retry transient initial gauge failures without
+ fabricating readings
+
+---
+ drivers/power/wingray_battery_monitor.c |  5 ++---
+ drivers/w1/masters/tegra_w1.c           | 10 +++++-----
+ 2 files changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/power/wingray_battery_monitor.c b/drivers/power/wingray_battery_monitor.c
+index afc5a52d..c9cd5102 100644
+--- a/drivers/power/wingray_battery_monitor.c
++++ b/drivers/power/wingray_battery_monitor.c
+@@ -177,9 +177,8 @@ static int wingray_monitor_probe(struct platform_device *pdev)
+  m->ac_desc.num_properties = ARRAY_SIZE(ac_props);
+  m->ac_desc.get_property = wingray_get;
+  wingray_sample(m);
+- /* Failed gauge access must not publish a made-up initial percentage. */
+- if (m->error)
+-  return m->error;
++ /* Keep transient read errors recoverable by the polling worker.
++  * Properties return the error until a valid sample is available. */
+  m->battery = power_supply_register(&pdev->dev, &m->bat_desc, &cfg);
+  if (IS_ERR(m->battery))
+   return PTR_ERR(m->battery);
+diff --git a/drivers/w1/masters/tegra_w1.c b/drivers/w1/masters/tegra_w1.c
+index a8d531c0..0469c61b 100644
+--- a/drivers/w1/masters/tegra_w1.c
++++ b/drivers/w1/masters/tegra_w1.c
+@@ -219,7 +219,7 @@ static int w1_setup(struct tegra_device *dev)
+ 	   anything was set in it. */
+ 	w1_imask(dev, 0);
+ 	w1_writel(dev, 0xFFFFFFFF, OWR_INTR_STATUS);
+-	
++
+ 	return 0;
+ }
+ 
+@@ -254,7 +254,7 @@ static u8 tegra_w1_touch_bit(void *data, u8 bit)
+ 	int rc;
+ 	u8 return_bit;
+ 	unsigned long control;
+-	
++
+ 	struct tegra_device *dev = (struct tegra_device *) data;
+ 
+ 	return_bit = 1;
+@@ -305,7 +305,7 @@ done:
+ 
+ 	w1_imask(dev, 0);
+ 	synchronize_irq(dev->irq);
+-	
++
+ done_unlock:
+ 	mutex_unlock(&dev->mutex);
+ 	return return_bit;
+@@ -317,7 +317,7 @@ static u8 tegra_w1_reset_bus(void *data)
+ 	int rc;
+ 	int presence;
+ 	unsigned long value;
+-	
++
+ 	struct tegra_device *dev = (struct tegra_device *) data;
+ 
+ 	presence = 1;
+@@ -354,7 +354,7 @@ done:
+ 
+ 	w1_imask(dev, 0);
+ 	synchronize_irq(dev->irq);
+-	
++
+ not_ready:
+ 	mutex_unlock(&dev->mutex);
+ 	return presence;
+-- 
+2.43.0
+

@@ -1,0 +1,45 @@
+From fcb5c5816173b2d10cae521d1f0b5370a8799bab Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Mon, 26 Oct 2026 18:00:27 +1100
+Subject: [PATCH] ARM: wingray: retire volume-down KEY_POWER fallback
+
+---
+ .../boot/dts/tegra20-motorola-wingray-gpu-test.dts  | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index 6dc59247..29d43c29 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -2,23 +2,20 @@
+ #include "tegra20-motorola-wingray-host-test.dts"
+ / {
+ 	model = "Motorola Xoom P3 fixed-clock offscreen GPU diagnostic";
+-	/* The early-boot include deletes the base gpio-keys.  Re-add only the
+-	 * physical volume keys.  Volume-down emits KEY_POWER as an interim wake
+-	 * key because the real power button is a CPCAP PMIC interrupt that this
+-	 * kernel does not yet expose. */
++	/* The real power button is the CPCAP PMIC ON input.  The two physical
++	 * volume switches are ordinary volume keys; the interim volume-down
++	 * KEY_POWER fallback is retired. */
+ 	gpio-keys {
+ 		compatible = "gpio-keys";
+ 		volume-up {
+ 			label = "Volume Up";
+ 			linux,code = <KEY_VOLUMEUP>;
+ 			gpios = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_LOW>;
+-			wakeup-source;
+ 		};
+ 		volume-down {
+-			label = "Power (Volume Down)";
+-			linux,code = <KEY_POWER>;
++			label = "Volume Down";
++			linux,code = <KEY_VOLUMEDOWN>;
+ 			gpios = <&gpio TEGRA_GPIO(R, 1) GPIO_ACTIVE_LOW>;
+-			wakeup-source;
+ 		};
+ 	};
+ 	gpio@6000d000 {
+-- 
+2.43.0
+
