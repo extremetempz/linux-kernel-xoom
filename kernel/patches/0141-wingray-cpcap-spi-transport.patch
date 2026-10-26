@@ -1,12 +1,11 @@
 From: Justin <justinscollo@protonmail.com>
-Subject: [PATCH] mfd: cpcap: move Wingray PMIC to the original SPI2 controller
+Subject: [PATCH] mfd: cpcap: probe CS-high on the corrected SPI2 bus
 
-Motorola registers CPCAP on bus_num=1, which is tegra_spi_device2 at
-0x7000d600, using the SPI2 pin group. The port bound it to SPI1
-(0x7000d400) and SPI1 pins. Correct the controller, alias and pinmux,
-then use the original active-low CS0 and native32 transfer.
+Move CPCAP to Motorola's SPI2 controller/pins, then test the previously
+stable active-high CS while retaining native32 framing and the non-fatal
+identity diagnostic.
 diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
-index ce286849..51cf4cc9 100644
+index ce286849..6dc59247 100644
 --- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
 +++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
 @@ -30,31 +30,38 @@
@@ -61,16 +60,8 @@ index ce286849..51cf4cc9 100644
  		status = "okay";
  		pinctrl-names = "default";
  		pinctrl-0 = <&wingray_cpcap_spi>;
-@@ -62,7 +69,6 @@
- 			compatible = "motorola,cpcap";
- 			reg = <0>;
- 			spi-max-frequency = <10000000>;
--			spi-cs-high;
- 			interrupt-parent = <&intc>;
- 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
- 		};
 diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
-index c6a5d525..b6dd2ddb 100644
+index c6a5d525..6268227a 100644
 --- a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
 +++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
 @@ -6,7 +6,7 @@
@@ -82,7 +73,7 @@ index c6a5d525..b6dd2ddb 100644
  	};
  	panel_power: panel-power {
  		compatible = "regulator-fixed";
-@@ -77,13 +77,12 @@
+@@ -77,7 +77,7 @@
  			regulator-always-on;
  		};
  	};
@@ -91,14 +82,8 @@ index c6a5d525..b6dd2ddb 100644
  		status = "okay";
  		cpcap: pmic@0 {
  			compatible = "motorola,cpcap";
- 			reg = <0>;
- 			spi-max-frequency = <10000000>;
--			spi-cs-high;
- 			interrupt-parent = <&intc>;
- 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
- 			regulator-controller {
 diff --git a/drivers/mfd/motorola-cpcap.c b/drivers/mfd/motorola-cpcap.c
-index 061208f7..943101d0 100644
+index 061208f7..994a5ddb 100644
 --- a/drivers/mfd/motorola-cpcap.c
 +++ b/drivers/mfd/motorola-cpcap.c
 @@ -69,11 +69,33 @@ int cpcap_sense_virq(struct regmap *regmap, int virq)
@@ -223,11 +208,11 @@ index 061208f7..943101d0 100644
 +static int cpcap_setup_transport(struct spi_device *spi)
 +{
 +	if (of_machine_is_compatible("motorola,wingray")) {
-+		/* Motorola bus_num=1 is SPI2; its board data uses SPI mode 0
-+		 * and active-low CS0.
++		/* SPI2 is now correct; keep the 4.4 SLINK CS-high setting
++		 * that was stable on this board while probing the bus.
 +		 */
 +		spi->bits_per_word = 32;
-+		spi->mode = SPI_MODE_0;
++		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
 +	} else {
 +		spi->bits_per_word = 16;
 +		spi->mode = SPI_MODE_0 | SPI_CS_HIGH;
