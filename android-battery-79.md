@@ -23,6 +23,21 @@ the build were infrastructure, not hardware identification: the battery DTB
 was missing from the build/copy list, and a missing monitor caused the
 bootstrap to stop Android instead of degrading to a warning.
 
+## Hardware results
+
+- **Test A, disconnected:** 62%, 7.64208 V, -358906 uA, 27.5 C,
+  Discharging, ac offline. Android shows the same level and healthd is
+  running. See [Test A](docs/battery-79-testA.md).
+- **Test B, charger connected:** 61%, Charging, 7.97392 V, +1.529531 A,
+  27.7 C, ac online 1. Android reports AC powered, status 2 (charging),
+  level 61. See [Test B](docs/battery-79-testB.md).
+- **Test C/D:** report3 records four alternating Android `isPlugged`
+  false/true transitions without reboot and an extended 432 s connected
+  snapshot. Capacity 61–62%, current -358906 → +1531718 uA, no OWR errors or
+  crashes. The final snapshot is connected again; an explicit disconnected
+  sysfs snapshot is the remaining test-C detail. See
+  [Test C/D](docs/battery-79-testC-D.md).
+
 ## Image identity
 
 - Path: `artifacts/androidbattery79-ready/wingray-android44-gpu.img`

@@ -138,7 +138,22 @@ only and are not committed or bundled as new proprietary libraries.
 - 4,145,152 bytes
 - SHA-256 `580cb7a243d5274bd455ae520e3af879b53fe98e3db1dc11a467ed1645c9e135`
 - Kernel source head: `777a6b1f` (source patches 0143–0145 plus prior fallback retirement).
-- **NOT FLASHED. No Linux 4.4 battery measurement, charger transition or Android battery icon has been hardware-validated.**
+- **Test A hardware-validated:** charger disconnected reports 62%, 7.64208 V,
+  -358906 uA, 27.5 C, Discharging and ac offline; Android BatteryService shows
+  level 62 and healthd is running.
+- **Test B hardware-validated:** charger connected reports ac online 1,
+  61%, Charging, 7.97392 V, +1.529531 A, 27.7 C; Android reports AC powered,
+  status 2 and level 61. See [Test A](battery-79-testA.md) and
+  [Test B](battery-79-testB.md).
+- **Test C/D observed:** report3 records four alternating Android
+  `isPlugged=false/true` transitions without reboot, and an extended connected
+  snapshot at 432 s. Capacity moved 61–62%, current changed from -358906 uA to
+  +1531718 uA, voltage/current/temperature stayed plausible, and OWR showed no
+  read errors. The final snapshot is connected again; an explicit disconnected
+  sysfs snapshot during Test C is still desirable. See
+  [Test C/D](battery-79-testC-D.md).
+- **Remaining gaps:** `health`/`technology` sysfs properties are not exported;
+  the pre-existing CPCAP IRQ 59 storm/disable remains unrelated to battery.
 - Preserved 78 image SHA-256 remains `e8a698405f65b9a6b408d66bbf864662bf9830cdc155670d4808474f60dee49d`.
 
 The PR's earlier image hash `2b9faae1…` was not the actual local build: that build

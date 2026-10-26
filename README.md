@@ -22,13 +22,17 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
-**Battery monitor:** candidate 79 is built and offline-tested but **not
-flashed or hardware validated**. It adds the real P3 DS2781/OWR gauge and
-BQ24617 STAT/DETECT inputs, monitoring-only, on top of the working 78
-Bluetooth/Wi-Fi/display image. See
-[battery candidate 79](android-battery-79.md) and
-[the detailed protocol](docs/battery-monitor-79.md). No charging controls
-or battery writes are enabled.
+**Battery monitor:** candidate 79 passes Tests A/B/C/D at the framework
+level. Disconnected: 62%, 7.64208 V, -358906 uA, ac offline. Connected:
+61–62%, Charging, 7.97–8.01 V, +1.529–1.532 A, ac online. Android observed
+four `isPlugged` false/true transitions without reboot and shows the real
+level/voltage/current/temperature. Remaining non-blocking gaps: `health`/
+`technology` properties and an explicit disconnected sysfs snapshot during
+Test C. See [battery candidate 79](android-battery-79.md),
+[Test A](docs/battery-79-testA.md), [Test B](docs/battery-79-testB.md),
+[Test C/D](docs/battery-79-testC-D.md) and
+[the detailed protocol](docs/battery-monitor-79.md). No charging controls or
+battery writes are enabled.
 
 **Power button:** Image 78 is hardware-validated. CPCAP now reports
 `VERSC1=0012` / ST rev 2.2, and the back button produces press/release events;

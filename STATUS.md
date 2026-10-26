@@ -10,14 +10,19 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**Battery monitor — candidate 79, not flashed:** The opt-in profile adds the
-real P3 DS2781 gauge over Tegra OWR and BQ24617 STAT1/STAT2/DETECT inputs,
-monitoring-only, on top of the tested 78 Bluetooth/Wi-Fi/display image. It
-exposes `battery` (capacity from RARC, status, voltage, current, temperature)
-and `ac` online through standard power_supply classes. Offline build, DT,
-unit and regression tests pass; no measurement, charger transition or Android
-icon is hardware-validated. See [candidate 79](android-battery-79.md) and
-[monitor protocol](docs/battery-monitor-79.md). No charger/voltage/current
+**Battery monitor — Tests A/B/C/D pass at framework level:** The opt-in
+profile exposes the real P3 DS2781 gauge over Tegra OWR and BQ24617
+STAT1/STAT2/DETECT inputs as standard `battery` and `ac` supplies.
+Disconnected: 62%, 7.64208 V, -358906 uA, 27.5 C, Discharging, ac offline.
+Connected: 61–62%, Charging, 7.97–8.01 V, +1.529–1.532 A, ac online; Android
+reports AC powered/status 2. Report3 records four `isPlugged` false/true
+transitions without reboot and 432 s of monitoring with no OWR errors or
+crashes. Remaining non-blocking gaps: `health`/`technology` sysfs properties,
+an explicit disconnected sysfs snapshot during Test C, and the pre-existing
+CPCAP IRQ 59 storm (unrelated; power-key polling works). See
+[candidate 79](android-battery-79.md), [Test A](docs/battery-79-testA.md),
+[Test B](docs/battery-79-testB.md), [Test C/D](docs/battery-79-testC-D.md)
+and [monitor protocol](docs/battery-monitor-79.md). No charger/voltage/current
 control or calibration writes are enabled.
 
 **Power button — hardware-validated on Image 78:** CPCAP now returns
