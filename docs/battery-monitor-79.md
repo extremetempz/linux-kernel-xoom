@@ -138,7 +138,11 @@ only and are not committed or bundled as new proprietary libraries.
 - 4,145,152 bytes
 - SHA-256 `580cb7a243d5274bd455ae520e3af879b53fe98e3db1dc11a467ed1645c9e135`
 - Kernel source head: `777a6b1f` (source patches 0143–0145 plus prior fallback retirement).
-- **NOT FLASHED. No Linux 4.4 battery measurement, charger transition or Android battery icon has been hardware-validated.**
+- **Test A hardware-validated:** charger disconnected reports 62%, 7.64208 V,
+  -358906 uA, 27.5 C, Discharging and ac offline; Android BatteryService shows
+  level 62 and healthd is running. Charger-connected/full/not-charging
+  transitions and the charging icon remain unvalidated. See
+  [Test A result](battery-79-testA.md).
 - Preserved 78 image SHA-256 remains `e8a698405f65b9a6b408d66bbf864662bf9830cdc155670d4808474f60dee49d`.
 
 The PR's earlier image hash `2b9faae1…` was not the actual local build: that build

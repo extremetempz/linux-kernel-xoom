@@ -23,6 +23,10 @@ the build were infrastructure, not hardware identification: the battery DTB
 was missing from the build/copy list, and a missing monitor caused the
 bootstrap to stop Android instead of degrading to a warning.
 
+## Test A hardware result
+
+With the charger disconnected, the monitor reports **62%**, **7.64208 V**, **-358906 uA**, **27.5 C**, **Discharging**, and **ac online 0**. Android `dumpsys battery` shows the same level/voltage/current/temperature, with `healthd` running. Charger-connected, full/not-charging and the charging icon remain to be tested. See [Test A findings](docs/battery-79-testA.md).
+
 ## Image identity
 
 - Path: `artifacts/androidbattery79-ready/wingray-android44-gpu.img`
