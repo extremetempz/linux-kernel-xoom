@@ -10,6 +10,16 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
+**Battery monitor — candidate 79, not flashed:** The opt-in profile adds the
+real P3 DS2781 gauge over Tegra OWR and BQ24617 STAT1/STAT2/DETECT inputs,
+monitoring-only, on top of the tested 78 Bluetooth/Wi-Fi/display image. It
+exposes `battery` (capacity from RARC, status, voltage, current, temperature)
+and `ac` online through standard power_supply classes. Offline build, DT,
+unit and regression tests pass; no measurement, charger transition or Android
+icon is hardware-validated. See [candidate 79](android-battery-79.md) and
+[monitor protocol](docs/battery-monitor-79.md). No charger/voltage/current
+control or calibration writes are enabled.
+
 **Power button — hardware-validated on Image 78:** CPCAP now returns
 `VERSC1=0012` / ST rev 2.2. The physical back button emits press/release
 events; short press toggles the screen and long press opens the power menu.

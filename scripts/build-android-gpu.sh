@@ -45,11 +45,11 @@ cp "$build/out/drivers/net/wireless/bcmdhd/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
-make "${args[@]}" tegra20-motorola-wingray-android44-bluetooth.dtb tegra20-motorola-wingray-gpu-test.dtb tegra20-motorola-wingray-android44-smp2.dtb tegra20-motorola-wingray-android44-gpu-fbmap.dtb
+make "${args[@]}" tegra20-motorola-wingray-android44-battery.dtb tegra20-motorola-wingray-android44-bluetooth.dtb tegra20-motorola-wingray-gpu-test.dtb tegra20-motorola-wingray-android44-smp2.dtb tegra20-motorola-wingray-android44-gpu-fbmap.dtb
 cp "$build/out/arch/arm/boot/"{zImage,zImage-dtb} "$dest/"
 cp "$build/out/arch/arm/boot/dts/$dt.dtb" "$build/out/arch/arm/boot/dts/"tegra20-motorola-wingray-{gpu-test,android44-smp2}.dtb "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-gpu-fbmap.dtb" "$dest/"
-cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-bluetooth.dtb" "$dest/"
+cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-bluetooth.dtb" "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-battery.dtb" "$dest/"
 cp "$build/out/System.map" "$dest/"
 for f in "$build/out/usr/initramfs_data.cpio.xz" "$build/out/usr/initramfs_data.cpio.lz4" "$build/out/usr/initramfs_data.cpio.gz"; do
   [ ! -f "$f" ] || { cp "$f" "$dest/builtin-initramfs.cpio.${f##*.}"; break; }

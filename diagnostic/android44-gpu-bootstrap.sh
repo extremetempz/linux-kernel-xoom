@@ -92,11 +92,15 @@ stage ram_graphics_overlays_ready
 if [ -r /sys/firmware/devicetree/base/wingray_battery_monitor/compatible ]; then
  waited=0
  while ! /bin/busybox cat /sys/class/power_supply/battery/capacity >/dev/null 2>&1 || ! /bin/busybox cat /sys/class/power_supply/ac/online >/dev/null 2>&1; do
-  [ "$waited" -lt 30 ] || fail battery_monitor_missing
+  [ "$waited" -lt 30 ] || break
   /bin/busybox sleep 1
   waited=$((waited + 1))
  done
- stage battery_monitor_enumerated
+ if /bin/busybox cat /sys/class/power_supply/battery/capacity >/dev/null 2>&1 && /bin/busybox cat /sys/class/power_supply/ac/online >/dev/null 2>&1; then
+  stage battery_monitor_enumerated
+ else
+  echo WARN_battery_monitor_missing >&2
+ fi
 fi
 # Android init must be PID1 to create its property workspace and reap services.
 stage exec_original_android_init
