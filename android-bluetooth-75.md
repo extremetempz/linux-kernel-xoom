@@ -1,7 +1,9 @@
-# Bluetooth candidate 75b
+# Bluetooth working image 75b
 
-26 October 2026. **Not flashed and not hardware validated.** The working
-73k Wi-Fi image remains the hardware-tested baseline.
+26 October 2026. **Hardware validated:** the user paired and connected a Sony
+WH-1000XM5 headset on 75b. The Wi-Fi link stayed connected at the same time.
+The 73k Wi-Fi image remains the default baseline; Bluetooth is an opt-in
+profile.
 
 This iteration hardens the opt-in Bluetooth profile on top of the PR's 74b
 candidate:
@@ -17,6 +19,19 @@ candidate:
 - The package manifest identifies `android44-bluetooth` rather than
   `android44-gpu`.
 - New tests cover the setup wait/retry path and the delayed power callback.
+
+## Hardware evidence
+
+- Setup log: `READY_for_manual_Android_Bluetooth_toggle_NOT_hardware_validated`
+- `rfkill0`: `bcm4329 Bluetooth`, soft/hard blocked 0
+- `/dev/ttyHS2`: present, owned by UID/GID 1002, HCI traffic seen
+  (`tx:3599 rx:10228 RTS|CTS|DTR`)
+- `com.android.bluetooth` process and `BluetoothAdapterService` running
+- `bcm4329.hcd`, `bluetooth.default.so` and `libbt-vendor.so` present
+- Wi-Fi remained connected (`git gud`, DHCP/Internet) while Bluetooth was on
+
+Pairing/connection is confirmed. Audio routing (A2DP/SCO), microphone,
+reconnect after suspend, and long Wi-Fi coexistence remain separate tests.
 
 ## Image identity
 
@@ -41,24 +56,22 @@ All four pass. The full ARM build and image packing pass. The exported
 `kernel/patches/0140-wingray-bluetooth-awake-profile.patch` applies to the
 pinned donor.
 
-## Hardware test gates
+## Remaining hardware tests
 
-1. Preserve 73k and the recovery image; flash only this boot candidate.
-2. Boot with Bluetooth still blocked and verify display, touch, SMP, storage
-   and **73k Wi-Fi with DHCP/Internet**.
-3. Check `/run/xoom-bluetooth-setup.log` and the `XOOM_BLUETOOTH` report:
-   `ttyHS2`, the correct rfkill, HAL/vendor library and HCD.
-4. Enable Bluetooth in Settings, wait 20 seconds, then capture:
+1. Test A2DP audio, headset microphone/SCO, and reconnect after suspend.
+2. Toggle Bluetooth and Wi-Fi repeatedly while Wi-Fi carries traffic.
+3. Validate the factory BD address path and multi-device pairing.
+
+The captured report was taken before the headset name appeared in the
+bounded `dumpsys bluetooth_manager` section, so the connection evidence here
+is the user-observed pairing plus ttyHS2 traffic and the running Bluetooth
+service. To capture the paired name, wait for the headset connection and use:
 
 ```sh
 python3 scripts/capture-framed-diagnostic.py \
-  --output-dir artifacts/androidbluetooth75b-report1 \
+  --output-dir artifacts/androidbluetooth75b-report2 \
   --storage-mode android44-readonly
 ```
 
-5. Only after controller startup is confirmed, test discovery, pairing,
-   transfer and a Bluetooth/Wi-Fi coexistence toggle.
-
-Awake-only limits remain: no host-wake IRQ, UART LPM, suspend/resume,
-audio/SCO, BLE or long coexistence validation. A successful boot with
-Bluetooth still blocked is **not** Bluetooth success.
+Awake-only limits remain: no host-wake IRQ, UART LPM, suspend/resume, BLE
+or long coexistence validation.
