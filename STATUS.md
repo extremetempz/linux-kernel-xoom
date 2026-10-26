@@ -10,6 +10,16 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
+**Display power — candidate 80, not flashed:** Opt-in LP8550 zero-brightness
+and DC blank/unblank path plus a minimal KitKat backlight HAL. During review a
+definite ABI bug was fixed: all eight light IDs are now opened, with non-
+backlight IDs as safe no-ops, preventing a system_server NULL dereference.
+Offline kernel/DT/HAL/regression tests pass; visible darkness, DC power-down,
+touch/GPU/Wi-Fi/BT recovery and repeated blank/unblank are not hardware-
+validated. Suspend/wake/DVFS remain disabled. See
+[candidate 80](android-display-80.md) and
+[test protocol](docs/display-power-80-test.md).
+
 **Battery monitor — Tests A/B/C/D pass at framework level:** The opt-in
 profile exposes the real P3 DS2781 gauge over Tegra OWR and BQ24617
 STAT1/STAT2/DETECT inputs as standard `battery` and `ac` supplies.

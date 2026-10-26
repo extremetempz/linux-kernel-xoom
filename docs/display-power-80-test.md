@@ -37,9 +37,10 @@ Android adapter/build/report changes. Stage80 is hardware-unverified.
   DC/frame completion before backlight on, positive-jiffy success, timeouts,
   enable/update errors, safe failed-unblank state and ten software cycles.
 - Actual lights adapter tests: RGB/zero values, fixed paths, denied/short/
-  interrupted writes, framebuffer ioctl ordering/error propagation, unsupported
-  light IDs. ARM32 HMI/device sizes checked against KitKat headers; no runtime
-  dependencies or NEON.
+  interrupted writes, framebuffer ioctl ordering/error propagation, all eight
+  KitKat light IDs opened, non-backlight no-ops, unknown IDs rejected. ARM32
+  HMI/device sizes checked against KitKat headers; no runtime dependencies or
+  NEON.
 - Compiled DT/config checks retain all existing board properties except adding
   the explicit backlight binding and opt-in marker. Suspend/CPU frequency
   remain off. Existing battery/Bluetooth/CPCAP/Wi-Fi gates pass.
@@ -148,5 +149,12 @@ by this work.
 
 ## Prepared build identity
 
-Image size: 4149248 bytes. SHA-256: `4a3e5349c297fadd8a996ebd4238f52f6461f967a7c550cdb9c95930298ea47c`.
-Kernel source head: `eadd70bf`. Hardware state: **not flashed / unvalidated**.
+Image size: 4145152 bytes. SHA-256: `3847ee00eacbfd66177355c2f46ecdd606dc91705483882f7f167e09a93dc2ca`.
+Kernel source head: `3be7bf77`. Hardware state: **not flashed / unvalidated**.
+
+The first build exposed a definite KitKat lights-ABI bug: the adapter returned
+ENOSYS for the seven non-backlight light IDs, but KitKat's native
+`setLight_native` calls every slot without a NULL check. That could crash
+system_server on battery/notification updates. The adapter now opens all eight
+IDs; only backlight touches hardware, the rest are safe no-ops. Unknown IDs
+still return ENOSYS. The image above is rebuilt with that correction.

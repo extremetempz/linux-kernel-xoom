@@ -22,6 +22,12 @@ coexistence remain separate tests. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k image remains
 the default Wi-Fi baseline.
 
+**Display power:** candidate 80 is built but **not flashed or hardware
+validated**. It adds an LP8550 backlight/DC blank path and a KitKat lights HAL,
+with all eight light IDs safely opened. Suspend, wake and DVFS remain disabled.
+See [display candidate 80](android-display-80.md) and
+[the stage A/B test protocol](docs/display-power-80-test.md).
+
 **Battery monitor:** candidate 79 passes Tests A/B/C/D at the framework
 level. Disconnected: 62%, 7.64208 V, -358906 uA, ac offline. Connected:
 61–62%, Charging, 7.97–8.01 V, +1.529–1.532 A, ac online. Android observed

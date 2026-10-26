@@ -26,6 +26,27 @@ static int xoom_close(int fd) { return xoom_call(6,fd,0,0); }
 static int xoom_ioctl(int fd,unsigned int cmd,unsigned int arg) { return xoom_call(54,fd,cmd,arg); }
 #endif
 
+enum {
+ LIGHT_ID_BACKLIGHT = 0,
+ LIGHT_ID_KEYBOARD,
+ LIGHT_ID_BUTTONS,
+ LIGHT_ID_BATTERY,
+ LIGHT_ID_NOTIFICATIONS,
+ LIGHT_ID_ATTENTION,
+ LIGHT_ID_BLUETOOTH,
+ LIGHT_ID_WIFI,
+ LIGHT_ID_COUNT
+};
+struct wingray_light {
+ struct light_device_t dev;
+ int id;
+};
+static struct wingray_light lights[LIGHT_ID_COUNT];
+static const char *const light_ids[LIGHT_ID_COUNT] = {
+ "backlight", "keyboard", "buttons", "battery",
+ "notifications", "attention", "bluetooth", "wifi",
+};
+
 /* The installed legacy HWC has no established kernel blank contract.
  * Bridge zero/nonzero backlight transitions to the existing fb0 ioctl.
  * Do not post pixels, reopen GPU channels, or restart framework services. */
@@ -42,12 +63,14 @@ static int display_power(unsigned int blank)
 
 static int set_backlight(struct light_device_t *dev, const struct light_state_t *state)
 {
+ struct wingray_light *wl=(struct wingray_light *)dev;
  unsigned int r, g, b, value;
  char data[4];
  int fd, ret, close_ret, len=0;
- (void)dev;
- if (!state)
+ if (!wl || !state)
   return -22;
+ if (wl->id != LIGHT_ID_BACKLIGHT)
+  return 0;
  r=(state->color>>16)&255;g=(state->color>>8)&255;b=state->color&255;
  value=(77*r+150*g+29*b)>>8;
  /* Restore scanout before allowing the light back on. Brightness changes
@@ -81,22 +104,32 @@ static int set_backlight(struct light_device_t *dev, const struct light_state_t 
  return 0;
 }
 static int close_light(struct hw_device_t *dev) { (void)dev;return 0; }
-static struct light_device_t light = {
- .common={.tag=HARDWARE_DEVICE_TAG,.version=0,.close=close_light},
- .set_light=set_backlight,
-};
+
+/* KitKat opens every light ID and calls set_light unconditionally. Returning
+ * ENOSYS for the non-backlight IDs leaves a NULL slot that system_server later
+ * dereferences. Accept all eight IDs; only backlight touches hardware. */
 static int open_light(const struct hw_module_t *module,const char *id,struct hw_device_t **out)
 {
- const char *expected="backlight";
- unsigned int i=0;
+ unsigned int i;
  if (!module || !id || !out)
   return -22;
  *out=0;
- while(id[i] && expected[i] && id[i]==expected[i])i++;
- if (id[i] || expected[i])
-  return -38; /* Explicitly unsupported lights; no false success. */
- light.common.module=(struct hw_module_t *)module;
- *out=&light.common;
+ for (i=0;i<LIGHT_ID_COUNT;i++) {
+  const char *expected=light_ids[i];
+  unsigned int j=0;
+  while(id[j] && expected[j] && id[j]==expected[j])j++;
+  if (!id[j] && !expected[j])
+   break;
+ }
+ if (i==LIGHT_ID_COUNT)
+  return -38;
+ lights[i].id=(int)i;
+ lights[i].dev.common.tag=HARDWARE_DEVICE_TAG;
+ lights[i].dev.common.version=0;
+ lights[i].dev.common.module=(struct hw_module_t *)module;
+ lights[i].dev.common.close=close_light;
+ lights[i].dev.set_light=set_backlight;
+ *out=&lights[i].dev.common;
  return 0;
 }
 static struct hw_module_methods_t methods={.open=open_light};
