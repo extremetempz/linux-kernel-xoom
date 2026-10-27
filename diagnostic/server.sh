@@ -24,7 +24,7 @@ while IFS= read -r -n 80 request; do
   rc=$?
   size=$(/bin/busybox wc -c < /run/pstore-report.txt)
   size=$((size + 0))
-  if [ "$rc" -ne 0 ] || [ "$size" -le 0 ] || [ "$size" -gt 524288 ]; then
+  if [ "$rc" -ne 0 ] || [ "$size" -le 0 ] || [ "$size" -gt 2097152 ]; then
    /bin/busybox printf 'XOOM_ERROR_V2 %s PSTORE_FAILED\n' "$nonce"
    continue
   fi
