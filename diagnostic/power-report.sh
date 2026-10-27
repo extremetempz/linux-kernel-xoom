@@ -11,6 +11,9 @@ for file in /sys/class/backlight/lcd-backlight/brightness /sys/class/backlight/l
  [ ! -r "$file" ] || /bin/busybox head -c 512 "$file"
 done
 /bin/busybox grep -Ei 'cpcap|tegradc|display|mxt|owr|tegra_w1|bcmdhd|wlan' /proc/interrupts
+for file in /sys/bus/spi/devices/spi*/wingray_irq_status; do
+ [ ! -r "$file" ] || { echo "FILE $file"; /bin/busybox cat "$file"; }
+done
 for file in /sys/kernel/debug/wakeup_sources /sys/kernel/debug/suspend_stats /sys/kernel/debug/regulator/regulator_summary; do
  echo "FILE $file"
  [ ! -r "$file" ] || /bin/busybox head -c 8192 "$file"
