@@ -11,7 +11,8 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  bluetooth='CONFIG_RFKILL_WINGRAY_BT=y\n' in config
  battery='CONFIG_BATTERY_WINGRAY_MONITOR=y\n' in config
  displaypm='CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in config
- selected='tegra20-motorola-wingray-android44-displaypm' if displaypm else 'tegra20-motorola-wingray-android44-battery' if battery else 'tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
+ wakeirq='CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y\n' in config
+ selected='tegra20-motorola-wingray-android44-wakeirq' if wakeirq else 'tegra20-motorola-wingray-android44-displaypm' if displaypm else 'tegra20-motorola-wingray-android44-battery' if battery else 'tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
  assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+selected+'"\n' in config
  if bluetooth:
   from bluetooth_profile import validate_bluetooth_artifacts
@@ -22,6 +23,9 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  if displaypm:
   from display_power_profile import validate_display_power_artifacts
   validate_display_power_artifacts(p)
+ if wakeirq:
+  from wakeirq_profile import validate_wakeirq_artifacts
+  validate_wakeirq_artifacts(p)
  if require_framebuffer_translation:assert corrected,'Known failed image59 has no fbmem bus translation'
  a=parse_dtb((p/'tegra20-motorola-wingray-gpu-test.dtb').read_bytes());b=parse_dtb((p/(name+'.dtb')).read_bytes())
  root='/host1x@50000000/dc@54200000'
