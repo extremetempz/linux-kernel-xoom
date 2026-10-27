@@ -1,24 +1,23 @@
-From 9324d4159c2fff4b8e3fcafd4214a9cefc9c08be Mon Sep 17 00:00:00 2001
+From 8846eb600d135ab2368d3067c58b74f439a9325a Mon Sep 17 00:00:00 2001
 From: JUstin <justinscollo@protonmail.com>
-Date: Tue, 27 Oct 2026 05:27:14 +1100
-Subject: [PATCH] tegra: isolate DC resume test, retain native mode and all
- scanout windows
+Date: Tue, 27 Oct 2026 16:34:52 +1100
+Subject: [PATCH] video: add opt-in DC resume experiment for review
 
 ---
- .../wingray_android44_displaydc_defconfig     | 225 ++++++++++++++++++
+ .../wingray_android44_displaydc_defconfig     | 224 ++++++++++++++++++
  drivers/staging/tegra/video/Kconfig           |   9 +
  drivers/staging/tegra/video/dc/mode.c         |  29 +++
  drivers/staging/tegra/video/fb.c              | 121 ++++++++++
  drivers/staging/tegra/video/fb_legacy.h       |   6 +
- 5 files changed, 390 insertions(+)
+ 5 files changed, 389 insertions(+)
  create mode 100644 arch/arm/configs/wingray_android44_displaydc_defconfig
 
 diff --git a/arch/arm/configs/wingray_android44_displaydc_defconfig b/arch/arm/configs/wingray_android44_displaydc_defconfig
 new file mode 100644
-index 00000000..d76a95e3
+index 00000000..5437c4c8
 --- /dev/null
 +++ b/arch/arm/configs/wingray_android44_displaydc_defconfig
-@@ -0,0 +1,225 @@
+@@ -0,0 +1,224 @@
 +CONFIG_LOCALVERSION="-wingray-android44-gpu"
 +# CONFIG_LOCALVERSION_AUTO is not set
 +CONFIG_IKCONFIG=y
@@ -241,7 +240,6 @@ index 00000000..d76a95e3
 +
 +CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y
 +# CONFIG_PM is not set
-+# CONFIG_SUSPEND is not set
 +
 +CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y
 diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig

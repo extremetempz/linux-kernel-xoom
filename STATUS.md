@@ -183,3 +183,12 @@ publish engine channels after module initialization. Actual-function fault
 fixtures and a fresh full ARM graphics link pass with the prior compile config
 unchanged. Checked pre-publication reset and Motorola EMC integration remain;
 no new boot image, flash or Linux 4.4 GPU rendering result.
+
+
+**Display DC resume — candidate 81 hardware-validated:** The reviewed
+candidate 81 image (`e02c7c41…`, 4,147,200 bytes) was flashed and display
+power off/on now works with no scan line. It retains native mode, restores all
+scanout windows and serializes flips. Test 5 (`02ab70c2…`) remains the
+known-good backlight-only rollback. Suspend, automatic suspend, LP1/LP0 and
+DVFS remain disabled and untested. See
+[candidate 81 result](docs/display-dc-resume-81-result.md).

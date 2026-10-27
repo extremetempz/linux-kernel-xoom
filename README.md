@@ -28,14 +28,14 @@ it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
 with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
-**Display power:** backlight-only blank is hardware-validated. Power off/on
-extinguishes and restores the LP8550 backlight with the DC left running
-(`dc=1`), with no scan line. A previous DC power-down experiment left the
-panel dark after re-enable and is rolled back. Suspend, deep sleep and DVFS
-remain disabled. See [Test 5](docs/display-power-80-test5-result.md),
-[DC rollback](docs/display-power-80-dc-rollback.md),
-[display candidate 80](android-display-80.md) and
-[the stage A/B test protocol](docs/display-power-80-test.md).
+**Display power:** candidate 81 is now hardware-validated for display
+off/on: native mode retained, all windows restored, flips serialized, and no
+scan line. Test 5 backlight-only remains the rollback baseline. Suspend, deep
+sleep and DVFS remain disabled. See
+[candidate 81 result](docs/display-dc-resume-81-result.md),
+[candidate 81 analysis](docs/display-dc-resume-81.md),
+[Test 5](docs/display-power-80-test5-result.md) and
+[DC rollback](docs/display-power-80-dc-rollback.md).
 
 **Battery monitor:** candidate 79 passes Tests A/B/C/D at the framework
 level. Disconnected: 62%, 7.64208 V, -358906 uA, ac offline. Connected:
