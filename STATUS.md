@@ -209,3 +209,13 @@ DT/config and regression tests pass; the reviewed image is
 (4,149,248 bytes). The PR's documented `c0a7f7b6…` was not reproduced. No
 hardware IRQ or wake test has been run. See
 [suspend-prep review](docs/suspend-wake-82-review.md).
+
+
+**Suspend prep 82 — awake IRQ test FAILED:** The wakeirq image initially
+behaved, but turning the screen off made the tablet unable to wake and the
+USB gadget disappeared; a reboot recovered it, and a second attempt failed
+again. No log could be captured. This is not deep sleep (PM/SUSPEND are
+disabled in that profile); either the new LIC/regmap ON path or the inherited
+candidate 81 DC resume is implicated. Do not reflash wakeirq and do not
+attempt suspend. Restore Test 5 backlight-only. See
+[suspend-prep failure](docs/suspend-wake-82-hardware-failure.md).
