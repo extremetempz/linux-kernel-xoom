@@ -1,0 +1,30 @@
+From ed31525472bceb4fafdb61b98e6db2baf6cac2a0 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 27 Oct 2026 18:37:03 +1100
+Subject: [PATCH] dts: use 64-bit ramoops sizes for 4.4 dt parser
+
+---
+ .../tegra20-motorola-wingray-android44-wakeirqtrace.dts    | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqtrace.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqtrace.dts
+index e108a387..033f089f 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqtrace.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqtrace.dts
+@@ -15,7 +15,12 @@
+ 		};
+ 	};
+ 	ramoops@1ff00000 {
+-		/* This donor parses memory-region, not the consumer's reg. */
++		/* This donor parses memory-region, not the consumer's reg.
++		 * ramoops_parse_dt_size() uses of_property_read_u64(); the
++		 * inherited one-cell values are rejected with -EOVERFLOW. */
+ 		memory-region = <&wingray_ramoops_mem>;
++		record-size = /bits/ 64 <0x20000>;
++		console-size = /bits/ 64 <0x80000>;
++		pmsg-size = /bits/ 64 <0x20000>;
+ 	};
+ };
+-- 
+2.43.0
+

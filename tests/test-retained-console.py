@@ -28,7 +28,7 @@ for mutation in ('missing_phandle', 'wrong_phandle', 'overlap', 'size', 'no_map'
     elif mutation == 'no_map':
         del c['/reserved-memory/ramoops@1ff00000']['no-map']
     else:
-        c['/ramoops@1ff00000']['console-size'] = struct.pack('>I', 0x100000)
+        c['/ramoops@1ff00000']['console-size'] = struct.pack('>Q', 0x100000)
     try:
         validate_trees(a, c)
     except (AssertionError, KeyError):

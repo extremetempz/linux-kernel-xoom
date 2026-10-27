@@ -1,59 +1,72 @@
-# Retained-console candidate 83 review
+# Retained-console candidate 83 review and size-binding fix
 
-27 October 2026. Reviewed the merged ramoops/pstore PR on top of the accepted
-IRQ/backlight baseline. No device operation or flash was performed.
+27 October 2026. Reviewed the merged ramoops/pstore PR after a hardware run.
 
-## What is correct
+## Root cause found in the hardware report
 
-- Patch 0154 supplies the `memory-region` phandle required by this donor's
-  `ramoops_parse_dt()`. The reservation is split without changing the
-  `[0x1fe00000, 0x20000000)` union:
-  - legacy console `0x1fe00000..0x1fefffff`
-  - ramoops `0x1ff00000..0x1fffffff`
-- The new trace profile keeps IRQ-only CPCAP ON and backlight-only display;
-  DC resume and suspend remain disabled.
-- pstore mounting is guarded by the DT marker, read-only, and failure does
-  not stop USB diagnostics.
-- The PSTORE path has a separate 2 MiB payload / 3 MiB wire limit; normal
-  REPORT remains 512 KiB.
-- The report preserves the full configured console/record/pmsg set and
-  reports truncation rather than silently dropping data.
+The trace image mounted pstore read-only but the backend was unbound:
+
+```text
+PSTORE_MOUNTED_yes
+RAMOOPS_BACKEND_UNBOUND
+RAMOOPS_PARAM mem_size 0
+RAMOOPS_PARAM record_size 4096
+RAMOOPS_PARAM console_size 4096
+RAMOOPS_PARAM pmsg_size 4096
+```
+
+Full dmesg showed:
+
+```text
+ramoops 1ff00000.ramoops: failed to parse property record-size: -75
+ramoops: probe of 1ff00000.ramoops failed with error -75
+```
+
+`-75` is `-EOVERFLOW`. This donor's `ramoops_parse_dt_size()` uses
+`of_property_read_u64()`, but patch 0154 left the inherited one-cell (u32)
+`record-size`, `console-size` and `pmsg-size` properties. The `memory-region`
+phandle was correct, but the size parsing failed first.
+
+## Fix
+
+Patch 0155 changes the trace consumer's three sizes to `/bits/ 64`:
+
+```text
+record-size  = /bits/ 64 <0x20000>
+console-size = /bits/ 64 <0x80000>
+pmsg-size    = /bits/ 64 <0x20000>
+```
+
+The reservation partition and values are unchanged. The validator now expects
+u32 in the baseline DT and u64 in the trace DT for these three inherited
+properties. No driver or generic DT behavior was changed.
 
 ## Offline verification
 
-The trace donor was applied through patch 0154 and built:
+Built image:
 
-`artifacts/trace83-review-ready/wingray-android44-gpu.img`
+`artifacts/trace83fix2-review-ready/wingray-android44-gpu.img`
 Size 4,149,248 bytes.
-SHA-256 `9d7e357996403b6ad896d783f10487512e0853575dda73193f4d65ebc59fc329`.
+SHA-256 `42a2699c9f380a7fce50d2b3348780a9a588a9b3e28a23025168350c4186edfd`.
 
-Passed:
+Compiled DT now contains:
 
 ```text
-retained-console reservation/phandle/no-overlap gates
-2 MiB PSTORE framing and 1.5 MiB report budget
-full-size fixture capture without writes/deletes
-IRQ-only/backlight profile gates
-actual CPCAP ON handler and existing display/battery/radio tests
+record-size = <0x0 0x20000>
+console-size = <0x0 0x80000>
+pmsg-size = <0x0 0x20000>
 ```
 
-Manifest: `retained_console_test=true`,
-`retained_console_hardware_validated=false`,
-`dc_resume_experimental=false`, `power_key_polling=false`,
-`soc_suspend_enabled=false`.
+Passed: retained reservation/phandle/no-overlap checks, full-size pstore
+fixture capture, 2 MiB PSTORE framing, IRQ-only profile, CPCAP ON handler,
+display/backlight and existing radio/battery regressions.
 
-## Findings
+## Still required
 
-1. **The documented `6e8d2b08…` image hash was not reproducible.** The
-   reviewed build produces `9d7e3579…` with the same size. The docs hash
-   should be refreshed after applying the exported patch series and this
-   repository's corrected 0151 config.
-2. **Pstore retention is still unproven.** The binding and mount are now
-   plausible, but no hardware warm-reset test has been run. `/sys/fs/pstore`
-   being empty on first boot proves neither success nor failure.
-3. The PSTORE host timeout was raised from 30 s to 90 s, maximum 300 s, so a
-   full retained-console transfer is not cut short by the old 60 s ceiling.
-   This is a host-tool change only; no image rebuild is needed.
+This should make `ramoops` probe, but retention across a warm reset is still
+**hardware-unverified**. Flash this image, capture PSTORE, warm-reset into the
+same image, and verify the previous boot marker in an old console record.
 
-No DC, suspend, regulator or charging change was made. Test 5 remains the
-conservative rollback.
+The PR's documented `6e8d2b08…` and the earlier `9d7e3579…` hash are both
+superseded by this fixed build. Test 5 remains the rollback. Do not enable
+DC or suspend before the retention gate passes.

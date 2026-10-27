@@ -41,8 +41,10 @@ because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
 
-**Retained console:** the ramoops memory-region and read-only pstore mount are
-built and offline-tested, but retention is **not hardware-validated**. The
+**Retained console:** hardware diagnostics showed `ramoops` probe failing with
+`-EOVERFLOW` because the inherited size properties were one-cell u32 values.
+The trace DT now uses `/bits/ 64` sizes; the corrected image is built and
+offline-tested, but warm-reset retention is **not hardware-validated**. The
 trace image is separate from the accepted IRQ/backlight baseline; DC and
 suspend stay disabled. See
 [retained-console review](docs/suspend-trace-83-review.md).

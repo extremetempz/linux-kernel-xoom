@@ -258,3 +258,13 @@ fixture and regression tests pass. Reviewed image:
 (4,149,248 bytes); documented `6e8d2b08…` was not reproduced. Hardware warm-
 reset retention is still required. See
 [retained-console review](docs/suspend-trace-83-review.md).
+
+
+**Retained console 83 — ramoops size bug fixed, retention pending:** Hardware
+dmesg showed `ramoops: failed to parse property record-size: -75`
+(`-EOVERFLOW`) because the trace DT inherited one-cell u32 sizes while this
+4.4 driver uses `of_property_read_u64()`. Patch 0155 changes the three trace
+sizes to `/bits/ 64`; the compiled DT now has two-cell 64-bit values. The
+corrected image `42a2699c9f380a7fce50d2b3348780a9a588a9b3e28a23025168350c4186edfd`
+(4,149,248 bytes) builds and passes offline tests. Warm-reset retention is
+still pending. See [trace review](docs/suspend-trace-83-review.md).

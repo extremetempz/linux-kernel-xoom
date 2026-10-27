@@ -40,6 +40,14 @@ def validate_trees(before, after):
             assert b.pop('reg') == struct.pack('>II', 0x1fe00000, 0x100000)
         if node == consumer:
             assert b.pop('memory-region') == (region,)
+            # 4.4's ramoops_parse_dt_size() uses of_property_read_u64(),
+            # so the trace profile must move the inherited one-cell sizes to
+            # /bits/ 64.  The values themselves are unchanged.
+            for name, value in (('record-size', 0x20000),
+                                ('console-size', 0x80000),
+                                ('pmsg-size', 0x20000)):
+                assert a.pop(name) == struct.pack('>I', value), name
+                assert b.pop(name) == struct.pack('>Q', value), name
         assert a == b, node
     props = resolved(after, region)
     assert props == {'reg': struct.pack('>II', 0x1ff00000, 0x100000), 'no-map': b''}
@@ -47,9 +55,10 @@ def validate_trees(before, after):
     assert all(left[1] <= right[0] for left, right in zip(intervals, intervals[1:])), 'Overlapping reservations'
     assert merged(ranges(before)) == merged(intervals), 'Changed reserved RAM union'
     # Driver's record/console/pmsg subregions must exactly fit, not underflow.
-    u32 = lambda name: struct.unpack('>I', after[consumer][name])[0]
-    assert (u32('record-size'), u32('console-size'), u32('pmsg-size')) == (0x20000, 0x80000, 0x20000)
-    assert (0x100000 - u32('console-size') - u32('pmsg-size')) // u32('record-size') == 3
+    u64 = lambda name: struct.unpack('>Q', after[consumer][name])[0]
+    record, console, pmsg = u64('record-size'), u64('console-size'), u64('pmsg-size')
+    assert (record, console, pmsg) == (0x20000, 0x80000, 0x20000)
+    assert (0x100000 - console - pmsg) // record == 3
 
 def validate_retained_console_artifacts(directory):
     p = Path(directory)
