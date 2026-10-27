@@ -1,5 +1,12 @@
 # Suspend prep 82 — isolated IRQ + backlight-only test
 
+**Updated result:** [IRQ/backlight-only passed on hardware](suspend-wake-82-backlight-result.md).
+The PSTORE command was available, but its backend was unbound and its VFS
+was not explicitly mounted by this RAM runtime. The historical recovery
+procedure below cannot recover the lost combined-profile log. Use the
+[separate retained-console validation](suspend-trace-83.md) before relying
+on pstore; Test 5 and original Android are not matched ramoops recovery images.
+
 27 October 2026. This is a new experimental profile after the full wakeirq
 profile failed: screen-off lost wake and the USB gadget, with no log.
 

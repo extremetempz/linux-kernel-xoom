@@ -1,5 +1,11 @@
 # Suspend preparation 82 — awake IRQ hardware failure
 
+**Historical combined-profile failure.** The later IRQ/backlight-only profile
+[passed on hardware](suspend-wake-82-backlight-result.md), validating ON IRQs,
+LIC routing and polling removal. The failing combined DC profile remains
+unresolved; it must not be interpreted as a failed SoC suspend test. The
+statuses below describe the earlier attempt, not the current IRQ baseline.
+
 27 October 2026. The wakeirq test image was flashed after the offline review.
 The power button initially worked, but on turning the screen off the tablet
 could not be woken again. The USB diagnostic gadget disappeared completely,
