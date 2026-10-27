@@ -16,5 +16,14 @@ fail() {
 /bin/busybox mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp || fail ram_tmp
 /bin/busybox mount -t devpts devpts /dev/pts || fail devpts
 /bin/busybox mount -t debugfs debugfs /sys/kernel/debug
+# Only the retained-console test profile mounts pstore. The ordinary RAM
+# runtime deliberately filters the original ROM's pstore mount commands.
+# Read-only VFS: collecting evidence cannot erase previous records.
+if [ -e /proc/device-tree/motorola,wingray-pstore-test ]; then
+ /bin/busybox mount -t pstore -o ro,nosuid,nodev,noexec pstore /sys/fs/pstore > /run/pstore-mount.txt 2>&1
+ result=$?
+ echo "PSTORE_MOUNT_RC $result" >> /run/pstore-mount.txt
+ echo "XOOM_PSTORE_BOOT $(/bin/busybox cat /proc/sys/kernel/random/boot_id) mount_rc=$result" > /dev/kmsg
+fi
 /bin/busybox sh /bin/usb-report-loop > /run/usb-loop-errors.txt 2>&1 &
 exec /bin/busybox sh /bin/android44-bootstrap

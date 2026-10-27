@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse, array, base64, binascii, datetime, fcntl, getpass, hashlib, json, os, re, secrets, select, termios, time, tty
 from diagnostic_protocol import handshake, write_request, ProtocolError
+from pstore_protocol import extract_pstore_frame
 
 ROOT = Path(__file__).resolve().parents[1]
 P = argparse.ArgumentParser(description=__doc__)
@@ -55,10 +56,6 @@ try:
     handshake(fd, nonce, record=wire.write)
     print('Diagnostic reporter ready; sending fixed PSTORE snapshot.', flush=True)
     write_request(fd, 'PSTORE', nonce)
-    token = nonce.encode()
-    header = re.compile(rb'(?:^|\n)XOOM_PSTORE_V1 ' + token + rb' ([0-9]{1,6}) ([0-9a-f]{64})\r?\n')
-    end = re.compile(rb'(?:^|\n)XOOM_PSTORE_END_V1 ' + token + rb'\r?\n')
-    err = re.compile(rb'(?:^|\n)XOOM_ERROR_V2 ' + token + rb' ([A-Z_]+)\r?\n')
     buf = bytearray(); deadline = time.monotonic() + A.timeout; payload = None
     while time.monotonic() < deadline:
         if not select.select([fd], [], [], 0.5)[0]:
@@ -67,27 +64,9 @@ try:
         if not chunk:
             raise ProtocolError('Serial device disconnected')
         wire.write(chunk); buf.extend(chunk)
-        if len(buf) > 600000:
-            raise ProtocolError('PSTORE response too large')
-        match = err.search(buf)
-        if match:
-            raise ProtocolError('Device PSTORE error: ' + match[1].decode())
-        h = header.search(buf)
-        if not h:
-            continue
-        size = int(h[1])
-        if not 0 < size <= 524288:
-            raise ProtocolError('Invalid PSTORE size')
-        e = end.search(buf, h.end())
-        if not e:
-            continue
-        try:
-            payload = base64.b64decode(b''.join(buf[h.end():e.start()].split()), validate=True)
-        except (binascii.Error, ValueError) as exc:
-            raise ProtocolError('Invalid PSTORE base64') from exc
-        if len(payload) != size or hashlib.sha256(payload).hexdigest().encode() != h[2]:
-            raise ProtocolError('PSTORE size/hash mismatch')
-        break
+        payload = extract_pstore_frame(buf, nonce)
+        if payload is not None:
+            break
     wire.close()
     if payload is None:
         raise TimeoutError('Timed out waiting for PSTORE result')
@@ -97,7 +76,7 @@ try:
     status.update(state='verified', bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
     text = payload.decode('ascii','replace')
     for line in text.splitlines():
-        if line.startswith(('FB_BLANK_STATE_', 'FB_BLANK_WRITE', 'Wingray backlight', 'Wingray display', 'Wingray DC test', 'Wingray native mode')):
+        if line.startswith(('PSTORE_', 'RAMOOPS_', 'CURRENT_BOOT_ID', 'XOOM_PSTORE_BOOT')):
             print(line, flush=True)
 finally:
     try: (OUT/'status.json').write_text(json.dumps(status,indent=2)+'\n')

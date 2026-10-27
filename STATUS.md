@@ -1,10 +1,17 @@
-# Component status — 26 October 2026
+# Component status — 27 October 2026
 
-**Suspend preparation 82 — built, not hardware-tested:** A separate `wakeirq`
-profile replaces key polling with a managed normal-domain ON IRQ and routes
-the same PMU interrupt through Tegra LIC. The tested candidate 81 and Test 5
-profiles remain intact. Suspend/deep sleep is still disabled; first validate
-awake IRQ delivery and absence of a storm. See [build and staged gates](docs/suspend-wake-82.md).
+**Current suspend baseline — IRQ + backlight hardware pass:** ON IRQ-only,
+LIC routing, dynamic virq, polling removal and backlight-only power-key cycles
+passed on hardware. Candidate 81 DC worked separately, but the combined
+IRQ/DC profile hung and lost USB; the failure is narrowed toward DC, not
+root-caused. Suspend/deep sleep remains disabled. See
+[hardware result](docs/suspend-wake-82-backlight-result.md).
+
+**Retained-console candidate 83 — built, not hardware-validated:** New
+`wakeirqtrace` keeps DC shutdown and suspend off, fixes the ramoops
+memory-region binding, mounts pstore read-only and sizes the capture path
+for complete logs. First prove warm-reset retention, then investigate DC.
+See [revised gates and image](docs/suspend-trace-83.md).
 
 **Bluetooth — hardware-tested (Image 75b):** The opt-in awake-only
 UARTC/rfkill profile paired and connected a Sony WH-1000XM5 headset while
@@ -16,11 +23,12 @@ factory address and long coexistence remain unvalidated. See
 [Bluetooth working image 75b](android-bluetooth-75.md). The 73k Wi-Fi image
 remains the default hardware-tested baseline.
 
-**DC resume candidate 81 — built, hardware-unverified:** Separate opt-in
-`displaydc` profile corrects native-mode round-trip loss and restores all
-legacy scanout windows under the flip lock. The validated `displaypm` profile
-remains backlight-only. No flash, reboot, suspend or regulator changes. See
-[analysis and test gates](docs/display-dc-resume-81.md).
+**DC resume candidate 81 — standalone hardware pass; combined regression:**
+Native timings and all-window restoration worked on the standalone candidate.
+The IRQ/DC combination later hung; do not promote it to the suspend baseline
+until retained evidence establishes why. IRQ + backlight-only is the proven
+combination. See [candidate 81 result](docs/display-dc-resume-81-result.md) and
+[combined failure](docs/suspend-wake-82-hardware-failure.md).
 
 **Display power — backlight-only hardware pass:** Image
 `display80fbtest5` is hardware-validated. Power off/on extinguishes and
