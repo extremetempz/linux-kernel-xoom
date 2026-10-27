@@ -1,4 +1,11 @@
-# Display-power candidate 80 — stage A/B, never flashed automatically
+# Display-power candidate 80 — historical stage A/B protocol
+
+**Current accepted result:** [Test 5](display-power-80-test5-result.md) validates
+backlight-only blank/unblank with DC continuously enabled. The earlier DC
+sequence below failed on hardware and was rolled back by patch 0150. Its DC
+checks and image identities are historical, not current acceptance criteria.
+See [separate DC resume candidate 81](display-dc-resume-81.md) for the opt-in
+correction; do not enable DC shutdown in the validated displaypm profile.
 
 Based on main c887905 / hardware-tested battery79. This is a separate opt-in
 profile with new LP8550 power handling, explicit framebuffer sequencing and a
