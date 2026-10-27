@@ -25,7 +25,8 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  bluetooth) defconfig=wingray_android44_bluetooth_defconfig; dt=tegra20-motorola-wingray-android44-bluetooth;;
  battery) defconfig=wingray_android44_battery_defconfig; dt=tegra20-motorola-wingray-android44-battery;;
  displaypm) defconfig=wingray_android44_displaypm_defconfig; dt=tegra20-motorola-wingray-android44-displaypm;;
- *) echo 'Choose fbmap, bluetooth, battery or displaypm.' >&2; exit 1;;
+ displaydc) defconfig=wingray_android44_displaydc_defconfig; dt=tegra20-motorola-wingray-android44-displaypm;;
+ *) echo 'Choose fbmap, bluetooth, battery, displaypm or displaydc.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
 # Kconfig orders NETDEVICES before the NET symbol in this tree; force the
@@ -39,7 +40,7 @@ cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"
 done
-if [ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm ]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc ]]; then
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/build-display-lights.sh"
 fi
 make "${args[@]}" -j"${JOBS:-4}" modules

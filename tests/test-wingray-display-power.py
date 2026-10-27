@@ -19,18 +19,18 @@ struct tegra_dc {int enabled;};
 struct tegra_dc_win {struct tegra_dc *dc;unsigned flags;};
 struct tegra_fb_info {struct tegra_dc_win *win;};
 static int calls[8],count,bl_error;
-static int tegra_wingray_backlight_power(struct tegra_dc *dc,int mode){(void)dc;calls[count++]=mode?2:7;return bl_error;}
+static int tegra_wingray_backlight_power(struct tegra_dc *dc,int mode){(void)dc;assert(count < 8);calls[count++]=mode?2:7;return bl_error;}
 '''+function(s,'tegra_fb_wingray_blank')+r'''
 int main(void){struct tegra_dc dc={1};struct tegra_dc_win win={&dc,0};struct tegra_fb_info fb={&win};
  count=0;assert(!tegra_fb_wingray_blank(4,&fb)&&dc.enabled&&count==1&&calls[0]==2);
  count=0;assert(!tegra_fb_wingray_blank(0,&fb)&&dc.enabled&&count==1&&calls[0]==7);
  bl_error=-5;count=0;assert(tegra_fb_wingray_blank(4,&fb)==-5&&count==1);bl_error=0;
- for(int n=0;n<10;n++){assert(!tegra_fb_wingray_blank(0,&fb));assert(!tegra_fb_wingray_blank(4,&fb));assert(dc.enabled);}
+ for(int n=0;n<10;n++){count=0;assert(!tegra_fb_wingray_blank(0,&fb));assert(!tegra_fb_wingray_blank(4,&fb));assert(dc.enabled);}
  return 0;}
 '''
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);(p/'test.c').write_text(code)
- subprocess.run(['cc','-std=gnu99','-Wall','-Wextra','-Werror',str(p/'test.c'),'-o',str(p/'test')],check=True)
+ subprocess.run(['cc','-std=gnu99','-fsanitize=undefined','-fno-sanitize-recover=all','-Wall','-Wextra','-Werror',str(p/'test.c'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
 # LP8550 actual status callback: power and framebuffer blank must zero effective
 # brightness while preserving the requested brightness for unblank.
@@ -66,6 +66,6 @@ int main(void){struct lp855x p={.wingray_p3=true};struct backlight_device b={.pr
 '''
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);(p/'test.c').write_text(code)
- subprocess.run(['cc','-std=gnu99','-Wall','-Wextra','-Werror',str(p/'test.c'),'-o',str(p/'test')],check=True)
+ subprocess.run(['cc','-std=gnu99','-fsanitize=undefined','-fno-sanitize-recover=all','-Wall','-Wextra','-Werror',str(p/'test.c'),'-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)
 print('PASS actual fb/LP8550 callbacks: backlight-only blank/unblank, IO rollback, ten software cycles, retained brightness and power flags (no DC power-down; not hardware validation)')

@@ -97,7 +97,7 @@ try:
     status.update(state='verified', bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
     text = payload.decode('ascii','replace')
     for line in text.splitlines():
-        if line.startswith(('FB_BLANK_STATE_', 'FB_BLANK_WRITE', 'Wingray backlight', 'Wingray display')):
+        if line.startswith(('FB_BLANK_STATE_', 'FB_BLANK_WRITE', 'Wingray backlight', 'Wingray display', 'Wingray DC test', 'Wingray native mode')):
             print(line, flush=True)
 finally:
     try: (OUT/'status.json').write_text(json.dumps(status,indent=2)+'\n')

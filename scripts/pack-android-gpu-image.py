@@ -16,9 +16,11 @@ assert struct.unpack_from('<I',kernel,36)[0]==0x016f2818 and combined==kernel+dt
 ram=lzma.compress(pack_newc({}),format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32);image=boot_image(combined,ram);assert len(image)<8388608
 sha=lambda v:hashlib.sha256(v).hexdigest()
 out.mkdir();(out/'wingray-android44-gpu.img').write_bytes(image);(out/'ramdisk.cpio.xz').write_bytes(ram)
+dc_test='CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in (k/'kernel.config').read_text()
 manifest={'purpose':'combined RAM-data Android with original NVIDIA EGL/gralloc/HWC; hardware untested',
+ 'dc_resume_experimental':dc_test,'dc_resume_hardware_validated':False,
  'display_power_test':dtname.endswith('displaypm'),'soc_suspend_enabled':False,'battery_monitoring_only':dtname.endswith(('battery','displaypm')),'battery_hardware_tested':False,
- 'kernel_profile':'android44-displaypm' if dtname.endswith('displaypm') else 'android44-battery' if dtname.endswith('battery') else 'android44-bluetooth' if dtname.endswith('bluetooth') else 'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
+ 'kernel_profile':'android44-displaydc' if dc_test else 'android44-displaypm' if dtname.endswith('displaypm') else 'android44-battery' if dtname.endswith('battery') else 'android44-bluetooth' if dtname.endswith('bluetooth') else 'android44-gpu','expected_kernel_release':m.RELEASE,'trace_cookie':'0x584d0060',
  'sha256':sha(image),'size':len(image),'kernel_sha256':sha(combined),'system_map_sha256':sha((k/'System.map').read_bytes()),
  'device_tree':dtname,'builtin_runtime':True,'runtime_archive_sha256':sha(archive),'ramdisk_sha256':sha(ram),
  'bluetooth_experimental':'CONFIG_RFKILL_WINGRAY_BT=y\n' in (k/'kernel.config').read_text(),'bluetooth_hardware_tested':False,'hardware_tested':False,'android_booted':False,'accelerated_android_proven':False,

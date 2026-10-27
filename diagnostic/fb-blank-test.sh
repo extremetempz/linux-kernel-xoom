@@ -17,7 +17,7 @@ echo "FB_BLANK_WRITE4_RC $?"
 /bin/busybox sleep 1
 echo "FB_BLANK_STATE_OFF $(/bin/busybox cat "$STATE" 2>&1)"
 echo FB_BLANK_DMESG_OFF_BEGIN
-/bin/busybox dmesg 2>&1 | /bin/busybox grep -E 'Wingray (display|backlight)|tegra_fb|fb_blank|tegradc' | /bin/busybox tail -40
+/bin/busybox dmesg 2>&1 | /bin/busybox grep -E 'Wingray (display|backlight|DC test|native mode)|tegra_fb|fb_blank|tegradc' | /bin/busybox tail -40
 echo FB_BLANK_DMESG_OFF_END
 echo "FB_BLANK_WRITE0_BEGIN"
 /bin/busybox sh -c "echo 0 > $FB" 2>&1
@@ -25,6 +25,6 @@ echo "FB_BLANK_WRITE0_RC $?"
 /bin/busybox sleep 1
 echo "FB_BLANK_STATE_ON $(/bin/busybox cat "$STATE" 2>&1)"
 echo FB_BLANK_DMESG_ON_BEGIN
-/bin/busybox dmesg 2>&1 | /bin/busybox grep -E 'Wingray (display|backlight)|tegra_fb|fb_blank|tegradc' | /bin/busybox tail -40
+/bin/busybox dmesg 2>&1 | /bin/busybox grep -E 'Wingray (display|backlight|DC test|native mode)|tegra_fb|fb_blank|tegradc' | /bin/busybox tail -40
 echo FB_BLANK_DMESG_ON_END
 echo XOOM_FB_BLANK_TEST_END

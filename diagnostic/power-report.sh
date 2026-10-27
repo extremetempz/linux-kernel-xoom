@@ -25,7 +25,7 @@ for file in /sys/kernel/debug/tegra_pmc/wake_status /sys/kernel/debug/pmc/wake_s
 done
 [ "$pmc_available" -eq 1 ] || echo PMC_WAKE_STATUS_UNAVAILABLE_NO_RAW_REGISTER_ACCESS
 [ ! -x /bin/battery-report ] || /bin/battery-report
-/bin/busybox dmesg | /bin/busybox grep -Ei 'Wingray display|lp855|suspend|resume|wakeup|CPCAP|nobody cared|Disabling IRQ' | /bin/busybox tail -120
+/bin/busybox dmesg | /bin/busybox grep -Ei 'Wingray (display|backlight|DC test|native mode)|lp855|suspend|resume|wakeup|CPCAP|nobody cared|Disabling IRQ' | /bin/busybox tail -120
 if [ -x /system/bin/dumpsys ]; then
  /bin/busybox timeout 8 /system/bin/dumpsys power 2>&1
  /bin/busybox timeout 8 /system/bin/dumpsys display 2>&1
