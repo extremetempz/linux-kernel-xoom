@@ -28,6 +28,13 @@ it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
 with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
+**IRQ prerequisite:** the isolated IRQ + backlight-only profile **passed
+hardware validation**: LIC parent, domain index 23, real ON events, zero
+errors, no polling, and repeated backlight off/on with `dc=1`. Pstore is empty
+because the ramoops DT binding lacks a memory-region. The full wakeirq failure
+is narrowed to the DC/candidate-81 path. See
+[IRQ result](docs/suspend-wake-82-backlight-result.md).
+
 **Suspend prep isolation:** the full IRQ profile failed on hardware. A new
 experimental IRQ + backlight-only profile keeps the CPCAP ON IRQ but removes
 candidate 81 DC resume; it also adds a fixed pstore/previous-console snapshot.

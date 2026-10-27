@@ -228,3 +228,14 @@ disabled. Image `7219443f7bfa2caf6be935ecb08162e7c05ef7e3988e5bf385890ecb07317f0
 (4,147,200 bytes) includes fixed read-only PSTORE capture. No hardware test
 has been run; Test 5 remains rollback. See
 [IRQ + backlight profile](docs/suspend-wake-82-backlight.md).
+
+
+**IRQ prerequisite — hardware-validated:** The isolated IRQ + backlight-only
+image `7219443f…` passed. `wingray_irq_status` reports LIC parent, hwirq 86,
+on_virq 115, domain index 23, events 26, errors 0, no unmasked-pending bits;
+dmesg shows nested ON press/release events with no polling registration and no
+`nobody cared`. Repeated backlight off/on works with `dc=1`. The earlier full
+wakeirq failure is narrowed to the DC/candidate-81 path. Pstore is empty
+because ramoops reports "no memory-region phandle". Suspend remains disabled
+and untested. See
+[IRQ result](docs/suspend-wake-82-backlight-result.md).
