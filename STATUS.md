@@ -247,3 +247,14 @@ wakeirq failure is narrowed to the DC/candidate-81 path. Pstore is empty
 because ramoops reports "no memory-region phandle". Suspend remains disabled
 and untested. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
+
+
+**Retained console 83 — built, retention unverified:** The opt-in trace
+profile adds the ramoops memory-region binding, a guarded read-only pstore
+mount and larger bounded PSTORE transfer limits. It keeps IRQ-only CPCAP and
+backlight-only display, with DC/PM/SUSPEND off. Offline reservation, framing,
+fixture and regression tests pass. Reviewed image:
+`9d7e357996403b6ad896d783f10487512e0853575dda73193f4d65ebc59fc329`
+(4,149,248 bytes); documented `6e8d2b08…` was not reproduced. Hardware warm-
+reset retention is still required. See
+[retained-console review](docs/suspend-trace-83-review.md).
