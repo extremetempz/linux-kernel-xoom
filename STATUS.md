@@ -198,3 +198,44 @@ scanout windows and serializes flips. Test 5 (`02ab70c2…`) remains the
 known-good backlight-only rollback. Suspend, automatic suspend, LP1/LP0 and
 DVFS remain disabled and untested. See
 [candidate 81 result](docs/display-dc-resume-81-result.md).
+
+
+**Suspend prep 82 — awake IRQ profile built, hardware-unverified:** CPCAP ON
+is registered through the normal regmap nested domain (domain index 23),
+routed through Tegra LIC, with the 20 ms polling worker absent. The profile
+keeps candidate 81 display code and PM/SUSPEND disabled. Offline handler,
+DT/config and regression tests pass; the reviewed image is
+`f6ab7071972890c6789aafa501653230739f6f5ae60c8e79a48fa7f8740ec3cb`
+(4,149,248 bytes). The PR's documented `c0a7f7b6…` was not reproduced. No
+hardware IRQ or wake test has been run. See
+[suspend-prep review](docs/suspend-wake-82-review.md).
+
+
+**Suspend prep 82 — awake IRQ test FAILED:** The wakeirq image initially
+behaved, but turning the screen off made the tablet unable to wake and the
+USB gadget disappeared; a reboot recovered it, and a second attempt failed
+again. No log could be captured. This is not deep sleep (PM/SUSPEND are
+disabled in that profile); either the new LIC/regmap ON path or the inherited
+candidate 81 DC resume is implicated. Do not reflash wakeirq and do not
+attempt suspend. Restore Test 5 backlight-only. See
+[suspend-prep failure](docs/suspend-wake-82-hardware-failure.md).
+
+
+**Suspend prep isolation — built, hardware-unverified:** New `wakeirqbl`
+profile keeps CPCAP ON IRQ-only (LIC, domain 23, no polling) but removes the
+candidate 81 DC resume path, leaving backlight-only display. PM/SUSPEND remain
+disabled. Image `7219443f7bfa2caf6be935ecb08162e7c05ef7e3988e5bf385890ecb07317f09`
+(4,147,200 bytes) includes fixed read-only PSTORE capture. No hardware test
+has been run; Test 5 remains rollback. See
+[IRQ + backlight profile](docs/suspend-wake-82-backlight.md).
+
+
+**IRQ prerequisite — hardware-validated:** The isolated IRQ + backlight-only
+image `7219443f…` passed. `wingray_irq_status` reports LIC parent, hwirq 86,
+on_virq 115, domain index 23, events 26, errors 0, no unmasked-pending bits;
+dmesg shows nested ON press/release events with no polling registration and no
+`nobody cared`. Repeated backlight off/on works with `dc=1`. The earlier full
+wakeirq failure is narrowed to the DC/candidate-81 path. Pstore is empty
+because ramoops reports "no memory-region phandle". Suspend remains disabled
+and untested. See
+[IRQ result](docs/suspend-wake-82-backlight-result.md).

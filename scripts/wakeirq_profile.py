@@ -3,12 +3,17 @@ from pathlib import Path
 from display_power_profile import resolved
 from legacy_resources import parse_dtb
 
-def validate_wakeirq_artifacts(directory):
+def validate_wakeirq_artifacts(directory, require_dc=None):
     p = Path(directory)
     cfg = (p / 'kernel.config').read_text()
-    for name in ('MFD_CPCAP_WINGRAY_IRQ_TEST', 'FB_TEGRA_WINGRAY_DC_RESUME_TEST',
+    dc_test = 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in cfg
+    if require_dc is not None:
+        assert dc_test == require_dc, 'DC resume test config mismatch'
+    for name in ('MFD_CPCAP_WINGRAY_IRQ_TEST',
                  'FB_TEGRA_WINGRAY_DISPLAY_PM', 'MFD_CPCAP', 'SMP', 'CACHE_L2X0'):
         assert 'CONFIG_' + name + '=y\n' in cfg, name
+    if dc_test:
+        assert 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in cfg
     for name in ('PM', 'PM_SLEEP', 'SUSPEND', 'PM_AUTOSLEEP', 'CPU_FREQ', 'REGULATOR_CPCAP'):
         assert 'CONFIG_' + name + '=y\n' not in cfg, name
     assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-wakeirq"\n' in cfg

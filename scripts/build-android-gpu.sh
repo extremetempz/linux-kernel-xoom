@@ -27,7 +27,8 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  displaypm) defconfig=wingray_android44_displaypm_defconfig; dt=tegra20-motorola-wingray-android44-displaypm;;
  displaydc) defconfig=wingray_android44_displaydc_defconfig; dt=tegra20-motorola-wingray-android44-displaypm;;
  wakeirq) defconfig=wingray_android44_wakeirq_defconfig; dt=tegra20-motorola-wingray-android44-wakeirq;;
- *) echo 'Choose fbmap, bluetooth, battery, displaypm, displaydc or wakeirq.' >&2; exit 1;;
+ wakeirqbl) defconfig=wingray_android44_wakeirqbl_defconfig; dt=tegra20-motorola-wingray-android44-wakeirq;;
+ *) echo 'Choose fbmap, bluetooth, battery, displaypm, displaydc, wakeirq or wakeirqbl.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
 # Kconfig orders NETDEVICES before the NET symbol in this tree; force the
@@ -42,15 +43,18 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  displaydc|wakeirq)
   grep -qx 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y' "$build/out/.config" || { echo 'Apply patch 0151 to the donor first.' >&2; exit 1; };;
 esac
-if [ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq ]; then
+if [ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq ] || [ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl ]; then
  grep -qx 'CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y' "$build/out/.config" || { echo 'Apply patch 0152 to the donor first.' >&2; exit 1; }
  ! grep -qx 'CONFIG_SUSPEND=y' "$build/out/.config" || { echo 'Wake IRQ test must remain awake-only.' >&2; exit 1; }
+ if [ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl ]; then
+  ! grep -qx 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y' "$build/out/.config" || { echo 'wakeirqbl must not enable DC resume.' >&2; exit 1; }
+ fi
 fi
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"
 done
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl ]]; then
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/build-display-lights.sh"
 fi
 make "${args[@]}" -j"${JOBS:-4}" modules

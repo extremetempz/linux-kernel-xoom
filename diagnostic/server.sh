@@ -5,6 +5,7 @@ while IFS= read -r -n 80 request; do
  case "$request" in
   REPORT\ *) verb=REPORT; nonce=${request#REPORT } ;;
   FBTEST\ *) verb=FBTEST; nonce=${request#FBTEST } ;;
+  PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
   PING\ *) verb=PING; nonce=${request#PING } ;;
   *) continue ;;
  esac
@@ -12,6 +13,27 @@ while IFS= read -r -n 80 request; do
  case "$nonce" in *[!0123456789abcdef]*) continue ;; esac
  if [ "$verb" = PING ]; then
   /bin/busybox printf 'XOOM_READY_V2 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = PSTORE ]; then
+  if [ ! -x /bin/pstore-report ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s PSTORE_MISSING\n' "$nonce"
+   continue
+  fi
+  /bin/busybox sh /bin/pstore-report > /run/pstore-report.txt 2>&1
+  rc=$?
+  size=$(/bin/busybox wc -c < /run/pstore-report.txt)
+  size=$((size + 0))
+  if [ "$rc" -ne 0 ] || [ "$size" -le 0 ] || [ "$size" -gt 524288 ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s PSTORE_FAILED\n' "$nonce"
+   continue
+  fi
+  checksum=$(/bin/busybox sha256sum /run/pstore-report.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/pstore-report.txt > /run/pstore-report.b64 || continue
+  /bin/busybox printf 'XOOM_PSTORE_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/pstore-report.b64
+  /bin/busybox printf '\nXOOM_PSTORE_END_V1 %s\n' "$nonce"
   continue
  fi
  if [ "$verb" = FBTEST ]; then

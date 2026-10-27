@@ -28,6 +28,32 @@ it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
 with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
+**IRQ prerequisite:** the isolated IRQ + backlight-only profile **passed
+hardware validation**: LIC parent, domain index 23, real ON events, zero
+errors, no polling, and repeated backlight off/on with `dc=1`. Pstore is empty
+because the ramoops DT binding lacks a memory-region. The full wakeirq failure
+is narrowed to the DC/candidate-81 path. See
+[IRQ result](docs/suspend-wake-82-backlight-result.md).
+
+**Suspend prep isolation:** the full IRQ profile failed on hardware. A new
+experimental IRQ + backlight-only profile keeps the CPCAP ON IRQ but removes
+candidate 81 DC resume; it also adds a fixed pstore/previous-console snapshot.
+It is built and offline-tested but not hardware-validated. See
+[IRQ + backlight profile](docs/suspend-wake-82-backlight.md). Do not enable
+suspend.
+
+**Suspend prep:** the awake-only IRQ profile **failed hardware testing**:
+turning the screen off lost wake and the USB diagnostic connection; a reboot
+recovered it, and the failure repeated. No log was captured. Use Test 5 and do
+not attempt suspend. See
+[the failure record](docs/suspend-wake-82-hardware-failure.md).
+
+**Suspend prep:** an awake-only IRQ profile is built and offline-tested:
+CPCAP ON is nested through regmap/LIC with polling removed, candidate 81
+display code preserved, and PM/SUSPEND still disabled. Hardware IRQ
+validation is pending. See
+[the suspend-prep review](docs/suspend-wake-82-review.md).
+
 **Display power:** candidate 81 is now hardware-validated for display
 off/on: native mode retained, all windows restored, flips serialized, and no
 scan line. Test 5 backlight-only remains the rollback baseline. Suspend, deep
