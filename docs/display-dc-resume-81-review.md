@@ -1,7 +1,9 @@
-# Candidate 81 review — software verification
+# Candidate 81 review — software verification and hardware result
 
-Reviewed merged main `e7dc91c` against Test 5 `e257af5`. No device operation
-or flash was performed.
+Reviewed merged main `e7dc91c` against Test 5 `e257af5`. The candidate was
+later flashed and the operator reports all display power off/on behaviour
+working, with no scan line. See
+[hardware result](display-dc-resume-81-result.md).
 
 ## The three claimed mismatches are real
 

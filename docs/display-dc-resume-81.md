@@ -1,4 +1,4 @@
-# DC resume candidate 81 — built, not flashed, hardware-unverified
+# DC resume candidate 81 — hardware-validated display resume
 
 Reviewed main `13c2ff4`, especially `d79b516`, `7373da6`, `e257af5` and
 the private FBTEST3/Test 5 reports. Test 5 remains the accepted backlight-only
@@ -87,10 +87,11 @@ XOOM_IMAGE_DIR="$PWD/artifacts/dc81-new-ready" \
 bash scripts/build-android-gpu.sh
 ```
 
-Prepared locally: `artifacts/dc81-final-ready/wingray-android44-gpu.img`.
-Size 4,149,248 bytes. SHA256:
-`70bb707d84a0d47a75cdcd374a101e52e1637e4d444257504aa89213b3e11398`.
-Kernel source commit `9324d415`; reproducible source change is patch 0151.
+Reviewed build: `artifacts/dc81-review-ready/wingray-android44-gpu.img`.
+Size 4,147,200 bytes. SHA256:
+`e02c7c41f5e95ed3f8155ce7d1761e355b98b0df4931fec7cedf08f2c71dc1ea`.
+Kernel source includes patch 0151 with the duplicate `CONFIG_SUSPEND` line
+removed; the documented `70bb707d…` hash was not reproducible as merged.
 The runtime contains the final diagnostics and matched built-in archive.
 
 Passed: full ARM zImage/DT/module/runtime/image build; inherited GPU/DT gates;
