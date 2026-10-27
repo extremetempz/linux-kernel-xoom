@@ -1,5 +1,11 @@
 # Component status — 26 October 2026
 
+**Suspend preparation 82 — built, not hardware-tested:** A separate `wakeirq`
+profile replaces key polling with a managed normal-domain ON IRQ and routes
+the same PMU interrupt through Tegra LIC. The tested candidate 81 and Test 5
+profiles remain intact. Suspend/deep sleep is still disabled; first validate
+awake IRQ delivery and absence of a storm. See [build and staged gates](docs/suspend-wake-82.md).
+
 **Bluetooth — hardware-tested (Image 75b):** The opt-in awake-only
 UARTC/rfkill profile paired and connected a Sony WH-1000XM5 headset while
 Wi-Fi stayed connected. Setup waits for UART, rfkill, HAL and firmware,
