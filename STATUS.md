@@ -276,3 +276,12 @@ reports `RAMOOPS_BOUND`, read-only pstore mounted, and the intended
 boot UUID is 5a938e4d-83e4-4bdb-a8c5-1370ef46fa72; pstore is empty initially,
 as expected. Warm-reset retention is still pending. Do not enable DC or
 suspend until the previous-boot marker is recovered.
+
+
+**Retained console 83 — retention partial, one corrupted marker byte:** A
+warm reset preserved `console-ramoops-0` (78,329 bytes) and the boot ID
+changed from `5a938e4d-…` to `64f4ed82-…`. The old marker was retained as
+`5a9s8e4d-…`; `s` is not valid UUID hex, so the record is not bit-exact.
+Ramoops binding/mount are correct, but strict retention validation fails until
+a second warm reset shows whether this byte corruption is reproducible. Do not
+enable DC or suspend.

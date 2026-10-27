@@ -90,3 +90,35 @@ RAMOOPS_PARAM pmsg_size 131072
 `ramoops` now binds and the parameters match the intended layout. The pstore
 directory is empty on this first valid boot, which is expected. Retention
 across a warm reset is the remaining gate.
+
+## Warm-reset retention result (partial)
+
+The first warm reset preserved the previous console:
+
+```text
+CURRENT_BOOT_ID 64f4ed82-2568-4b16-8f43-c484eefb94bd
+PSTORE_FILE /sys/fs/pstore/console-ramoops-0
+PSTORE_BYTES original=78329 captured=78329
+```
+
+The old record contains the previous boot marker, but with one corrupted
+character:
+
+```text
+5a9s8e4d-83e4-4bdb-a8c5-1370ef46fa72
+```
+
+The first boot reported:
+
+```text
+5a938e4d-83e4-4bdb-a8c5-1370ef46fa72
+```
+
+`s` is not a valid UUID hex digit, so this is not a reporting typo. The
+ramoops backend and mount are correct, boot IDs differ, and the previous
+console survived, but the retained record is **not bit-identical**. Strict
+retention validation therefore fails for now; determine whether the byte
+corruption is reproducible with another warm reset before trusting pstore as
+the sole failure log.
+
+No DC or suspend enablement follows from this result.
