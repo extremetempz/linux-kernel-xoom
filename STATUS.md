@@ -219,3 +219,12 @@ disabled in that profile); either the new LIC/regmap ON path or the inherited
 candidate 81 DC resume is implicated. Do not reflash wakeirq and do not
 attempt suspend. Restore Test 5 backlight-only. See
 [suspend-prep failure](docs/suspend-wake-82-hardware-failure.md).
+
+
+**Suspend prep isolation — built, hardware-unverified:** New `wakeirqbl`
+profile keeps CPCAP ON IRQ-only (LIC, domain 23, no polling) but removes the
+candidate 81 DC resume path, leaving backlight-only display. PM/SUSPEND remain
+disabled. Image `7219443f7bfa2caf6be935ecb08162e7c05ef7e3988e5bf385890ecb07317f09`
+(4,147,200 bytes) includes fixed read-only PSTORE capture. No hardware test
+has been run; Test 5 remains rollback. See
+[IRQ + backlight profile](docs/suspend-wake-82-backlight.md).

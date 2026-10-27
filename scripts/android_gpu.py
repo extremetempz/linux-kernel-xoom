@@ -25,7 +25,7 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
   validate_display_power_artifacts(p)
  if wakeirq:
   from wakeirq_profile import validate_wakeirq_artifacts
-  validate_wakeirq_artifacts(p)
+  validate_wakeirq_artifacts(p, require_dc='CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in config)
  if require_framebuffer_translation:assert corrected,'Known failed image59 has no fbmem bus translation'
  a=parse_dtb((p/'tegra20-motorola-wingray-gpu-test.dtb').read_bytes());b=parse_dtb((p/(name+'.dtb')).read_bytes())
  root='/host1x@50000000/dc@54200000'

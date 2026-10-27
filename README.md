@@ -28,6 +28,13 @@ it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
 with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
+**Suspend prep isolation:** the full IRQ profile failed on hardware. A new
+experimental IRQ + backlight-only profile keeps the CPCAP ON IRQ but removes
+candidate 81 DC resume; it also adds a fixed pstore/previous-console snapshot.
+It is built and offline-tested but not hardware-validated. See
+[IRQ + backlight profile](docs/suspend-wake-82-backlight.md). Do not enable
+suspend.
+
 **Suspend prep:** the awake-only IRQ profile **failed hardware testing**:
 turning the screen off lost wake and the USB diagnostic connection; a reboot
 recovered it, and the failure repeated. No log was captured. Use Test 5 and do

@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from wakeirq_profile import validate_wakeirq_artifacts
 
 p = Path(sys.argv[1])
-validate_wakeirq_artifacts(p)
+validate_wakeirq_artifacts(p, require_dc=True)
 with tempfile.TemporaryDirectory() as directory:
     q = Path(directory)
     for name in ('kernel.config', 'tegra20-motorola-wingray-android44-displaypm.dtb',
@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory() as directory:
     for option in ('PM', 'SUSPEND', 'CPU_FREQ', 'REGULATOR_CPCAP'):
         (q / 'kernel.config').write_text(original + '\nCONFIG_' + option + '=y\n')
         try:
-            validate_wakeirq_artifacts(q)
+            validate_wakeirq_artifacts(q, require_dc=True)
         except AssertionError:
             pass
         else:
@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory() as directory:
     for option in ('MFD_CPCAP_WINGRAY_IRQ_TEST', 'FB_TEGRA_WINGRAY_DC_RESUME_TEST'):
         (q / 'kernel.config').write_text(original.replace('CONFIG_' + option + '=y\n', ''))
         try:
-            validate_wakeirq_artifacts(q)
+            validate_wakeirq_artifacts(q, require_dc=True)
         except AssertionError:
             pass
         else:
