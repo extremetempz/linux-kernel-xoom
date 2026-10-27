@@ -285,3 +285,12 @@ changed from `5a938e4d-…` to `64f4ed82-…`. The old marker was retained as
 Ramoops binding/mount are correct, but strict retention validation fails until
 a second warm reset shows whether this byte corruption is reproducible. Do not
 enable DC or suspend.
+
+
+**Capture validator fixed for retained pstore:** normal trace captures now
+accept the fixed `/system/etc/wifi`, `/system/vendor/firmware`,
+`/system/lib/modules` RAM overlays and require `/sys/fs/pstore` to be a
+read-only pstore mount. The previously failed report re-validates as
+`geometry_matches_reference`. The report still shows boot ID `64f4ed82…`,
+unchanged from the prior capture, so it does not provide a second warm-reset
+retention sample.

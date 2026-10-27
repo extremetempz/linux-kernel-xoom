@@ -122,3 +122,26 @@ corruption is reproducible with another warm reset before trusting pstore as
 the sole failure log.
 
 No DC or suspend enablement follows from this result.
+
+
+## Normal-report traceback
+
+The normal capture did produce a valid report (`report_integrity=verified`)
+but Python exited because the storage validator still rejected two existing
+RAM overlays and the new read-only pstore mount. The mounts are expected:
+
+```text
+tmpfs /system/etc/wifi
+tmpfs /system/vendor/firmware
+tmpfs /system/lib/modules
+pstore /sys/fs/pstore
+```
+
+The validator now accepts those fixed targets, with pstore required to be
+read-only. Re-validating the captured payload returns
+`geometry_matches_reference`. This was a tooling failure, not a kernel or
+device failure.
+
+The report also shows `CURRENT_BOOT_ID 64f4ed82-...`, the same boot as the
+previous report. No new boot occurred, so it cannot be used as the second
+warm-reset retention sample.
