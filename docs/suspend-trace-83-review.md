@@ -70,3 +70,23 @@ same image, and verify the previous boot marker in an old console record.
 The PR's documented `6e8d2b08…` and the earlier `9d7e3579…` hash are both
 superseded by this fixed build. Test 5 remains the rollback. Do not enable
 DC or suspend before the retention gate passes.
+
+## Hardware binding result (pre-reset)
+
+The fixed image was booted. The first PSTORE snapshot reports:
+
+```text
+CURRENT_BOOT_ID 5a938e4d-83e4-4bdb-a8c5-1370ef46fa72
+PSTORE_MOUNTED_yes
+PSTORE_MOUNT_RC 0
+RAMOOPS_BOUND /sys/bus/platform/drivers/ramoops/1ff00000.ramoops
+RAMOOPS_PARAM mem_address 535822336   (0x1ff00000)
+RAMOOPS_PARAM mem_size 1048576
+RAMOOPS_PARAM record_size 131072
+RAMOOPS_PARAM console_size 524288
+RAMOOPS_PARAM pmsg_size 131072
+```
+
+`ramoops` now binds and the parameters match the intended layout. The pstore
+directory is empty on this first valid boot, which is expected. Retention
+across a warm reset is the remaining gate.

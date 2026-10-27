@@ -268,3 +268,11 @@ sizes to `/bits/ 64`; the compiled DT now has two-cell 64-bit values. The
 corrected image `42a2699c9f380a7fce50d2b3348780a9a588a9b3e28a23025168350c4186edfd`
 (4,149,248 bytes) builds and passes offline tests. Warm-reset retention is
 still pending. See [trace review](docs/suspend-trace-83-review.md).
+
+
+**Retained console 83 — ramoops binds on hardware:** The fixed trace image
+reports `RAMOOPS_BOUND`, read-only pstore mounted, and the intended
+0x1ff00000/1 MiB layout with 128K records, 512K console and 128K pmsg. First
+boot UUID is 5a938e4d-83e4-4bdb-a8c5-1370ef46fa72; pstore is empty initially,
+as expected. Warm-reset retention is still pending. Do not enable DC or
+suspend until the previous-boot marker is recovered.
