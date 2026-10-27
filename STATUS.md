@@ -198,3 +198,14 @@ scanout windows and serializes flips. Test 5 (`02ab70c2…`) remains the
 known-good backlight-only rollback. Suspend, automatic suspend, LP1/LP0 and
 DVFS remain disabled and untested. See
 [candidate 81 result](docs/display-dc-resume-81-result.md).
+
+
+**Suspend prep 82 — awake IRQ profile built, hardware-unverified:** CPCAP ON
+is registered through the normal regmap nested domain (domain index 23),
+routed through Tegra LIC, with the 20 ms polling worker absent. The profile
+keeps candidate 81 display code and PM/SUSPEND disabled. Offline handler,
+DT/config and regression tests pass; the reviewed image is
+`f6ab7071972890c6789aafa501653230739f6f5ae60c8e79a48fa7f8740ec3cb`
+(4,149,248 bytes). The PR's documented `c0a7f7b6…` was not reproduced. No
+hardware IRQ or wake test has been run. See
+[suspend-prep review](docs/suspend-wake-82-review.md).

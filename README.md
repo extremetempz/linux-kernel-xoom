@@ -28,6 +28,12 @@ it. The rebuilt diagnostic uses the proven sysfs blank route in the lights HAL,
 with opt-in write permission. See
 [FBTEST diagnostic](android-display-80-fbtest.md). It is **not flashed**.
 
+**Suspend prep:** an awake-only IRQ profile is built and offline-tested:
+CPCAP ON is nested through regmap/LIC with polling removed, candidate 81
+display code preserved, and PM/SUSPEND still disabled. Hardware IRQ
+validation is pending. See
+[the suspend-prep review](docs/suspend-wake-82-review.md).
+
 **Display power:** candidate 81 is now hardware-validated for display
 off/on: native mode retained, all windows restored, flips serialized, and no
 scan line. Test 5 backlight-only remains the rollback baseline. Suspend, deep
