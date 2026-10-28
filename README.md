@@ -1,10 +1,13 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
-**Current power-management gate:** IRQ-only CPCAP/LIC plus backlight-only
-cycles are hardware-validated. The combined DC profile still has an
-unresolved hang. [Retained-console candidate 83](docs/suspend-trace-83.md)
-fixes log plumbing for a warm-reset retention test; DC shutdown and suspend
-remain disabled in that candidate. Older chronological notes follow.
+**Current power-management gate (28 October):** IRQ-only CPCAP/LIC plus
+backlight-only cycles are hardware-validated. The combined DC hang is still
+unresolved. PR #23 validates corrected ramoops binding, but its retained
+marker has a one-bit discrepancy despite valid serial hashes. Separate
+[ECC candidate 84](docs/suspend-retention-84.md) is built and checked offline;
+two manual warm-reset integrity checks are required next. Nothing was flashed
+or reset. DC shutdown and suspend remain disabled. Older chronological notes
+follow; the linked candidate document is the current logging gate.
 
 **Latest physical result, 26 October 2026:** Image 73k has working Wi-Fi on
 Android 4.4.4 / Linux 4.4.147. The native 4.4 `bcmdhd` driver loads after
