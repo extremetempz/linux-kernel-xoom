@@ -12,7 +12,7 @@ from retained_console_profile import (validate_retained_console_artifacts,
 from legacy_resources import parse_dtb
 from wakeirq_profile import validate_wakeirq_artifacts
 p = Path(sys.argv[1])
-validate_wakeirq_artifacts(p, require_dc=False)
+validate_wakeirq_artifacts(p, require_dc='CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST=y\n' in (p/'kernel.config').read_text())
 validate_retained_console_artifacts(p)
 a = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirq.dtb').read_bytes())
 b = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirqtrace.dtb').read_bytes())
