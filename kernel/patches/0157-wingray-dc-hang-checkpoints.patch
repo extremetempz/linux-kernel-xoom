@@ -1,0 +1,695 @@
+From 281223a0cfbfbb0c025f5691b5831de71a2e6908 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 28 Oct 2026 17:12:55 +1100
+Subject: [PATCH] video: add manually armed Wingray DC hang checkpoints with
+ ECC recovery
+
+---
+ .../wingray_android44_wakeirqdc_defconfig     | 229 ++++++++++++++++++
+ drivers/staging/tegra/video/Kconfig           |  11 +
+ drivers/staging/tegra/video/dc/dc.c           |  55 +++++
+ .../staging/tegra/video/dc/wingray_trace.h    |  22 ++
+ drivers/staging/tegra/video/fb.c              |  82 ++++++-
+ 5 files changed, 398 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm/configs/wingray_android44_wakeirqdc_defconfig
+ create mode 100644 drivers/staging/tegra/video/dc/wingray_trace.h
+
+diff --git a/arch/arm/configs/wingray_android44_wakeirqdc_defconfig b/arch/arm/configs/wingray_android44_wakeirqdc_defconfig
+new file mode 100644
+index 00000000..97cb534f
+--- /dev/null
++++ b/arch/arm/configs/wingray_android44_wakeirqdc_defconfig
+@@ -0,0 +1,229 @@
++CONFIG_LOCALVERSION="-wingray-android44-gpu"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_SMP_ON_UP=y
++CONFIG_NR_CPUS=2
++# CONFIG_HOTPLUG_CPU is not set
++CONFIG_CACHE_L2X0=y
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++# CONFIG_SUSPEND is not set
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-wakeirqecc"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0 maxcpus=2"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_BLOCK=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_EXT4_FS=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_NET=y
++CONFIG_UNIX=y
++CONFIG_INET=y
++CONFIG_IPV6=y
++CONFIG_WIRELESS=y
++# Only the factory-preserving P3 maXTouch input path is added.
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++# CONFIG_TOUCHSCREEN_MXT1386 is not set
++# CONFIG_SAMSUNG_INPUT is not set
++# CONFIG_INPUT_LEDS is not set
++# CONFIG_INPUT_MOUSEDEV is not set
++# CONFIG_INPUT_JOYDEV is not set
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_GPIO=y
++# CONFIG_INPUT_MOUSE is not set
++# CONFIG_INPUT_JOYSTICK is not set
++# CONFIG_INPUT_TABLET is not set
++# CONFIG_INPUT_MISC is not set
++# CONFIG_SERIO is not set
++# CONFIG_GAMEPORT is not set
++# CONFIG_HID is not set
++# CONFIG_USB_HID is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_BACKLIGHT_LP855X=y
++
++# CONFIG_DRM is not set
++# CONFIG_DRM_TEGRA is not set
++# CONFIG_DRM_TEGRA_FBDEV is not set
++# CONFIG_DRM_PANEL_SIMPLE is not set
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=16
++
++# Installed Android 4.4 userspace ABI; separate from the future Oreo ABI.
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDER_DEVICES="binder"
++CONFIG_ANDROID_BINDER_IPC_32BIT=y
++CONFIG_STAGING=y
++CONFIG_ASHMEM=y
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++CONFIG_ANDROID_LOW_MEMORY_KILLER=y
++CONFIG_SYNC=y
++# CONFIG_SW_SYNC is not set
++CONFIG_CGROUPS=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_FAIR_GROUP_SCHED=y
++CONFIG_FUSE_FS=y
++CONFIG_INOTIFY_USER=y
++# CONFIG_MOTOROLA_XOOM_BOOT_TRACE is not set
++
++# Isolated Decatf nvmap backing-ownership experiment; no engine or DC access.
++CONFIG_MEMORY=y
++# CONFIG_TEGRA20_MC is not set
++# CONFIG_TEGRA_HOST1X is not set
++# CONFIG_IOMMU_SUPPORT is not set
++# CONFIG_IOMMU_API is not set
++# CONFIG_TEGRA_IOMMU_GART is not set
++CONFIG_TEGRA_DOWNSTREAM=y
++CONFIG_TEGRA_NVMAP=y
++# CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES is not set
++# CONFIG_TEGRA_RPC is not set
++# CONFIG_TEGRA_AVP is not set
++# CONFIG_TEGRA_AVP_KERNEL_ON_MMU is not set
++# CONFIG_TEGRA_MEDIASERVER is not set
++# CONFIG_TEGRA_IOVMM_GART is not set
++# CONFIG_TEGRA_IOVMM is not set
++CONFIG_TEGRA_GRHOST=y
++# CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST is not set
++CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y
++CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT=y
++CONFIG_TEGRA_SEMA_STANDALONE=y
++CONFIG_FB=y
++CONFIG_TEGRA_DC=y
++CONFIG_FB_TEGRA=y
++# CONFIG_TEGRA_DC_EXTENSIONS is not set
++# CONFIG_TEGRA_OVERLAY is not set
++CONFIG_FB_TEGRA_WINGRAY_LEGACY=y
++# CONFIG_FB_TEGRA_CMC623 is not set
++# CONFIG_NVMAP_ALLOW_SYSMEM is not set
++# CONFIG_NVMAP_RECLAIM_UNPINNED_VM is not set
++# CONFIG_NVMAP_HIGHMEM_ONLY is not set
++# CONFIG_NVMAP_CONVERT_CARVEOUT_TO_IOVMM is not set
++# CONFIG_NVMAP_CARVEOUT_KILLER is not set
++# CONFIG_NVMAP_CARVEOUT_COMPACTOR is not set
++# CONFIG_NVMAP_PAGE_POOLS is not set
++
++# Reserved-RAM startup localization only; no userspace GPU submission.
++CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0060
++
++# Bypass the externally loaded large initrd; RAM runtime stays private.
++CONFIG_INITRAMFS_SOURCE="usr/wingray-android-runtime.cpio"
++
++# Motorola CPCAP PMIC transport and IRQ core; power key only.
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_MFD_CPCAP=y
++
++# BCM4329 Wi-Fi bring-up: SDIO fullmac plus legacy WEXT for Android.
++CONFIG_NETDEVICES=y
++CONFIG_WLAN=y
++CONFIG_CFG80211=y
++CONFIG_CFG80211_WEXT=y
++CONFIG_RFKILL=y
++
++
++
++# Xoom bcmdhd 4329 module, loaded after /system is available.
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++
++# Native 4.4 bcmdhd, loaded after /system is available.
++CONFIG_BROADCOM_WIFI=y
++CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
++CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
++
++# Android Bluedroid owns HCI over ttyHS2, not Linux HCI line discipline.
++CONFIG_SERIAL_TEGRA=y
++CONFIG_RFKILL_WINGRAY_BT=y
++# CONFIG_BT is not set
++
++# Opt-in P3 input-only battery monitor; preserve all fixed-clock controls.
++CONFIG_POWER_SUPPLY=y
++CONFIG_W1=y
++CONFIG_W1_MASTER_TEGRA_WINGRAY=y
++CONFIG_W1_SLAVE_DS2781=y
++# CONFIG_W1_CON is not set
++# CONFIG_BATTERY_DS2781 is not set
++CONFIG_BATTERY_WINGRAY_MONITOR=y
++
++CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y
++# CONFIG_PM is not set
++
++
++CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y
++
++# Separate manually armed DC hang localization; identical ECC memory layout.
++CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y
++CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST=y
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index a469d9ca..58015e2c 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -290,3 +290,14 @@ config FB_TEGRA_WINGRAY_DISPLAY_PM
+  help
+    Explicit LP8550 backlight binding and synchronous DC blank/unblank.
+    Opt-in hardware test only. Does not enable CPU/SoC suspend.
++
++config FB_TEGRA_WINGRAY_DC_TRACE_TEST
++	bool "Manually armed Wingray DC hang checkpoints with retained console"
++	depends on FB_TEGRA_WINGRAY_DC_RESUME_TEST && MFD_CPCAP_WINGRAY_IRQ_TEST
++	depends on PSTORE_RAM=y && PSTORE_CONSOLE
++	default n
++	help
++	  Separate awake-only diagnostic profile. Boot with backlight-only
++	  blanking; root must arm wingray_dc_test while DC is on before a DC
++	  cycle. Record blocking operation boundaries through existing ramoops.
++	  Does not change clocks, rails, IRQ routing, timing or SoC suspend.
+diff --git a/drivers/staging/tegra/video/dc/dc.c b/drivers/staging/tegra/video/dc/dc.c
+index 2522ac71..53920401 100644
+--- a/drivers/staging/tegra/video/dc/dc.c
++++ b/drivers/staging/tegra/video/dc/dc.c
+@@ -62,6 +62,7 @@
+ #include "dc_reg.h"
+ #include "dc_config.h"
+ #include "dc_priv.h"
++#include "wingray_trace.h"
+ #include "overlay.h"
+ #include "nvsd.h"
+ 
+@@ -1518,28 +1519,42 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc, bool no_reset)
+ 
+ 	if (dc->out->enable)
+ 		dc->out->enable();
++	wingray_dc_checkpoint(dc, "panel.enable.begin", 0);
+ 	panel_result = tegra_dc_panel_enable_common(dc);
++	wingray_dc_checkpoint(dc, "panel.enable.end", panel_result);
+ 	if (panel_result < 0)
+ 		return false;
+ 	if (panel_result)
+ 		msleep(dc->out->lvds_to_bl_timeout);
+ 
++	wingray_dc_checkpoint(dc, "clock.setup.begin", 0);
+ 	tegra_dc_setup_clk(dc, dc->clk);
++	wingray_dc_checkpoint(dc, "clock.setup.end", 0);
++	wingray_dc_checkpoint(dc, "clock.enable.begin", 0);
+ 	tegra_dc_clk_enable(dc);
++	wingray_dc_checkpoint(dc, "clock.enable.end", 0);
+ 
+ 	/* Only the existing Samsung handoff path may skip reset assertion. */
+ 	if (!IS_ENABLED(CONFIG_MACH_SAMSUNG_VARIATION_TEGRA) || !no_reset) {
+ 		reset_control_assert(dc->ndev->rst);
+ 		usleep_range(1000, 2000);
+ 	}
++	wingray_dc_checkpoint(dc, "reset.deassert.begin", 0);
+ 	reset_control_deassert(dc->ndev->rst);
++	wingray_dc_checkpoint(dc, "reset.deassert.end", 0);
+ 
+ 	/* do not accept interrupts during initialization */
++	wingray_dc_checkpoint(dc, "enable.irq.mask.begin", 0);
+ 	tegra_dc_writel(dc, 0, DC_CMD_INT_MASK);
++	wingray_dc_checkpoint(dc, "enable.irq.mask.end", 0);
+ 
++	wingray_dc_checkpoint(dc, "enable.irq.begin", 0);
+ 	enable_dc_irq(dc->irq);
++	wingray_dc_checkpoint(dc, "enable.irq.end", dc->irq);
+ 
++	wingray_dc_checkpoint(dc, "controller.init.begin", 0);
+ 	failed_init = tegra_dc_init(dc);
++	wingray_dc_checkpoint(dc, "controller.init.end", failed_init);
+ 	if (failed_init) {
+ 		tegra_dc_writel(dc, 0, DC_CMD_INT_MASK);
+ 		disable_dc_irq(dc->irq);
+@@ -1551,8 +1566,10 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc, bool no_reset)
+ 		return false;
+ 	}
+ 
++	wingray_dc_checkpoint(dc, "rgb.enable.begin", 0);
+ 	if (dc->out_ops && dc->out_ops->enable)
+ 		dc->out_ops->enable(dc);
++	wingray_dc_checkpoint(dc, "rgb.enable.end", 0);
+ 
+ 	/* force a full blending update */
+ 	dc->blend.z[0] = -1;
+@@ -1561,8 +1578,10 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc, bool no_reset)
+ 
+ 	trace_printk("%s:enable\n", dc->ndev->name);
+ 
++	wingray_dc_checkpoint(dc, "controller.activate.begin", 0);
+ 	tegra_dc_writel(dc, GENERAL_UPDATE, DC_CMD_STATE_CONTROL);
+ 	tegra_dc_writel(dc, GENERAL_ACT_REQ, DC_CMD_STATE_CONTROL);
++	wingray_dc_checkpoint(dc, "controller.activate.end", 0);
+ 
+ 	if (dc->out->postpoweron)
+ 		dc->out->postpoweron();
+@@ -1686,7 +1705,9 @@ static bool _tegra_dc_enable(struct tegra_dc *dc)
+ 	if (!dc->out)
+ 		return false;
+ 
++	wingray_dc_checkpoint(dc, "host.busy.begin", 0);
+ 	tegra_dc_io_start(dc);
++	wingray_dc_checkpoint(dc, "host.busy.end", 0);
+ 
+ 	if (!_tegra_dc_controller_enable(dc, false)) {
+ 		tegra_dc_io_end(dc);
+@@ -1697,14 +1718,20 @@ static bool _tegra_dc_enable(struct tegra_dc *dc)
+ 
+ void tegra_dc_enable(struct tegra_dc *dc)
+ {
++	wingray_dc_checkpoint(dc, "enable.cancel.begin", 0);
+ 	cancel_delayed_work_sync(&dc->disable_work);
++	wingray_dc_checkpoint(dc, "enable.cancel.end", 0);
+ 
++	wingray_dc_checkpoint(dc, "enable.lock.begin", 0);
+ 	mutex_lock(&dc->lock);
++	wingray_dc_checkpoint(dc, "enable.lock.end", 0);
+ 
+ 	if (!dc->enabled)
+ 		dc->enabled = _tegra_dc_enable(dc);
+ 
++	wingray_dc_checkpoint(dc, "enable.unlock.begin", 0);
+ 	mutex_unlock(&dc->lock);
++	wingray_dc_checkpoint(dc, "enable.unlock.end", dc->enabled);
+ 	print_mode_info(dc, dc->mode);
+ }
+ 
+@@ -1715,19 +1742,31 @@ static void _tegra_dc_controller_disable(struct tegra_dc *dc)
+ 	if (dc->out && dc->out->prepoweroff)
+ 		dc->out->prepoweroff();
+ 
++	wingray_dc_checkpoint(dc, "rgb.disable.begin", 0);
+ 	if (dc->out_ops && dc->out_ops->disable)
+ 		dc->out_ops->disable(dc);
++	wingray_dc_checkpoint(dc, "rgb.disable.end", 0);
+ 
++	wingray_dc_checkpoint(dc, "disable.irq.mask.begin", 0);
+ 	tegra_dc_writel(dc, 0, DC_CMD_INT_MASK);
+ 	tegra_dc_writel(dc, 0, DC_CMD_INT_ENABLE);
++	wingray_dc_checkpoint(dc, "disable.irq.mask.end", 0);
++	wingray_dc_checkpoint(dc, "disable.irq.begin", 0);
+ 	disable_irq(dc->irq);
++	wingray_dc_checkpoint(dc, "disable.irq.end", dc->irq);
+ 
++	wingray_dc_checkpoint(dc, "bandwidth.clear.begin", 0);
+ 	tegra_dc_clear_bandwidth(dc);
++	wingray_dc_checkpoint(dc, "bandwidth.clear.end", 0);
++	wingray_dc_checkpoint(dc, "clock.disable.begin", 0);
+ 	tegra_dc_clk_disable(dc);
++	wingray_dc_checkpoint(dc, "clock.disable.end", 0);
+ 
+ 	if (dc->out && dc->out->disable)
+ 		dc->out->disable();
++	wingray_dc_checkpoint(dc, "panel.disable.begin", 0);
+ 	tegra_dc_panel_disable_common(dc);
++	wingray_dc_checkpoint(dc, "panel.disable.end", 0);
+ 
+ 	for (i = 0; i < dc->n_windows; i++) {
+ 		struct tegra_dc_win *w = &dc->windows[i];
+@@ -1739,6 +1778,7 @@ static void _tegra_dc_controller_disable(struct tegra_dc *dc)
+ 		/* disable windows */
+ 		w->flags &= ~TEGRA_WIN_FLAG_ENABLED;
+ 
++		wingray_dc_checkpoint(dc, "syncpt.flush.begin", i);
+ 		/* flush any pending syncpt waits */
+ 		while (dc->syncpt[i].min < dc->syncpt[i].max) {
+ 			trace_printk("%s:syncpt flush id=%d\n", dc->ndev->name,
+@@ -1746,6 +1786,7 @@ static void _tegra_dc_controller_disable(struct tegra_dc *dc)
+ 			dc->syncpt[i].min++;
+ 			nvhost_syncpt_cpu_incr_ext(dc->ndev, dc->syncpt[i].id);
+ 		}
++		wingray_dc_checkpoint(dc, "syncpt.flush.end", i);
+ 	}
+ 	trace_printk("%s:disabled\n", dc->ndev->name);
+ }
+@@ -1805,12 +1846,20 @@ static void _tegra_dc_disable(struct tegra_dc *dc)
+ 		cancel_delayed_work_sync(&dc->one_shot_work);
+ 	}
+ 
++	wingray_dc_checkpoint(dc, "disable.hold.begin", 0);
+ 	tegra_dc_hold_dc_out(dc);
++	wingray_dc_checkpoint(dc, "disable.hold.end", 0);
+ 
++	wingray_dc_checkpoint(dc, "controller.disable.begin", 0);
+ 	_tegra_dc_controller_disable(dc);
++	wingray_dc_checkpoint(dc, "controller.disable.end", 0);
++	wingray_dc_checkpoint(dc, "host.idle.begin", 0);
+ 	tegra_dc_io_end(dc);
++	wingray_dc_checkpoint(dc, "host.idle.end", 0);
+ 
++	wingray_dc_checkpoint(dc, "disable.release.begin", 0);
+ 	tegra_dc_release_dc_out(dc);
++	wingray_dc_checkpoint(dc, "disable.release.end", 0);
+ 
+ 	if (dc->out->flags & TEGRA_DC_OUT_ONE_SHOT_MODE)
+ 		mutex_unlock(&dc->one_shot_lock);
+@@ -1821,9 +1870,13 @@ void tegra_dc_disable(struct tegra_dc *dc)
+ 	if (dc->overlay)
+ 		tegra_overlay_disable(dc->overlay);
+ 
++	wingray_dc_checkpoint(dc, "disable.extensions.begin", 0);
+ 	tegra_dc_ext_disable(dc->ext);
++	wingray_dc_checkpoint(dc, "disable.extensions.end", 0);
+ 
++	wingray_dc_checkpoint(dc, "disable.lock.begin", 0);
+ 	mutex_lock(&dc->lock);
++	wingray_dc_checkpoint(dc, "disable.lock.end", 0);
+ 
+ 	if (dc->enabled) {
+ 		dc->enabled = false;
+@@ -1834,7 +1887,9 @@ void tegra_dc_disable(struct tegra_dc *dc)
+ 	switch_set_state(&dc->modeset_switch, 0);
+ #endif
+ 
++	wingray_dc_checkpoint(dc, "disable.unlock.begin", 0);
+ 	mutex_unlock(&dc->lock);
++	wingray_dc_checkpoint(dc, "disable.unlock.end", 0);
+ 	print_mode_info(dc, dc->mode);
+ }
+ 
+diff --git a/drivers/staging/tegra/video/dc/wingray_trace.h b/drivers/staging/tegra/video/dc/wingray_trace.h
+new file mode 100644
+index 00000000..14d51b2e
+--- /dev/null
++++ b/drivers/staging/tegra/video/dc/wingray_trace.h
+@@ -0,0 +1,22 @@
++/* Opt-in process-context DC progress only. SPDX-License-Identifier: GPL-2.0 */
++#ifndef TEGRA_WINGRAY_DC_TRACE_H
++#define TEGRA_WINGRAY_DC_TRACE_H
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST
++#include <linux/of.h>
++#include <linux/sched.h>
++#include <linux/interrupt.h>
++static inline void wingray_dc_checkpoint(struct tegra_dc *dc,
++		const char *phase, int value)
++{
++	/* Never sample registers or clock providers here, particularly after
++	 * DC shutdown. No polling, spinlocks, new mappings or IRQ-path logging.
++	 * The existing console/ramoops path supplies retained ECC protection. */
++	if (in_interrupt() || !of_machine_is_compatible("motorola,wingray"))
++		return;
++	pr_info("WG_DC85 %s pid=%d enabled=%u value=%d\n", phase,
++		task_pid_nr(current), READ_ONCE(dc->enabled), value);
++}
++#else
++#define wingray_dc_checkpoint(dc, phase, value) do { } while (0)
++#endif
++#endif
+diff --git a/drivers/staging/tegra/video/fb.c b/drivers/staging/tegra/video/fb.c
+index 69da8a88..3a3fe643 100644
+--- a/drivers/staging/tegra/video/fb.c
++++ b/drivers/staging/tegra/video/fb.c
+@@ -46,6 +46,7 @@
+ #include "host/dev.h"
+ #include "nvmap/nvmap.h"
+ #include "dc/dc_priv.h"
++#include "dc/wingray_trace.h"
+ 
+ /* Pad pitch to 16-byte boundary. */
+ #define TEGRA_LINEAR_PITCH_ALIGNMENT 32
+@@ -69,12 +70,54 @@ struct tegra_fb_info {
+ #ifdef CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST
+ 	bool dc_blanked;
+ 	u32 dc_saved_flags[DC_N_WINDOWS];
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST
++	bool dc_trace_armed;
++#endif
+ #endif
+ #endif
+ };
+ 
+ #include "fb_legacy.h"
+ 
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST
++static ssize_t wingray_dc_test_show(struct device *dev,
++		struct device_attribute *attr, char *buf)
++{
++	struct fb_info *info = dev_get_drvdata(dev);
++	struct tegra_fb_info *fb = info->par;
++	return scnprintf(buf, PAGE_SIZE, "%u\n", READ_ONCE(fb->dc_trace_armed));
++}
++
++static ssize_t wingray_dc_test_store(struct device *dev,
++		struct device_attribute *attr, const char *buf, size_t count)
++{
++	struct fb_info *info = dev_get_drvdata(dev);
++	struct tegra_fb_info *fb = info->par;
++	bool armed;
++	int ret = kstrtobool(buf, &armed);
++	if (ret)
++		return ret;
++	/* Same ordering as fb blank: info->lock, then legacy_lock. No MMIO. */
++	if (!lock_fb_info(info))
++		return -ENODEV;
++	wingray_dc_checkpoint(fb->win->dc, "gate.lock.wait", armed);
++	mutex_lock(&fb->legacy_lock);
++	if (!fb->legacy_enabled || fb->legacy_dead || fb->legacy_poisoned ||
++	    fb->dc_blanked || !fb->win->dc->enabled) {
++		ret = -EBUSY;
++	} else {
++		WRITE_ONCE(fb->dc_trace_armed, armed);
++		ret = 0;
++	}
++	mutex_unlock(&fb->legacy_lock);
++	unlock_fb_info(info);
++	wingray_dc_checkpoint(fb->win->dc, "gate.done", ret ? ret : armed);
++	return ret ? ret : count;
++}
++static DEVICE_ATTR(wingray_dc_test, 0600, wingray_dc_test_show,
++		wingray_dc_test_store);
++#endif
++
+ /* palette array used by the fbcon */
+ static u32 pseudo_palette[16];
+ 
+@@ -311,8 +354,13 @@ static int tegra_fb_wingray_dc_blank(int blank, struct tegra_fb_info *fb)
+ 	unsigned long ref;
+ 	int i, ret = 0, sync = 0;
+ 
++	wingray_dc_checkpoint(dc, "fb.enter", blank);
++	wingray_dc_checkpoint(dc, "fb.cancel.begin", blank);
+ 	cancel_delayed_work_sync(&dc->disable_work);
++	wingray_dc_checkpoint(dc, "fb.cancel.end", blank);
++	wingray_dc_checkpoint(dc, "fb.lock.wait", blank);
+ 	mutex_lock(&fb->legacy_lock);
++	wingray_dc_checkpoint(dc, "fb.lock.acquired", blank);
+ 	if (!fb->legacy_enabled || fb->legacy_dead || fb->legacy_poisoned) {
+ 		ret = -EIO;
+ 		goto out;
+@@ -341,10 +389,14 @@ static int tegra_fb_wingray_dc_blank(int blank, struct tegra_fb_info *fb)
+ 			ret = -ENODATA;
+ 			goto out;
+ 		}
++		wingray_dc_checkpoint(dc, "fb.backlight.off.begin", mask);
+ 		ret = tegra_wingray_backlight_power(dc, FB_BLANK_POWERDOWN);
++		wingray_dc_checkpoint(dc, "fb.backlight.off.end", ret);
+ 		if (ret)
+ 			goto out;
++		wingray_dc_checkpoint(dc, "fb.disable.begin", mask);
+ 		tegra_dc_disable(dc); /* Clears ALL window enable flags. */
++		wingray_dc_checkpoint(dc, "fb.disable.end", mask);
+ 		fb->dc_blanked = true;
+ 		dev_info(&fb->ndev->dev,
+ 			 "Wingray DC test off: dc=%d saved=%x href=%d vref=%d\n",
+@@ -356,7 +408,9 @@ static int tegra_fb_wingray_dc_blank(int blank, struct tegra_fb_info *fb)
+ 		ret = tegra_wingray_backlight_power(dc, FB_BLANK_UNBLANK);
+ 		goto out;
+ 	}
++	wingray_dc_checkpoint(dc, "fb.enable.begin", 0);
+ 	tegra_dc_enable(dc);
++	wingray_dc_checkpoint(dc, "fb.enable.end", dc->enabled);
+ 	if (!dc->enabled) {
+ 		ret = -EIO;
+ 		goto fail;
+@@ -369,15 +423,20 @@ static int tegra_fb_wingray_dc_blank(int blank, struct tegra_fb_info *fb)
+ 		if (wins[i]->flags & TEGRA_WIN_FLAG_ENABLED)
+ 			mask |= BIT(i);
+ 	}
++	wingray_dc_checkpoint(dc, "fb.windows.begin", mask);
+ 	ret = tegra_dc_update_windows(wins, DC_N_WINDOWS);
++	wingray_dc_checkpoint(dc, "fb.windows.end", ret);
+ 	if (ret)
+ 		goto fail;
++	wingray_dc_checkpoint(dc, "fb.sync.begin", mask);
+ 	sync = tegra_dc_sync_windows(wins, DC_N_WINDOWS);
++	wingray_dc_checkpoint(dc, "fb.sync.end", sync);
+ 	if (sync <= 0) {
+ 		ret = sync ? sync : -ETIMEDOUT;
+ 		goto fail;
+ 	}
+ 	/* Read only while this driver has enabled the controller clock. */
++	wingray_dc_checkpoint(dc, "fb.readback.begin", mask);
+ 	ref = tegra_dc_readl(dc, DC_DISP_REF_TO_SYNC);
+ 	dev_info(&fb->ndev->dev,
+ 		 "Wingray DC test scanout: ref=%08lx command=%08lx clock=%08lx restored=%x sync=%d\n",
+@@ -388,7 +447,9 @@ static int tegra_fb_wingray_dc_blank(int blank, struct tegra_fb_info *fb)
+ 		ret = -EIO;
+ 		goto fail;
+ 	}
++	wingray_dc_checkpoint(dc, "fb.backlight.on.begin", mask);
+ 	ret = tegra_wingray_backlight_power(dc, FB_BLANK_UNBLANK);
++	wingray_dc_checkpoint(dc, "fb.backlight.on.end", ret);
+ 	if (ret)
+ 		goto fail;
+ 	fb->dc_blanked = false;
+@@ -400,17 +461,20 @@ static int tegra_fb_wingray_dc_blank(int blank, struct tegra_fb_info *fb)
+ fail:
+ 	/* Retain front pins and saved flags for a retry; never claim completion
+ 	 * or expose a half-restored frame. No automatic restart or rail toggle. */
++	wingray_dc_checkpoint(dc, "fb.rollback.begin", ret);
+ 	tegra_wingray_backlight_power(dc, FB_BLANK_POWERDOWN);
+ 	tegra_dc_disable(dc);
++	wingray_dc_checkpoint(dc, "fb.rollback.end", ret);
+ 	dev_err(&fb->ndev->dev, "Wingray DC test resume failed: %d sync=%d\n",
+ 		ret, sync);
+ out:
+ 	mutex_unlock(&fb->legacy_lock);
++	wingray_dc_checkpoint(dc, "fb.exit", ret);
+ 	return ret;
+ }
+ #endif
+ 
+-#ifndef CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST
++#if !defined(CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST) || defined(CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST)
+ /* Stage A/B only: backlight-only blank.  DC disable/enable was observed to
+  * leave the panel dark with a scan line after re-enable, so controller
+  * power-down is deliberately deferred until the panel power/reset sequence
+@@ -448,6 +512,10 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
+   if (blank < FB_BLANK_UNBLANK || blank > FB_BLANK_POWERDOWN)
+    return -EINVAL;
+ #ifdef CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST
++  if (!READ_ONCE(tegra_fb->dc_trace_armed))
++   return tegra_fb_wingray_blank(blank, tegra_fb);
++#endif
+   return tegra_fb_wingray_dc_blank(blank, tegra_fb);
+ #else
+   return tegra_fb_wingray_blank(blank, tegra_fb);
+@@ -919,6 +987,14 @@ struct tegra_fb_info *tegra_fb_register(struct nvhost_device *ndev,
+ 
+ 	tegra_fb->info = info;
+ 
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST
++	/* Zero-initialized gate stays closed if publishing the root-only
++	 * control fails. Keep boot usable rather than enabling DC implicitly. */
++	ret = device_create_file(info->dev, &dev_attr_wingray_dc_test);
++	if (ret)
++		dev_err(&ndev->dev, "DC test gate unavailable: %d\n", ret);
++#endif
++
+ 	dev_info(&ndev->dev, "fb probed\n");
+ 
+ 	if (fb_data->flags & TEGRA_FB_FLIP_ON_PROBE) {
+@@ -961,6 +1037,10 @@ void tegra_fb_unregister(struct tegra_fb_info *fb_info)
+ {
+ 	struct fb_info *info = fb_info->info;
+ 
++#ifdef CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST
++	device_remove_file(info->dev, &dev_attr_wingray_dc_test);
++#endif
++
+ #ifdef CONFIG_FB_TEGRA_WINGRAY_LEGACY
+ 	/* Serialize against an ioctl already in progress, stop DC, then reject
+ 	 * future operations before the controller's devm objects disappear. */
