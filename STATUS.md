@@ -1,5 +1,12 @@
 # Component status — 28 October 2026
 
+**DC hang candidate 85 — built, not flashed:** A separate manually armed
+profile retains candidate84's ECC layout and adds process-context checkpoints
+around locks, IRQ shutdown, clock/host transitions and scanout restoration.
+It boots with backlight-only blanking; only explicit DCTEST arms one DC cycle.
+Full ARM build and targeted offline checks pass. The DC cause remains unknown;
+system suspend stays disabled. See [candidate 85](docs/dc-hang-85.md).
+
 **Current suspend baseline — IRQ + backlight hardware pass:** ON IRQ-only,
 LIC routing, dynamic virq, polling removal and backlight-only power-key cycles
 passed on hardware. Candidate 81 DC worked separately, but the combined
@@ -299,13 +306,3 @@ read-only pstore mount. The previously failed report re-validates as
 `geometry_matches_reference`. The report still shows boot ID `64f4ed82…`,
 unchanged from the prior capture, so it does not provide a second warm-reset
 retention sample.
-
-
-**ECC retention 84 — code built, hardware evidence not independently verified:**
-The ECC profile builds; RS recovery, probe, retention-checker, framing and
-retained-console tests pass. Reviewed image is
-`d3c676368a579664de4f2852e47140ea569d82c52cc8682f3df4ce8ba752f2e0`
-(4,147,200 bytes), not the PR's documented `eaa6486d…`/4,151,296 bytes.
-The named `retention84-*` capture directories are absent from this workspace,
-so the two reported warm-reset passes cannot be reproduced here yet. Do not
-enable DC or suspend. See [ECC review](docs/suspend-retention-84-review.md).
