@@ -1,4 +1,5 @@
 """Preserve every existing Bluetooth/GPU/CPCAP node in the opt-in monitor DT."""
+from pm_preparation_profile import blocked_pm
 from pathlib import Path
 from legacy_resources import parse_dtb
 from bluetooth_profile import canonical, cells
@@ -27,7 +28,10 @@ def validate_battery_artifacts(directory):
     p=Path(directory);config=(p/'kernel.config').read_text()
     for name in ('POWER_SUPPLY','W1','W1_MASTER_TEGRA_WINGRAY','W1_SLAVE_DS2781','BATTERY_WINGRAY_MONITOR'):
         assert 'CONFIG_'+name+'=y\n' in config,name
+    blocked_pm(config)
     for name in ('BATTERY_DS2781','BATTERY_SBS','REGULATOR_CPCAP','CPU_FREQ','SUSPEND','SOUND'):
+        if name in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(config):
+            continue
         assert 'CONFIG_'+name+'=y\n' not in config,name
     validate_trees(parse_dtb((p/'tegra20-motorola-wingray-android44-bluetooth.dtb').read_bytes()),
                    parse_dtb((p/'tegra20-motorola-wingray-android44-battery.dtb').read_bytes()))

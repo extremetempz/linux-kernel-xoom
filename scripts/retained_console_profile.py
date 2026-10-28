@@ -1,4 +1,5 @@
 """Verify the opt-in ramoops binding without expanding reserved RAM."""
+from pm_preparation_profile import blocked_pm
 from pathlib import Path
 from display_power_profile import resolved
 from legacy_resources import parse_dtb
@@ -87,7 +88,10 @@ def validate_retained_console_artifacts(directory):
     for option in ('PSTORE', 'PSTORE_CONSOLE', 'PSTORE_RAM', 'MFD_CPCAP_WINGRAY_IRQ_TEST'):
         assert 'CONFIG_' + option + '=y\n' in cfg, option
     dc_trace = 'CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST=y\n' in cfg
+    blocked_pm(cfg)
     for option in ('PM', 'SUSPEND', 'CPU_FREQ', 'REGULATOR_CPCAP'):
+        if option in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
         assert 'CONFIG_' + option + '=y\n' not in cfg, option
     selected = selected_retained_dt(cfg)
     assert selected, 'Not an isolated retained-console profile'

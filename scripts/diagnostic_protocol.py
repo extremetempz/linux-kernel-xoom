@@ -22,8 +22,8 @@ def _nonce(value):
     return value.encode('ascii')
 
 def write_request(fd, verb, nonce, timeout=2):
-    if verb not in ('PING', 'REPORT', 'FBTEST', 'PSTORE', 'DCTEST'):
-        raise ProtocolError('Only PING, REPORT, FBTEST, PSTORE and DCTEST are permitted')
+    if verb not in ('PING', 'REPORT', 'FBTEST', 'PSTORE', 'DCTEST', 'WAKETEST'):
+        raise ProtocolError('Only PING, REPORT, FBTEST, PSTORE, DCTEST and WAKETEST are permitted')
     data = verb.encode() + b' ' + _nonce(nonce) + b'\n'
     deadline = time.monotonic() + timeout
     while data:

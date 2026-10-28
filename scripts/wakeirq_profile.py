@@ -1,4 +1,5 @@
 """Fail closed on wake IRQ diagnostic scope; this is NOT a suspend profile."""
+from pm_preparation_profile import blocked_pm
 from pathlib import Path
 from display_power_profile import resolved
 from legacy_resources import parse_dtb
@@ -14,7 +15,10 @@ def validate_wakeirq_artifacts(directory, require_dc=None):
         assert 'CONFIG_' + name + '=y\n' in cfg, name
     if dc_test:
         assert 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in cfg
+    blocked_pm(cfg)
     for name in ('PM', 'PM_SLEEP', 'SUSPEND', 'PM_AUTOSLEEP', 'CPU_FREQ', 'REGULATOR_CPCAP'):
+        if name in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
         assert 'CONFIG_' + name + '=y\n' not in cfg, name
     assert any('CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+name+'"\n' in cfg for name in
                ('tegra20-motorola-wingray-android44-wakeirq', 'tegra20-motorola-wingray-android44-wakeirqtrace', 'tegra20-motorola-wingray-android44-wakeirqecc'))
