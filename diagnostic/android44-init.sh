@@ -24,6 +24,19 @@ if [ -e /proc/device-tree/motorola,wingray-pstore-test ]; then
  result=$?
  echo "PSTORE_MOUNT_RC $result" >> /run/pstore-mount.txt
  echo "XOOM_PSTORE_BOOT $(/bin/busybox cat /proc/sys/kernel/random/boot_id) mount_rc=$result" > /dev/kmsg
+ # A multi-block known payload checks more than the UUID's 36 bytes. This
+ # is a harmless console write, not a deliberate panic/reset or raw RAM poke.
+ if [ -e /proc/device-tree/motorola,wingray-pstore-ecc-test ]; then
+  boot_id=$(/bin/busybox cat /proc/sys/kernel/random/boot_id)
+  pattern=
+  for part in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
+   pattern=${pattern}0123456789abcdef
+  done
+  digest=$(printf '%s' "$boot_id $pattern" | /bin/busybox sha256sum)
+  digest=${digest%% *}
+  printf 'XOOM_PSTORE_PROBE_V1 %s %s %s\n' "$boot_id" "$pattern" "$digest" > /run/pstore-probe.txt
+  /bin/busybox cat /run/pstore-probe.txt > /dev/kmsg
+ fi
 fi
 /bin/busybox sh /bin/usb-report-loop > /run/usb-loop-errors.txt 2>&1 &
 exec /bin/busybox sh /bin/android44-bootstrap
