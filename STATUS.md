@@ -1,3 +1,9 @@
+> **Candidate89 ready for review (28 October 2026):** a manual task-freezer
+> test image is built. It stops before device/CPU suspend and thaws through the
+> normal finish path; ordinary sleep stays blocked. The donor null-platform-
+> operation bug is corrected separately. Nothing was flashed; candidate88
+> remains installed. See [image and test boundaries](docs/freezer-89-prepared.md).
+
 > **Candidate88 hardware result (28 October 2026):** one checked parent
 > wake-reference arm/disarm pair passed after the requested two-minute wait.
 > Android/USB/storage remained healthy; the operator confirmed power-button,
