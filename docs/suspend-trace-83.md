@@ -1,5 +1,12 @@
 # Retained-console candidate 83 — establish evidence before DC/suspend tests
 
+**Superseded build / 28 October update:** PR #23 corrected this donor's
+u64 log-size binding (patch 0155) and validated ramoops binding on hardware.
+A warm reset retained the console but corrupted one boot-marker byte.
+Use [the hardware review](suspend-trace-83-review.md) and isolated
+[ECC integrity candidate 84](suspend-retention-84.md); the original image/hash
+below is historical. Retention is not yet accepted, and DC/suspend stay off.
+
 27 October 2026. Reviewed main `c757f1f`, PRs #20/#21 and commits
 `4078a21`, `76d5f4f`, `211267f`, `ab81178`. **Nothing was flashed, rebooted
 or suspended during this work.** No live device or partition access occurred.

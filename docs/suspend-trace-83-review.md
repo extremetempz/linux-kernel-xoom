@@ -1,5 +1,11 @@
 # Retained-console candidate 83 review and size-binding fix
 
+**28 October follow-up:** The original wire captures confirm the one-bit
+marker discrepancy before serial transport. A separate ECC-protected
+[candidate 84](suspend-retention-84.md) is now built and checked offline, with
+an exact probe verifier. It does not alter this tested no-ECC image or prove
+the corruption source. DC and suspend remain off.
+
 27 October 2026. Reviewed the merged ramoops/pstore PR after a hardware run.
 
 ## Root cause found in the hardware report
