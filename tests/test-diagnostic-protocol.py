@@ -15,7 +15,7 @@ def frame(data,nonce=N,size=None,digest=None):
 def storage_body(parts=GEOMETRY,mount='rootfs / rootfs rw 0 0\n',capacity=70000000):
  return ('XOOM_MOUNTS_BEGIN\n'+mount+'XOOM_MOUNTS_END\n'+f'XOOM_DISK mmcblk0 {capacity} 0\n'+''.join(f'XOOM_PART {n} {s} {z}\n' for n,(s,z) in parts.items())).encode()
 
-def android_body(system=True,overlays=True,execute=True,fuse=False):
+def android_body(system=True,overlays=True,execute=True,fuse=False,extras=()):
  # (source, target, filesystem, mount options, major:minor, fs root, super options)
  mounts=[('rootfs','/','rootfs','ro','0:1','/','ro'),
          ('tmpfs','/run','tmpfs','rw,nosuid,nodev','0:5','/','rw'),
@@ -30,6 +30,7 @@ def android_body(system=True,overlays=True,execute=True,fuse=False):
  if fuse:
   mounts.extend([('/dev/fuse','/mnt/shell/emulated','fuse','rw,nosuid,nodev','0:8','/','rw'),
                  ('/dev/fuse','/storage/emulated/0','fuse','rw,nosuid,nodev','0:8','/0','rw')])
+ mounts.extend(extras)
  lines=''.join(f'{s} {t} {f} {o} 0 0\n' for s,t,f,o,dev,rt,superopts in mounts)
  body=storage_body(mount=lines,capacity=62521344).replace(b'62521344 0\n',b'62521344 1\n')
  policy=('XOOM_ANDROID44_POLICY_BEGIN_V1\nXOOM_ANDROID44_RELEASE 4.4.147-wingray-android44\n'
@@ -45,6 +46,19 @@ def android_body(system=True,overlays=True,execute=True,fuse=False):
 
 class AndroidReadOnly(unittest.TestCase):
  def result(self,data):return storage_result(data,GEOMETRY,62521344,storage_mode='android44-readonly')
+ def test_radio_ram_overlays_and_readonly_pstore_from_pr23(self):
+  ram=[('tmpfs',target,'tmpfs','rw,nosuid,nodev',f'0:{n}','/','rw')
+       for n,target in enumerate(('/system/etc/wifi','/system/vendor/firmware','/system/lib/modules'),20)]
+  pstore=('pstore','/sys/fs/pstore','pstore','ro,nosuid,nodev,noexec','0:30','/','ro')
+  self.assertEqual(self.result(android_body(extras=ram+[pstore]))['state'],'geometry_matches_reference')
+  for field,value in ((1,'/wrong-pstore'),(3,'rw'),(3,'ro,rw'),(5,'/subtree'),(6,'rw')):
+   bad=list(pstore);bad[field]=value
+   with self.subTest(field=field,value=value),self.assertRaises(ProtocolError):
+    self.result(android_body(extras=[tuple(bad)]))
+  with self.assertRaises(ProtocolError):self.result(android_body(extras=[pstore,pstore]))
+  # /proc/mounts says ro while mountinfo says rw: no false read-only verdict.
+  bad=android_body(extras=[pstore]).replace(b'/sys/fs/pstore ro,nosuid,nodev,noexec - pstore',b'/sys/fs/pstore rw - pstore')
+  with self.assertRaises(ProtocolError):self.result(bad)
  def test_touch_profile_keeps_identical_readonly_policy(self):
   data=android_body().replace(b'4.4.147-wingray-android44\n',b'4.4.147-wingray-android44-touch\n')
   result=self.result(data)
