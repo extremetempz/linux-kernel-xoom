@@ -9,6 +9,7 @@ P = argparse.ArgumentParser(description=__doc__)
 P.add_argument('--output-dir', type=Path, required=True)
 P.add_argument('--port', type=Path)
 P.add_argument('--timeout', type=int, default=30)
+P.add_argument('--dc', action='store_true', help='Explicitly arm candidate85 DC test for one cycle; may hang and require manual recovery')
 A = P.parse_args()
 if not 5 <= A.timeout <= 60:
     P.error('timeout must be 5..60 seconds')
@@ -42,7 +43,7 @@ except PermissionError:
     raise SystemExit(f'Host serial access needed. Run: sudo setfacl -m u:{getpass.getuser()}:rw {PORT}')
 nonce = secrets.token_hex(16)
 status = {'state':'started','nonce':nonce,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
-          'request':'FBTEST','arbitrary_shell_commands':False}
+          'request':'DCTEST' if A.dc else 'FBTEST','arbitrary_shell_commands':False}
 try:
     OUT.mkdir(parents=True, exist_ok=False)
     tty.setraw(fd, termios.TCSANOW)
@@ -53,8 +54,8 @@ try:
     fcntl.ioctl(fd, termios.TIOCMBIS, array.array('i', [termios.TIOCM_DTR | termios.TIOCM_RTS]))
     wire = (OUT/'wire-private.bin').open('xb')
     handshake(fd, nonce, record=wire.write)
-    print('Diagnostic reporter ready; sending fixed FBTEST (screen may blank briefly).', flush=True)
-    write_request(fd, 'FBTEST', nonce)
+    print('Diagnostic reporter ready; sending fixed '+status['request']+' (screen will blank).', flush=True)
+    write_request(fd, status['request'], nonce)
     token = nonce.encode()
     header = re.compile(rb'(?:^|\n)XOOM_FBTEST_V1 ' + token + rb' ([0-9]{1,6}) ([0-9a-f]{64})\r?\n')
     end = re.compile(rb'(?:^|\n)XOOM_FBTEST_END_V1 ' + token + rb'\r?\n')
@@ -95,9 +96,14 @@ try:
         raise ProtocolError('FBTEST payload markers missing')
     (OUT/'fb-blank-test.txt').write_bytes(payload)
     status.update(state='verified', bytes=len(payload), sha256=hashlib.sha256(payload).hexdigest())
+    if A.dc:
+        status['dc_commands_completed'] = all(x in payload.splitlines() for x in
+            (b'DCTEST_ARMED_1', b'FB_BLANK_WRITE4_RC 0', b'FB_BLANK_WRITE0_RC 0',
+             b'DCTEST_DISARM_RC 0', b'DCTEST_ARMED_AFTER 0'))
+        status['visible_display_validated'] = False
     text = payload.decode('ascii','replace')
     for line in text.splitlines():
-        if line.startswith(('FB_BLANK_STATE_', 'FB_BLANK_WRITE', 'Wingray backlight', 'Wingray display', 'Wingray DC test', 'Wingray native mode')):
+        if line.startswith(('FB_BLANK_STATE_', 'FB_BLANK_WRITE', 'DCTEST_', 'Wingray backlight', 'Wingray display', 'Wingray DC test', 'Wingray native mode')):
             print(line, flush=True)
 finally:
     try: (OUT/'status.json').write_text(json.dumps(status,indent=2)+'\n')
