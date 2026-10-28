@@ -1,4 +1,56 @@
+> **Candidate89 hardware result (28 October 2026):** one task-freezer/thaw
+> cycle passed after the requested two-minute wait. Android/USB/storage and
+> both CPUs remained healthy; the operator confirmed display/touch/key operation.
+> No device/CPU suspend occurred. Candidate89 remains installed and ordinary
+> sleep stays blocked. See [hardware evidence](docs/freezer-89-result.md).
+
+> **Candidate89 ready for review (28 October 2026):** a manual task-freezer
+> test image is built. It stops before device/CPU suspend and thaws through the
+> normal finish path; ordinary sleep stays blocked. The donor null-platform-
+> operation bug is corrected separately. Nothing was flashed; candidate88
+> remains installed. See [image and test boundaries](docs/freezer-89-prepared.md).
+
+> **Candidate88 hardware result (28 October 2026):** one checked parent
+> wake-reference arm/disarm pair passed after the requested two-minute wait.
+> Android/USB/storage remained healthy; the operator confirmed power-button,
+> full-darkness/display restoration and touch operation. The reference cleared.
+> This is awake IRQ/LIC registration, not wake from sleep. Candidate88 remains
+> installed; system sleep is blocked. See [evidence](docs/wake-arm-88-result.md).
+
+> **Candidate88 ready for review (28 October 2026):** the combined Android
+> image now includes one fixed, manually requested parent wake-arm/disarm test.
+> It builds with the Wingray GPU profile retained and PM entry blocked. No new
+> image was flashed; candidate85 remains installed. Physical wake and sleep
+> remain unvalidated. See [image, checks and procedure](docs/wake-arm-88-prepared.md).
+
+> **DC cycles / wake-arming review (28 October 2026):** ten instrumented
+> DC off/on cycles completed; Android/USB/storage remained healthy and the
+> operator reported the display looked good. Checked CPCAP parent wake-reference
+> code and its isolated profile compile and pass fault tests, but were not flashed
+> or tested on hardware. System sleep stays blocked. See
+> [DC evidence](docs/dc-hang-85-result.md) and [wake-arm code/build](docs/wake-arm-87.md).
+
+> **Candidate85 hardware result (28 October 2026):** one manually armed
+> IRQ/DC off/on cycle passed. The operator confirmed complete darkness,
+> restoration without a scan line and working touch. Android/USB/storage
+> remained operational; the gate returned to zero. The earlier hang did not
+> reproduce; its cause is not established. Suspend remains disabled. See
+> [hardware evidence and limits](docs/dc-hang-85-result.md).
+
+> **PM preparation 86 (28 October 2026):** the isolated PM/SUSPEND/hotplug
+> framework compiles, but system sleep entry is deliberately blocked. No boot
+> image or device test was made. DC recovery, genuine hardware wake and Motorola
+> PMC/device restoration remain prerequisites. See
+> [preparation and build checks](docs/suspend-preparation-86.md).
+
 # Component status — 28 October 2026
+
+**DC hang candidate 85 — built, not flashed:** A separate manually armed
+profile retains candidate84's ECC layout and adds process-context checkpoints
+around locks, IRQ shutdown, clock/host transitions and scanout restoration.
+It boots with backlight-only blanking; only explicit DCTEST arms one DC cycle.
+Full ARM build and targeted offline checks pass. The DC cause remains unknown;
+system suspend stays disabled. See [candidate 85](docs/dc-hang-85.md).
 
 **Current suspend baseline — IRQ + backlight hardware pass:** ON IRQ-only,
 LIC routing, dynamic virq, polling removal and backlight-only power-key cycles
@@ -299,13 +351,3 @@ read-only pstore mount. The previously failed report re-validates as
 `geometry_matches_reference`. The report still shows boot ID `64f4ed82…`,
 unchanged from the prior capture, so it does not provide a second warm-reset
 retention sample.
-
-
-**ECC retention 84 — code built, hardware evidence not independently verified:**
-The ECC profile builds; RS recovery, probe, retention-checker, framing and
-retained-console tests pass. Reviewed image is
-`d3c676368a579664de4f2852e47140ea569d82c52cc8682f3df4ce8ba752f2e0`
-(4,147,200 bytes), not the PR's documented `eaa6486d…`/4,151,296 bytes.
-The named `retention84-*` capture directories are absent from this workspace,
-so the two reported warm-reset passes cannot be reproduced here yet. Do not
-enable DC or suspend. See [ECC review](docs/suspend-retention-84-review.md).

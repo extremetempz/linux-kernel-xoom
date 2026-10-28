@@ -1,4 +1,5 @@
 """Reject display-power experiments that alter tested board wiring or enable sleep."""
+from pm_preparation_profile import blocked_pm
 from pathlib import Path
 from legacy_resources import parse_dtb
 from bluetooth_profile import canonical, cells
@@ -24,7 +25,10 @@ def resolved(tree, node):
 def validate_display_power_artifacts(directory):
     p=Path(directory);cfg=(p/'kernel.config').read_text()
     assert 'CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in cfg
+    blocked_pm(cfg)
     for option in ('PM','PM_SLEEP','SUSPEND','CPU_FREQ','PM_AUTOSLEEP','REGULATOR_CPCAP'):
+        if option in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
         assert 'CONFIG_'+option+'=y\n' not in cfg,option
     a=parse_dtb((p/'tegra20-motorola-wingray-android44-battery.dtb').read_bytes())
     b=parse_dtb((p/'tegra20-motorola-wingray-android44-displaypm.dtb').read_bytes())

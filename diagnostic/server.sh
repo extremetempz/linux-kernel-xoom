@@ -5,6 +5,9 @@ while IFS= read -r -n 80 request; do
  case "$request" in
   REPORT\ *) verb=REPORT; nonce=${request#REPORT } ;;
   FBTEST\ *) verb=FBTEST; nonce=${request#FBTEST } ;;
+  DCTEST\ *) verb=DCTEST; nonce=${request#DCTEST } ;;
+  FREEZERTEST\ *) verb=FREEZERTEST; nonce=${request#FREEZERTEST } ;;
+  WAKETEST\ *) verb=WAKETEST; nonce=${request#WAKETEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
   PING\ *) verb=PING; nonce=${request#PING } ;;
   *) continue ;;
@@ -36,12 +39,58 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf '\nXOOM_PSTORE_END_V1 %s\n' "$nonce"
   continue
  fi
- if [ "$verb" = FBTEST ]; then
+ if [ "$verb" = FREEZERTEST ]; then
+  if [ ! -x /bin/freezer-cycle ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s FREEZERTEST_MISSING\n' "$nonce"
+   continue
+  fi
+  # Frame failures too: the fixed script preserves rollback evidence.
+  /bin/busybox sh /bin/freezer-cycle > /run/freezer-test.txt 2>&1
+  size=$(/bin/busybox wc -c < /run/freezer-test.txt)
+  size=$((size + 0))
+  if [ "$size" -le 0 ] || [ "$size" -gt 65536 ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s FREEZERTEST_SIZE\n' "$nonce"
+   continue
+  fi
+  checksum=$(/bin/busybox sha256sum /run/freezer-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/freezer-test.txt > /run/freezer-test.b64 || continue
+  /bin/busybox printf 'XOOM_FREEZERTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/freezer-test.b64
+  /bin/busybox printf '\nXOOM_FREEZERTEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = WAKETEST ]; then
+  if [ ! -x /bin/wake-arm-cycle ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s WAKETEST_MISSING\n' "$nonce"
+   continue
+  fi
+  # Frame failures too: the fixed script preserves rollback evidence.
+  /bin/busybox sh /bin/wake-arm-cycle > /run/wake-arm-test.txt 2>&1
+  size=$(/bin/busybox wc -c < /run/wake-arm-test.txt)
+  size=$((size + 0))
+  if [ "$size" -le 0 ] || [ "$size" -gt 65536 ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s WAKETEST_SIZE\n' "$nonce"
+   continue
+  fi
+  checksum=$(/bin/busybox sha256sum /run/wake-arm-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/wake-arm-test.txt > /run/wake-arm-test.b64 || continue
+  /bin/busybox printf 'XOOM_WAKETEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/wake-arm-test.b64
+  /bin/busybox printf '\nXOOM_WAKETEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = FBTEST ] || [ "$verb" = DCTEST ]; then
   if [ ! -x /bin/fb-blank-test ]; then
    /bin/busybox printf 'XOOM_ERROR_V2 %s FBTEST_MISSING\n' "$nonce"
    continue
   fi
-  /bin/busybox sh /bin/fb-blank-test > /run/fb-blank-test.txt 2>&1
+  if [ "$verb" = DCTEST ]; then
+   /bin/busybox sh /bin/fb-blank-test --dc > /run/fb-blank-test.txt 2>&1
+  else
+   /bin/busybox sh /bin/fb-blank-test > /run/fb-blank-test.txt 2>&1
+  fi
   rc=$?
   size=$(/bin/busybox wc -c < /run/fb-blank-test.txt)
   size=$((size + 0))

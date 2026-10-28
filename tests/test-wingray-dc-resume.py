@@ -92,6 +92,7 @@ execute(r'''
 #include <stdbool.h>
 #include <errno.h>
 #define DC_N_WINDOWS 3
+#define wingray_dc_checkpoint(dc,phase,value) ((void)0)
 #define TEGRA_WIN_FLAG_ENABLED 1
 #define FB_BLANK_UNBLANK 0
 #define FB_BLANK_POWERDOWN 4

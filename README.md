@@ -1,5 +1,12 @@
 # Motorola Xoom MZ604 / Wingray kernel port
 
+**DC hang candidate 85 — built, not flashed:** A separate manually armed
+profile retains candidate84's ECC layout and adds process-context checkpoints
+around locks, IRQ shutdown, clock/host transitions and scanout restoration.
+It boots with backlight-only blanking; only explicit DCTEST arms one DC cycle.
+Full ARM build and targeted offline checks pass. The DC cause remains unknown;
+system suspend stays disabled. See [candidate 85](docs/dc-hang-85.md).
+
 **Current power-management gate (28 October):** Candidate 84 passes two
 same-image manual warm-reset known-probe comparisons: ECC corrected 19 then
 25 console bytes, with zero unrecoverable blocks. Android boot completion
@@ -44,12 +51,6 @@ errors, no polling, and repeated backlight off/on with `dc=1`. Pstore is empty
 because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
-
-**ECC retention candidate:** ECC/RS code, build and offline tests pass, but
-the documented two-pass hardware result cannot be independently checked here:
-the named `retention84-*` private artifacts are absent, and the reviewed image
-hash differs from the PR's documented hash. See
-[ECC review](docs/suspend-retention-84-review.md).
 
 **Retained console:** hardware diagnostics showed `ramoops` probe failing with
 `-EOVERFLOW` because the inherited size properties were one-cell u32 values.

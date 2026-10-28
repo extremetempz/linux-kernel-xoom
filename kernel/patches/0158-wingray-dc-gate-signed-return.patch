@@ -1,0 +1,24 @@
+From 59835aa5f27f0fa58f676206210788d7eacffd19 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 28 Oct 2026 17:16:30 +1100
+Subject: [PATCH] video: preserve signed error return from manual DC test gate
+
+---
+ drivers/staging/tegra/video/fb.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/video/fb.c b/drivers/staging/tegra/video/fb.c
+index 3a3fe643..49d86936 100644
+--- a/drivers/staging/tegra/video/fb.c
++++ b/drivers/staging/tegra/video/fb.c
+@@ -112,7 +112,9 @@ static ssize_t wingray_dc_test_store(struct device *dev,
+ 	mutex_unlock(&fb->legacy_lock);
+ 	unlock_fb_info(info);
+ 	wingray_dc_checkpoint(fb->win->dc, "gate.done", ret ? ret : armed);
+-	return ret ? ret : count;
++	if (ret)
++		return ret;
++	return count;
+ }
+ static DEVICE_ATTR(wingray_dc_test, 0600, wingray_dc_test_show,
+ 		wingray_dc_test_store);

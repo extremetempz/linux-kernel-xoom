@@ -1,0 +1,27 @@
+From d7ccf2fb3e688ff3b467ac3034baa2bbf2a1a526 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 28 Oct 2026 19:19:24 +1100
+Subject: [PATCH] video: retain Wingray fixed-clock GPU only under blocked
+ wake-arm PM
+
+---
+ drivers/staging/tegra/video/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index 58015e2c..a28c25b6 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -12,7 +12,8 @@ config TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	bool "Motorola Wingray fixed-clock GPU experiment"
+ 	depends on MACH_MOTOROLA_WINGRAY && ARCH_TEGRA_2x_SOC && TEGRA_GRHOST=y && TEGRA_NVMAP=y
+ 	depends on !TEGRA_HOST1X && (!TEGRA_DC || FB_TEGRA_WINGRAY_LEGACY) && !TEGRA_IOVMM && !IOMMU_API
+-	depends on !CPU_FREQ && !SUSPEND && !TEGRA_RPC && !TEGRA_AVP && !TEGRA_MEDIASERVER
++	depends on !CPU_FREQ && (!SUSPEND || (MOTOROLA_WINGRAY_PM_PREPARE && MFD_CPCAP_WINGRAY_WAKE_ARM_TEST))
++	depends on !TEGRA_RPC && !TEGRA_AVP && !TEGRA_MEDIASERVER
+ 	depends on !TEGRA_GRHOST_WINGRAY_HOST_TEST
+ 	select TEGRA_SEMA_STANDALONE
+ 	select TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT
+-- 
+2.43.0
+

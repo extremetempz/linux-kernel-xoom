@@ -1,4 +1,5 @@
 """Verify the opt-in ramoops binding without expanding reserved RAM."""
+from pm_preparation_profile import blocked_pm
 from pathlib import Path
 from display_power_profile import resolved
 from legacy_resources import parse_dtb
@@ -86,10 +87,19 @@ def validate_retained_console_artifacts(directory):
     cfg = (p / 'kernel.config').read_text()
     for option in ('PSTORE', 'PSTORE_CONSOLE', 'PSTORE_RAM', 'MFD_CPCAP_WINGRAY_IRQ_TEST'):
         assert 'CONFIG_' + option + '=y\n' in cfg, option
-    for option in ('FB_TEGRA_WINGRAY_DC_RESUME_TEST', 'PM', 'SUSPEND', 'CPU_FREQ', 'REGULATOR_CPCAP'):
+    dc_trace = 'CONFIG_FB_TEGRA_WINGRAY_DC_TRACE_TEST=y\n' in cfg
+    blocked_pm(cfg)
+    for option in ('PM', 'SUSPEND', 'CPU_FREQ', 'REGULATOR_CPCAP'):
+        if option in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
         assert 'CONFIG_' + option + '=y\n' not in cfg, option
     selected = selected_retained_dt(cfg)
     assert selected, 'Not an isolated retained-console profile'
+    if dc_trace:
+        assert selected == ECC_DT
+        assert 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in cfg
+    else:
+        assert 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' not in cfg
     before = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirq.dtb').read_bytes())
     after = parse_dtb((p / (TRACE_DT + '.dtb')).read_bytes())
     validate_trees(before, after)

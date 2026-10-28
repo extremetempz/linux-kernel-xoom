@@ -1,4 +1,5 @@
 """Offline ownership and compatibility gates for the combined Motorola GPU profile."""
+from pm_preparation_profile import blocked_pm
 from pathlib import Path
 import struct,hashlib
 from legacy_resources import parse_dtb
@@ -86,5 +87,7 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  s=(p/'kernel.config').read_text()
  for n in ['SMP','CACHE_L2X0','FB_TEGRA_WINGRAY_LEGACY','TEGRA_GRHOST_WINGRAY_GPU_TEST','ANDROID_BINDER_IPC_32BIT','ANDROID_LOGGER','MOTOROLA_XOOM_BIGPART','TOUCHSCREEN_ATMEL_MXT']:
   assert 'CONFIG_'+n+'=y\n' in s,n
+ blocked_pm(s)
  for n in ['DRM','TEGRA_HOST1X','TEGRA20_MC','CPU_FREQ','SUSPEND','MACH_SAMSUNG_P4WIFI','FB_TEGRA_CMC623']:
+  if n=='SUSPEND' and blocked_pm(s):continue
   assert 'CONFIG_'+n+'=y\n' not in s,n

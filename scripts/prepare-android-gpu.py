@@ -199,6 +199,11 @@ def entries(runtime):
   files['bin/display-backlight-cycle']=(ROOT/'diagnostic/display-backlight-cycle.sh').read_bytes()
   files['bin/fb-blank-test']=(ROOT/'diagnostic/fb-blank-test.sh').read_bytes()
   files['bin/pstore-report']=(ROOT/'diagnostic/pstore-report.sh').read_bytes()
+ if b'CONFIG_MFD_CPCAP_WINGRAY_WAKE_ARM_TEST=y\n' in config:
+  files['bin/wake-arm-cycle']=(ROOT/'diagnostic/wake-arm-cycle.sh').read_bytes()
+  files['bin/pm-snapshot']=(ROOT/'diagnostic/pm-snapshot.sh').read_bytes()
+ if b'CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST=y\n' in config:
+  files['bin/freezer-cycle']=(ROOT/'diagnostic/freezer-cycle.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
