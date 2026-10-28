@@ -1,0 +1,55 @@
+From d41358e6ec0b89c144a24c1c1633b4f8205e08eb Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Wed, 28 Oct 2026 19:48:03 +1100
+Subject: [PATCH] PM: keep freeze begin and end independent of absent platform
+ ops
+
+---
+ kernel/power/suspend.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index 46dc89aa..d63a20bc 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -213,20 +213,19 @@ static void platform_resume_finish(suspend_state_t state)
+ 
+ static int platform_suspend_begin(suspend_state_t state)
+ {
+-	if (state == PM_SUSPEND_FREEZE && freeze_ops && freeze_ops->begin)
+-		return freeze_ops->begin();
+-	else if (suspend_ops->begin)
+-		return suspend_ops->begin(state);
+-	else
+-		return 0;
++	if (state == PM_SUSPEND_FREEZE)
++		return freeze_ops && freeze_ops->begin ? freeze_ops->begin() : 0;
++	return suspend_ops && suspend_ops->begin ? suspend_ops->begin(state) : 0;
+ }
+ 
+ static void platform_resume_end(suspend_state_t state)
+ {
+-	if (state == PM_SUSPEND_FREEZE && freeze_ops && freeze_ops->end)
+-		freeze_ops->end();
+-	else if (suspend_ops->end)
++	if (state == PM_SUSPEND_FREEZE) {
++		if (freeze_ops && freeze_ops->end)
++			freeze_ops->end();
++	} else if (suspend_ops && suspend_ops->end) {
+ 		suspend_ops->end();
++	}
+ }
+ 
+ static void platform_recover(suspend_state_t state)
+@@ -539,7 +538,7 @@ static int enter_state(suspend_state_t state, bool freezer_only)
+ 		goto Unlock;
+ 
+ 	if (freezer_only) {
+-		pr_info("WG_FREEZER89 tasks frozen; devices and CPUs stay powered\n");
++		pr_info("WG_FREEZER89 tasks frozen; device/CPU suspend not entered\n");
+ 		msleep(500);
+ 		goto Finish;
+ 	}
+-- 
+2.43.0
+
