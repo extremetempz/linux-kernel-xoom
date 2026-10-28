@@ -45,6 +45,12 @@ because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
 
+**ECC retention candidate:** ECC/RS code, build and offline tests pass, but
+the documented two-pass hardware result cannot be independently checked here:
+the named `retention84-*` private artifacts are absent, and the reviewed image
+hash differs from the PR's documented hash. See
+[ECC review](docs/suspend-retention-84-review.md).
+
 **Retained console:** hardware diagnostics showed `ramoops` probe failing with
 `-EOVERFLOW` because the inherited size properties were one-cell u32 values.
 The trace DT now uses `/bits/ 64` sizes; the corrected image is built and
