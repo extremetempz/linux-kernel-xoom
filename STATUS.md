@@ -1,3 +1,10 @@
+> **Candidate85 hardware result (28 October 2026):** one manually armed
+> IRQ/DC off/on cycle passed. The operator confirmed complete darkness,
+> restoration without a scan line and working touch. Android/USB/storage
+> remained operational; the gate returned to zero. The earlier hang did not
+> reproduce; its cause is not established. Suspend remains disabled. See
+> [hardware evidence and limits](docs/dc-hang-85-result.md).
+
 > **PM preparation 86 (28 October 2026):** the isolated PM/SUSPEND/hotplug
 > framework compiles, but system sleep entry is deliberately blocked. No boot
 > image or device test was made. DC recovery, genuine hardware wake and Motorola
