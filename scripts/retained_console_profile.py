@@ -3,6 +3,27 @@ from pathlib import Path
 from display_power_profile import resolved
 from legacy_resources import parse_dtb
 
+TRACE_DT = 'tegra20-motorola-wingray-android44-wakeirqtrace'
+ECC_DT = 'tegra20-motorola-wingray-android44-wakeirqecc'
+
+def selected_retained_dt(config):
+    for name in (TRACE_DT, ECC_DT):
+        if 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="' + name + '"\n' in config:
+            return name
+    return None
+
+def validate_ecc_tree(before, after):
+    """ECC may change the log format, never board wiring or reservations."""
+    import struct
+    assert set(before) == set(after)
+    for node in before:
+        a, b = resolved(before, node), resolved(after, node)
+        if node == '/':
+            assert b.pop('motorola,wingray-pstore-ecc-test') == b''
+        if node == '/ramoops@1ff00000':
+            assert b.pop('ecc-size') == struct.pack('>I', 16)
+        assert a == b, node
+
 def ranges(tree):
     import struct
     result = []
@@ -67,7 +88,12 @@ def validate_retained_console_artifacts(directory):
         assert 'CONFIG_' + option + '=y\n' in cfg, option
     for option in ('FB_TEGRA_WINGRAY_DC_RESUME_TEST', 'PM', 'SUSPEND', 'CPU_FREQ', 'REGULATOR_CPCAP'):
         assert 'CONFIG_' + option + '=y\n' not in cfg, option
-    assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-wakeirqtrace"\n' in cfg
+    selected = selected_retained_dt(cfg)
+    assert selected, 'Not an isolated retained-console profile'
     before = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirq.dtb').read_bytes())
-    after = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirqtrace.dtb').read_bytes())
+    after = parse_dtb((p / (TRACE_DT + '.dtb')).read_bytes())
     validate_trees(before, after)
+    if selected == ECC_DT:
+        for name in ('REED_SOLOMON', 'REED_SOLOMON_ENC8', 'REED_SOLOMON_DEC8'):
+            assert 'CONFIG_' + name + '=y\n' in cfg, name
+        validate_ecc_tree(after, parse_dtb((p / (ECC_DT + '.dtb')).read_bytes()))
