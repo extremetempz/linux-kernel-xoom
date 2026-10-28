@@ -9,10 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 P = argparse.ArgumentParser(description=__doc__)
 P.add_argument('--output-dir', type=Path, required=True)
 P.add_argument('--port', type=Path)
-P.add_argument('--timeout', type=int, default=30)
+P.add_argument('--timeout', type=int, default=90)
 A = P.parse_args()
-if not 5 <= A.timeout <= 60:
-    P.error('timeout must be 5..60 seconds')
+if not 5 <= A.timeout <= 300:
+    P.error('timeout must be 5..300 seconds')
 OUT = A.output_dir.resolve()
 if not OUT.is_relative_to((ROOT/'artifacts').resolve()) or OUT.exists():
     P.error('Use a new private output directory under artifacts/')

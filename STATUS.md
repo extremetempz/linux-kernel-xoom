@@ -247,3 +247,50 @@ wakeirq failure is narrowed to the DC/candidate-81 path. Pstore is empty
 because ramoops reports "no memory-region phandle". Suspend remains disabled
 and untested. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
+
+
+**Retained console 83 — built, retention unverified:** The opt-in trace
+profile adds the ramoops memory-region binding, a guarded read-only pstore
+mount and larger bounded PSTORE transfer limits. It keeps IRQ-only CPCAP and
+backlight-only display, with DC/PM/SUSPEND off. Offline reservation, framing,
+fixture and regression tests pass. Reviewed image:
+`9d7e357996403b6ad896d783f10487512e0853575dda73193f4d65ebc59fc329`
+(4,149,248 bytes); documented `6e8d2b08…` was not reproduced. Hardware warm-
+reset retention is still required. See
+[retained-console review](docs/suspend-trace-83-review.md).
+
+
+**Retained console 83 — ramoops size bug fixed, retention pending:** Hardware
+dmesg showed `ramoops: failed to parse property record-size: -75`
+(`-EOVERFLOW`) because the trace DT inherited one-cell u32 sizes while this
+4.4 driver uses `of_property_read_u64()`. Patch 0155 changes the three trace
+sizes to `/bits/ 64`; the compiled DT now has two-cell 64-bit values. The
+corrected image `42a2699c9f380a7fce50d2b3348780a9a588a9b3e28a23025168350c4186edfd`
+(4,149,248 bytes) builds and passes offline tests. Warm-reset retention is
+still pending. See [trace review](docs/suspend-trace-83-review.md).
+
+
+**Retained console 83 — ramoops binds on hardware:** The fixed trace image
+reports `RAMOOPS_BOUND`, read-only pstore mounted, and the intended
+0x1ff00000/1 MiB layout with 128K records, 512K console and 128K pmsg. First
+boot UUID is 5a938e4d-83e4-4bdb-a8c5-1370ef46fa72; pstore is empty initially,
+as expected. Warm-reset retention is still pending. Do not enable DC or
+suspend until the previous-boot marker is recovered.
+
+
+**Retained console 83 — retention partial, one corrupted marker byte:** A
+warm reset preserved `console-ramoops-0` (78,329 bytes) and the boot ID
+changed from `5a938e4d-…` to `64f4ed82-…`. The old marker was retained as
+`5a9s8e4d-…`; `s` is not valid UUID hex, so the record is not bit-exact.
+Ramoops binding/mount are correct, but strict retention validation fails until
+a second warm reset shows whether this byte corruption is reproducible. Do not
+enable DC or suspend.
+
+
+**Capture validator fixed for retained pstore:** normal trace captures now
+accept the fixed `/system/etc/wifi`, `/system/vendor/firmware`,
+`/system/lib/modules` RAM overlays and require `/sys/fs/pstore` to be a
+read-only pstore mount. The previously failed report re-validates as
+`geometry_matches_reference`. The report still shows boot ID `64f4ed82…`,
+unchanged from the prior capture, so it does not provide a second warm-reset
+retention sample.

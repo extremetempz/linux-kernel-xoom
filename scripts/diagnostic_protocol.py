@@ -220,8 +220,10 @@ def _android44_mount_policy(text, mounts):
         'rootfs': {'/'}, 'proc': {'/proc'}, 'sysfs': {'/sys'},
         'devtmpfs': {'/dev'}, 'devpts': {'/dev/pts'},
         'tmpfs': {'/dev', '/run', '/tmp', '/data', '/cache', '/mnt/asec', '/mnt/obb',
-                  '/mnt/fuse', '/sys/fs/cgroup'},
+                  '/mnt/fuse', '/sys/fs/cgroup', '/system/etc/wifi',
+                  '/system/vendor/firmware', '/system/lib/modules'},
         'debugfs': {'/sys/kernel/debug'},
+        'pstore': {'/sys/fs/pstore'},
         'cgroup': {'/acct', '/dev/cpuctl', '/sys/fs/cgroup/memory'},
     }
     overlays = {'/system/lib/hw': '/xoom-hw', '/system/lib/egl': '/xoom-egl'}
@@ -252,6 +254,9 @@ def _android44_mount_policy(text, mounts):
                 raise ProtocolError('Android graphics overlay is not a read-only bind from the RAM workspace')
             unique(target, required=True)
             seen_overlays.append(target)
+        elif fstype == 'pstore':
+            if target != '/sys/fs/pstore' or 'ro' not in opts or 'rw' in opts:
+                raise ProtocolError('Android pstore mount must be read-only at the fixed path')
         elif fstype in ('fuse', 'fuse.sdcard'):
             if (not system or not data or source != '/dev/fuse'
                     or not (target in ('/mnt/shell/emulated', '/storage/emulated')
