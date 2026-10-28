@@ -1,3 +1,9 @@
+> **PM preparation 86 (28 October 2026):** the isolated PM/SUSPEND/hotplug
+> framework compiles, but system sleep entry is deliberately blocked. No boot
+> image or device test was made. DC recovery, genuine hardware wake and Motorola
+> PMC/device restoration remain prerequisites. See
+> [preparation and build checks](docs/suspend-preparation-86.md).
+
 # Component status — 28 October 2026
 
 **DC hang candidate 85 — built, not flashed:** A separate manually armed
