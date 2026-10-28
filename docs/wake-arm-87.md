@@ -1,5 +1,9 @@
 # Checked CPCAP parent wake arming — review build87
 
+**Follow-up:** [candidate88](wake-arm-88-prepared.md) adds the Android hardware-test
+image and fixes the GPU Kconfig dependency discovered during integration.
+The compilation-only statements below describe the original build87.
+
 28 October 2026. Based on main154b97d and patch0159. This is an offline
 code/build deliverable. Candidate85 remains on the tablet. No new image was
 flashed, no live wake reference was changed and no system sleep was attempted.
