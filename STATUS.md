@@ -1,3 +1,10 @@
+> **DC cycles / wake-arming review (28 October 2026):** ten instrumented
+> DC off/on cycles completed; Android/USB/storage remained healthy and the
+> operator reported the display looked good. Checked CPCAP parent wake-reference
+> code and its isolated profile compile and pass fault tests, but were not flashed
+> or tested on hardware. System sleep stays blocked. See
+> [DC evidence](docs/dc-hang-85-result.md) and [wake-arm code/build](docs/wake-arm-87.md).
+
 > **Candidate85 hardware result (28 October 2026):** one manually armed
 > IRQ/DC off/on cycle passed. The operator confirmed complete darkness,
 > restoration without a scan line and working touch. Android/USB/storage
