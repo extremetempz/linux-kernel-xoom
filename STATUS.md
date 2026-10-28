@@ -1,3 +1,10 @@
+> **Candidate88 hardware result (28 October 2026):** one checked parent
+> wake-reference arm/disarm pair passed after the requested two-minute wait.
+> Android/USB/storage remained healthy; the operator confirmed power-button,
+> full-darkness/display restoration and touch operation. The reference cleared.
+> This is awake IRQ/LIC registration, not wake from sleep. Candidate88 remains
+> installed; system sleep is blocked. See [evidence](docs/wake-arm-88-result.md).
+
 > **Candidate88 ready for review (28 October 2026):** the combined Android
 > image now includes one fixed, manually requested parent wake-arm/disarm test.
 > It builds with the Wingray GPU profile retained and PM entry blocked. No new
