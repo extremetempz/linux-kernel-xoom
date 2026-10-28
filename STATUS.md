@@ -1,3 +1,9 @@
+> **Candidate89 hardware result (28 October 2026):** one task-freezer/thaw
+> cycle passed after the requested two-minute wait. Android/USB/storage and
+> both CPUs remained healthy; the operator confirmed display/touch/key operation.
+> No device/CPU suspend occurred. Candidate89 remains installed and ordinary
+> sleep stays blocked. See [hardware evidence](docs/freezer-89-result.md).
+
 > **Candidate89 ready for review (28 October 2026):** a manual task-freezer
 > test image is built. It stops before device/CPU suspend and thaws through the
 > normal finish path; ordinary sleep stays blocked. The donor null-platform-
