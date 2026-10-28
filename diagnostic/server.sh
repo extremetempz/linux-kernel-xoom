@@ -5,6 +5,7 @@ while IFS= read -r -n 80 request; do
  case "$request" in
   REPORT\ *) verb=REPORT; nonce=${request#REPORT } ;;
   FBTEST\ *) verb=FBTEST; nonce=${request#FBTEST } ;;
+  DCTEST\ *) verb=DCTEST; nonce=${request#DCTEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
   PING\ *) verb=PING; nonce=${request#PING } ;;
   *) continue ;;
@@ -36,12 +37,16 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf '\nXOOM_PSTORE_END_V1 %s\n' "$nonce"
   continue
  fi
- if [ "$verb" = FBTEST ]; then
+ if [ "$verb" = FBTEST ] || [ "$verb" = DCTEST ]; then
   if [ ! -x /bin/fb-blank-test ]; then
    /bin/busybox printf 'XOOM_ERROR_V2 %s FBTEST_MISSING\n' "$nonce"
    continue
   fi
-  /bin/busybox sh /bin/fb-blank-test > /run/fb-blank-test.txt 2>&1
+  if [ "$verb" = DCTEST ]; then
+   /bin/busybox sh /bin/fb-blank-test --dc > /run/fb-blank-test.txt 2>&1
+  else
+   /bin/busybox sh /bin/fb-blank-test > /run/fb-blank-test.txt 2>&1
+  fi
   rc=$?
   size=$(/bin/busybox wc -c < /run/fb-blank-test.txt)
   size=$((size + 0))
