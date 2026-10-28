@@ -1,5 +1,12 @@
 # Retained-console integrity candidate 84
 
+**Hardware follow-up, 28 October:** The exact image below was subsequently
+flashed with operator approval. Two same-image manual warm-reset comparisons
+pass the exact known-probe check, with 19 then 25 corrected console bytes and
+zero unrecoverable blocks. See [the scoped hardware result](suspend-retention-84-result.md).
+The preparation record below remains historical; the corruption source and
+combined DC hang remain unresolved, and suspend stays disabled.
+
 28 October 2026. Based on main `14223f6` (merged PR #23), following
 PR #22 and the IRQ/backlight validation in PR #21. **Built and checked
 offline only. No flash, reset, suspend, live device access or partition write.**
