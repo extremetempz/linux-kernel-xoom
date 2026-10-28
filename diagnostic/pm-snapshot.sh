@@ -16,6 +16,9 @@ for d in /sys/class/backlight/* /sys/class/power_supply/*; do
         [ ! -e "$d/$n" ] || read_file "$d/$n"
     done
 done
+for f in /sys/bus/spi/devices/*/wingray_irq_status /sys/bus/spi/devices/*/wingray_wake_arm; do
+    [ ! -e "$f" ] || read_file "$f"
+done
 # Register access through /dev/mem is deliberately excluded.
 echo PMC_RAW_REGISTERS_NOT_READ
 echo PM_KERNEL_LOG_BEGIN
