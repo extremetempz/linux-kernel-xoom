@@ -1,5 +1,9 @@
 # Candidate89 — manual task-freezer stage, no device or CPU sleep
 
+**Later hardware result:** [one task-freezer/thaw cycle passes](freezer-89-result.md).
+The following is the original preparation record; no-flash statements refer
+to development before that separately authorized test.
+
 28 October 2026. Based on main a751e8e, following the awake wake-reference
 pass in candidate88. **Built for review; not flashed. Candidate88 remains
 installed. No live device request or sleep test occurred during this work.**
