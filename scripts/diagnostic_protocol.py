@@ -255,8 +255,12 @@ def _android44_mount_policy(text, mounts):
             unique(target, required=True)
             seen_overlays.append(target)
         elif fstype == 'pstore':
-            if target != '/sys/fs/pstore' or 'ro' not in opts or 'rw' in opts:
+            if (target != '/sys/fs/pstore' or 'ro' not in opts or 'rw' in opts
+                    or 'ro' not in record['options'] or 'rw' in record['options']
+                    or 'ro' not in record['super_options'] or 'rw' in record['super_options']
+                    or record['root'] != '/'):
                 raise ProtocolError('Android pstore mount must be read-only at the fixed path')
+            unique(target, required=True)
         elif fstype in ('fuse', 'fuse.sdcard'):
             if (not system or not data or source != '/dev/fuse'
                     or not (target in ('/mnt/shell/emulated', '/storage/emulated')

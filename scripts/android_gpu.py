@@ -2,6 +2,7 @@
 from pathlib import Path
 import struct,hashlib
 from legacy_resources import parse_dtb
+from retained_console_profile import selected_retained_dt
 
 def validate_artifacts(directory, *, require_framebuffer_translation=False):
  p=Path(directory)
@@ -12,8 +13,8 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  battery='CONFIG_BATTERY_WINGRAY_MONITOR=y\n' in config
  displaypm='CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in config
  wakeirq='CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y\n' in config
- retained='CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-wakeirqtrace"\n' in config
- selected='tegra20-motorola-wingray-android44-wakeirqtrace' if retained else 'tegra20-motorola-wingray-android44-wakeirq' if wakeirq else 'tegra20-motorola-wingray-android44-displaypm' if displaypm else 'tegra20-motorola-wingray-android44-battery' if battery else 'tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
+ retained=selected_retained_dt(config)
+ selected=retained if retained else 'tegra20-motorola-wingray-android44-wakeirq' if wakeirq else 'tegra20-motorola-wingray-android44-displaypm' if displaypm else 'tegra20-motorola-wingray-android44-battery' if battery else 'tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
  assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+selected+'"\n' in config
  if bluetooth:
   from bluetooth_profile import validate_bluetooth_artifacts

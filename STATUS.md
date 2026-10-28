@@ -1,4 +1,4 @@
-# Component status — 27 October 2026
+# Component status — 28 October 2026
 
 **Current suspend baseline — IRQ + backlight hardware pass:** ON IRQ-only,
 LIC routing, dynamic virq, polling removal and backlight-only power-key cycles
@@ -7,11 +7,16 @@ IRQ/DC profile hung and lost USB; the failure is narrowed toward DC, not
 root-caused. Suspend/deep sleep remains disabled. See
 [hardware result](docs/suspend-wake-82-backlight-result.md).
 
-**Retained-console candidate 83 — built, not hardware-validated:** New
-`wakeirqtrace` keeps DC shutdown and suspend off, fixes the ramoops
-memory-region binding, mounts pstore read-only and sizes the capture path
-for complete logs. First prove warm-reset retention, then investigate DC.
-See [revised gates and image](docs/suspend-trace-83.md).
+**Current retained-console gate — two hardware comparisons pass with ECC:**
+Candidate 84 booted Android and passed two operator-controlled same-image
+warm-reset comparisons. Exact previous markers/379-byte probes survived;
+ECC corrected 19 then 25 console bytes, with zero unrecoverable blocks.
+Normal reports confirm boot completion and matching read-only storage after
+both resets. This is corrected known-probe retention, not error-free RAM or
+whole-log/hard-hang/suspend validation. The corruption source remains unknown.
+Candidate 84 remains installed; a separate instrumented DC candidate is next.
+DC/PM/SUSPEND/DVFS stay disabled. See
+[hardware result and remaining gates](docs/suspend-retention-84-result.md).
 
 **Bluetooth — hardware-tested (Image 75b):** The opt-in awake-only
 UARTC/rfkill profile paired and connected a Sony WH-1000XM5 headset while

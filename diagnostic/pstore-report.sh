@@ -3,6 +3,17 @@
 echo XOOM_PSTORE_REPORT_V1
 echo "UPTIME $(/bin/busybox cut -d' ' -f1 /proc/uptime 2>/dev/null)"
 echo "CURRENT_BOOT_ID $(/bin/busybox cat /proc/sys/kernel/random/boot_id 2>/dev/null)"
+echo PSTORE_CURRENT_PROBE_BEGIN
+[ ! -r /run/pstore-probe.txt ] || /bin/busybox cat /run/pstore-probe.txt
+echo PSTORE_CURRENT_PROBE_END
+# DT ecc-size is u32 in this donor; the module's ecc parameter is NOT
+# updated after a DT probe and would misleadingly remain zero.
+ecc_property=/proc/device-tree/ramoops@1ff00000/ecc-size
+if [ -r "$ecc_property" ]; then
+ echo "RAMOOPS_DT_ECC_HEX $(/bin/busybox od -An -tx1 "$ecc_property" | /bin/busybox tr -d ' \n')"
+else
+ echo RAMOOPS_DT_ECC_HEX absent
+fi
 if /bin/busybox awk '$2=="/sys/fs/pstore" && $3=="pstore" {found=1} END {exit !found}' /proc/mounts; then
  echo PSTORE_MOUNTED_yes
 else
