@@ -1,5 +1,9 @@
 # Candidate88 — combined Android awake-only wake-arming test
 
+**Later hardware result:** [awake arm/disarm passes](wake-arm-88-result.md).
+The following is the original preparation record; its no-flash statements
+refer to development before that separately authorized hardware test.
+
 28 October 2026. Based on main b524885 plus patch0161. **Built and checked
 for review; not flashed.** Candidate85 remains on the tablet. No live serial
 request, wake-reference change, reboot or sleep test occurred in this step.
