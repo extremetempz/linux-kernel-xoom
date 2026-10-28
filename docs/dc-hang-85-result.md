@@ -1,4 +1,4 @@
-# Candidate85 — first instrumented IRQ/DC cycle passes
+# Candidate85 — ten instrumented IRQ/DC cycles complete
 
 28 October 2026. Exact image from [candidate85 preparation](dc-hang-85.md),
 SHA-256 `168a49a18144cd98bccc8cc1045b97897b8709533bd85e424303452dd9c1cc0c`,
@@ -61,18 +61,34 @@ not test retention after a hard hang. The startup sysfs-group warning at
 0.948566 seconds was already present in the pre-test baseline; it was not
 caused by this cycle. No absence of all unrelated warnings is claimed.
 
+## Repeated-cycle follow-up
+
+After a fresh verified REPORT, the operator woke the screen and approved
+nine more fixed DCTEST cycles (cycles2–10), with immediate stop on any
+command failure. All nine returned verified frames, successful off/on and
+disarm writes, gate zero and native href11/vref1 restoration with a positive
+window-sync result. The operator reported “looks good!” during this batch.
+Combined with cycle1, ten instrumented cycles completed without a reset.
+The ten saved payload sizes/hashes and required result markers were
+independently rechecked.
+
+The post-cycle10 REPORT again confirms Android boot completion, awake state,
+CPUs0–1, matching full disk/BigPart geometry, polling=0 and CPCAP events18,
+errors0. Private follow-up captures are `dc85-repeat-before`, `dc85-cycle2`
+through `dc85-cycle10`, and `dc85-after-cycle10`. No further image was flashed.
+
 ## Accepted scope and limits
 
-**One instrumented combined IRQ/DC off/on cycle passes, with physical
-restoration and touch confirmation.** The old hang did not reproduce. Its
+**Ten instrumented combined IRQ/DC cycles completed.** Cycle1 has explicit
+complete-darkness/no-scan-line/touch confirmation; the follow-up batch has
+the operator’s positive visual observation and verified command results. The old hang did not reproduce. Its
 cause remains unknown; checkpoint timing may affect reproduction. This is
-not a causal fix, repeated-cycle qualification, system PM callback test,
+not a causal fix, long-duration reliability qualification, system PM callback test,
 low-power wake test or deep-sleep result. No new Wi-Fi/Bluetooth reconnect,
 GPU stress, charging-control or power-consumption test was performed.
 
 The manual DC gate is zero again. Normal power-button blanking uses the
-backlight-only path. System suspend remains disabled. Next: repeated
-operator-observed DC cycles, followed by checked CPCAP wake arming and
+backlight-only path. System suspend remains disabled. Next: checked CPCAP wake arming and
 Motorola system-PM restoration work; retain the preparation86 sleep-entry
 block until those dependencies are addressed.
 
