@@ -57,7 +57,7 @@ static bool config, wingray;
 static bool of_machine_is_compatible(const char *s) { assert(!strcmp(s,"motorola,wingray")); return wingray; }
 static int calls, markers;
 static struct {int success, fail;} suspend_stats;
-static int enter_state(int state) {calls++; return state == 3 ? -EIO : 0;}
+static int enter_state(int state,bool freezer_only) {assert(!freezer_only);calls++; return state == 3 ? -EIO : 0;}
 static void pm_suspend_marker(const char *s) {(void)s; markers++;}
 static void dpm_save_failed_errno(int error) {assert(error == -EIO);}
 '''+helper+'\n'+actual+r'''
