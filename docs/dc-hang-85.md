@@ -1,5 +1,9 @@
 # Candidate 85 — manually armed DC hang localization
 
+**Later hardware result:** [one observed DC cycle passes](dc-hang-85-result.md).
+The following is the original preparation record; its no-flash statements
+refer to development before that separately authorized test.
+
 28 October 2026. Based on main `8447ed0`, following the two corrected-console
 warm-reset passes in [candidate 84](suspend-retention-84-result.md).
 **Built and checked offline. Not flashed; no DC cycle, reboot or suspend
