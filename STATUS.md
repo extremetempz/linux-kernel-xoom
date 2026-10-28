@@ -1,3 +1,9 @@
+> **Candidate88 ready for review (28 October 2026):** the combined Android
+> image now includes one fixed, manually requested parent wake-arm/disarm test.
+> It builds with the Wingray GPU profile retained and PM entry blocked. No new
+> image was flashed; candidate85 remains installed. Physical wake and sleep
+> remain unvalidated. See [image, checks and procedure](docs/wake-arm-88-prepared.md).
+
 > **DC cycles / wake-arming review (28 October 2026):** ten instrumented
 > DC off/on cycles completed; Android/USB/storage remained healthy and the
 > operator reported the display looked good. Checked CPCAP parent wake-reference
