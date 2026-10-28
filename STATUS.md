@@ -7,15 +7,16 @@ IRQ/DC profile hung and lost USB; the failure is narrowed toward DC, not
 root-caused. Suspend/deep sleep remains disabled. See
 [hardware result](docs/suspend-wake-82-backlight-result.md).
 
-**Current retained-console gate — candidate 84 built, not flashed:** PR #23
-validated trace83's ramoops binding after the u64-size fix, but its warm-reset
-console has a verified one-bit marker discrepancy. The serial frame hashes
-match; the underlying corruption source is unknown. New opt-in `wakeirqecc`
-uses the donor's existing ECC, a multi-block known probe and a strict offline
-before/after checker. Full ARM build and targeted regressions pass. Existing
-images remain unchanged; DC/PM/SUSPEND/DVFS stay off. Require two consecutive
-same-image warm-reset integrity passes before DC reproduction. See
-[candidate 84 and test gates](docs/suspend-retention-84.md).
+**Current retained-console gate — two hardware comparisons pass with ECC:**
+Candidate 84 booted Android and passed two operator-controlled same-image
+warm-reset comparisons. Exact previous markers/379-byte probes survived;
+ECC corrected 19 then 25 console bytes, with zero unrecoverable blocks.
+Normal reports confirm boot completion and matching read-only storage after
+both resets. This is corrected known-probe retention, not error-free RAM or
+whole-log/hard-hang/suspend validation. The corruption source remains unknown.
+Candidate 84 remains installed; a separate instrumented DC candidate is next.
+DC/PM/SUSPEND/DVFS stay disabled. See
+[hardware result and remaining gates](docs/suspend-retention-84-result.md).
 
 **Bluetooth — hardware-tested (Image 75b):** The opt-in awake-only
 UARTC/rfkill profile paired and connected a Sony WH-1000XM5 headset while
