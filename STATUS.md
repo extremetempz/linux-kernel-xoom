@@ -351,3 +351,14 @@ read-only pstore mount. The previously failed report re-validates as
 `geometry_matches_reference`. The report still shows boot ID `64f4ed82…`,
 unchanged from the prior capture, so it does not provide a second warm-reset
 retention sample.
+
+
+**Image 89 — task freezer pass, sleep intentionally blocked:** The manual
+freezer test validates preparation/notifier/freezer/thaw and returns to the
+same Android session, but `device_suspend=0`, `cpu_sleep=0` and
+`ordinary_sleep=blocked`. `MOTOROLA_WINGRAY_PM_PREPARE` makes `pm_suspend()`
+return `-EOPNOTSUPP`; `tegra_init_suspend()` never registers platform ops;
+PMC parameters, DC/GPU restore, peripheral callbacks and real wake arming are
+not validated. No hardware image-89 or ECC retention artifacts are present in
+this workspace for independent reproduction. Do not attempt deep sleep. See
+[image 89 review](docs/suspend-image89-review.md).
