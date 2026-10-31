@@ -17,7 +17,7 @@ code=r'''
 #include <errno.h>
 #include <string.h>
 typedef int suspend_state_t;
-enum wingray_pm_test_mode { WINGRAY_PM_TEST_NONE, WINGRAY_PM_TEST_FREEZER, WINGRAY_PM_TEST_CPCAP, WINGRAY_PM_TEST_DPM };
+enum wingray_pm_test_mode { WINGRAY_PM_TEST_NONE, WINGRAY_PM_TEST_FREEZER, WINGRAY_PM_TEST_CPCAP, WINGRAY_PM_TEST_DPM, WINGRAY_PM_TEST_LATE, WINGRAY_PM_TEST_SYSCORE };
 #define CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST 0
 #define CONFIG_MOTOROLA_WINGRAY_DPM_TEST 0
 static int wingray_cpcap_devicepm_test(void){assert(0);return -EIO;}
@@ -29,6 +29,7 @@ static int wingray_cpcap_devicepm_test(void){assert(0);return -EIO;}
 #define TEST_CPUS 2
 #define TEST_FREEZER 5
 #define TEST_DEVICES 4
+#define TEST_PLATFORM 3
 static bool wingray_dpm_active;
 #define TPS(x) (x)
 #define trace_suspend_resume(...) ((void)0)

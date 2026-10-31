@@ -420,3 +420,13 @@ the operator saw about five seconds of blanking instead of 30. Host USB was
 lost during the suspension window, so the framed host response is not proof;
 the result comes from the normal report. This is not CPU sleep or LP2. See
 [device-pm-91-result.md](docs/device-pm-91-result.md).
+
+
+**Image 92 suspend-prerequisite diagnostics prepared:** Adds DPM reconnect/
+boot-ID status recovery, a fixed CPU1 offline/online diagnostic, and late/
+syscore PM test entry points while platform/LP2 entry remains blocked.
+Image SHA-256
+`e04cb8355989e24c94fbda3ad962c7b222aa4871d81e194ca86930bc9f9e8bc1`
+(4,220,928 bytes). CPU1, late/noirq and syscore are not hardware-validated.
+PMC/wake review leaves Image 93 blocked. See
+[Image 92](docs/device-pm-92.md) and [PMC/wake review](docs/pmc-wake-92-review.md).
