@@ -209,6 +209,10 @@ def entries(runtime):
  if b'CONFIG_MOTOROLA_WINGRAY_DPM_TEST=y\n' in config:
   files['bin/dpm-cycle']=(ROOT/'diagnostic/dpm-cycle.sh').read_bytes()
   files['bin/cpu1-cycle']=(ROOT/'diagnostic/cpu1-cycle.sh').read_bytes()
+  files['bin/late-cycle']=(ROOT/'diagnostic/late-cycle.sh').read_bytes()
+  files['bin/syscore-cycle']=(ROOT/'diagnostic/syscore-cycle.sh').read_bytes()
+  files['bin/late-cycle']=(ROOT/'diagnostic/late-cycle.sh').read_bytes()
+  files['bin/syscore-cycle']=(ROOT/'diagnostic/syscore-cycle.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT

@@ -25,6 +25,8 @@ static int wingray_cpcap_devicepm_test(void){assert(0);return -EIO;}
 #define CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST cfg
 #define IS_ENABLED(x) (x)
 #define PM_SUSPEND_FREEZE 1
+#define PM_SUSPEND_MEM 2
+#define TEST_CORE 1
 #define TEST_NONE 0
 #define TEST_CPUS 2
 #define TEST_FREEZER 5
@@ -101,6 +103,8 @@ code=r'''
 #include <assert.h>
 typedef int suspend_state_t;
 #define PM_SUSPEND_FREEZE 1
+#define PM_SUSPEND_MEM 2
+#define TEST_CORE 1
 struct platform_freeze_ops {int (*begin)(void);void (*end)(void);};
 struct platform_suspend_ops {int (*begin)(int);void (*end)(void);};
 static struct platform_freeze_ops *freeze_ops;

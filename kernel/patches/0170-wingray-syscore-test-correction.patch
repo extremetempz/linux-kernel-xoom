@@ -1,0 +1,78 @@
+diff --git a/arch/arm/mach-tegra/pm.c b/arch/arm/mach-tegra/pm.c
+index edbccc55..d1f359fc 100644
+--- a/arch/arm/mach-tegra/pm.c
++++ b/arch/arm/mach-tegra/pm.c
+@@ -390,11 +390,29 @@ static const struct platform_suspend_ops tegra_suspend_ops = {
+ 	.enter		= tegra_suspend_enter,
+ };
+ 
++#ifdef CONFIG_MOTOROLA_WINGRAY_DPM_TEST
++/* TEST_CORE must reach syscore_suspend() before stopping.  PM_SUSPEND_MEM
++ * requires a platform enter callback, but TEST_CORE checks before invoking it;
++ * this dummy is never called.  Ordinary pm_suspend() remains blocked. */
++static int wingray_test_suspend_enter(suspend_state_t state)
++{
++	return -EINVAL;
++}
++
++static const struct platform_suspend_ops wingray_test_suspend_ops = {
++	.valid = suspend_valid_only_mem,
++	.enter = wingray_test_suspend_enter,
++};
++#endif
++
+ void __init tegra_init_suspend(void)
+ {
+ 	enum tegra_suspend_mode mode = tegra_pmc_get_suspend_mode();
+ 
+ 	if (wingray_pm_prepare_only()) {
++#ifdef CONFIG_MOTOROLA_WINGRAY_DPM_TEST
++		suspend_set_ops(&wingray_test_suspend_ops);
++#endif
+ 		pr_info("Wingray PM preparation: system sleep entry blocked\n");
+ 		return;
+ 	}
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index 0ba902aa..a38c4e58 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -503,7 +503,9 @@ static int enter_state(suspend_state_t state, enum wingray_pm_test_mode test_mod
+ 
+ 	if (test_mode != WINGRAY_PM_TEST_NONE &&
+ 	    (!IS_ENABLED(CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST) ||
+-	     !wingray_pm_prepare_only() || state != PM_SUSPEND_FREEZE))
++	     !wingray_pm_prepare_only() ||
++	     (state != PM_SUSPEND_FREEZE &&
++	      !(test_mode == WINGRAY_PM_TEST_SYSCORE && state == PM_SUSPEND_MEM))))
+ 		return -EOPNOTSUPP;
+ 
+ 	if (test_mode < WINGRAY_PM_TEST_NONE || test_mode > WINGRAY_PM_TEST_SYSCORE ||
+@@ -569,19 +571,23 @@ static int enter_state(suspend_state_t state, enum wingray_pm_test_mode test_mod
+ 		int saved_test = pm_test_level;
+ 		int level = test_mode == WINGRAY_PM_TEST_DPM ? TEST_DEVICES :
+ 			    test_mode == WINGRAY_PM_TEST_LATE ? TEST_PLATFORM :
+-			    TEST_CPUS;
++			    TEST_CORE;
++		suspend_state_t stage = test_mode == WINGRAY_PM_TEST_SYSCORE ?
++					PM_SUSPEND_MEM : PM_SUSPEND_FREEZE;
+ 		const char *name = test_mode == WINGRAY_PM_TEST_DPM ? "dpm" :
+ 				   test_mode == WINGRAY_PM_TEST_LATE ? "late" : "syscore";
+ 		(void)name;
+ 
+ 		pr_info("WG_PM92_FREEZER_COMPLETE selected=%s platform_entry=0 cpu_sleep=0\n", name);
+-		/* Reuse the real PM test path.  TEST_DEVICES stops after normal
+-		 * callbacks; TEST_PLATFORM also runs late/noirq; TEST_CPUS also
+-		 * runs syscore, but still before platform CPU/LP entry. */
++		/* TEST_DEVICES stops after normal callbacks; TEST_PLATFORM also
++		 * runs late/noirq.  TEST_CORE is used only with PM_SUSPEND_MEM:
++		 * it runs disable_nonboot_cpus/syscore_suspend, but stops before
++		 * the dummy platform enter callback.  PM_SUSPEND_FREEZE returns
++		 * from suspend_enter before syscore, so it cannot test syscore. */
+ 		pm_test_level = level;
+ 		wingray_dpm_active = true;
+ 		pm_restrict_gfp_mask();
+-		error = suspend_devices_and_enter(PM_SUSPEND_FREEZE);
++		error = suspend_devices_and_enter(stage);
+ 		pm_restore_gfp_mask();
+ 		wingray_dpm_active = false;
+ 		pm_test_level = saved_test;

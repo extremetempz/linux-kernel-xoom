@@ -185,3 +185,9 @@ The new target is `wingray_bringup_defconfig` with `tegra20-motorola-wingray.dts
 GitHub destination: `extremetempz/linux-kernel-xoom`. Repository visibility was changed to private on 18 October 2026.
 
 Upstream source and evidence retain their original licenses. Keep kernel copyright notices and GPL obligations when distributing kernel binaries; private hosting does not change those obligations.
+
+
+The earlier `SYSCTEST result=0` is invalid as syscore evidence: freeze suspend
+returns before syscore in this tree. Image 92c corrects the diagnostic to
+`PM_SUSPEND_MEM`/`TEST_CORE` with a dummy platform enter; that corrected path is
+not yet hardware-tested.

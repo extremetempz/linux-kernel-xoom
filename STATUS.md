@@ -426,7 +426,7 @@ the result comes from the normal report. This is not CPU sleep or LP2. See
 boot-ID status recovery, a fixed CPU1 offline/online diagnostic, and late/
 syscore PM test entry points while platform/LP2 entry remains blocked.
 Image SHA-256
-`e04cb8355989e24c94fbda3ad962c7b222aa4871d81e194ca86930bc9f9e8bc1`
+`55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`
 (4,220,928 bytes). CPU1, late/noirq and syscore are not hardware-validated.
 PMC/wake review leaves Image 93 blocked. See
 [Image 92](docs/device-pm-92.md) and [PMC/wake review](docs/pmc-wake-92-review.md).
@@ -437,3 +437,38 @@ PMC/wake review leaves Image 93 blocked. See
 process RC0 on image `e04cb835…`. CPU1 was offlined and returned using the
 standard hotplug interface; CPU0 stayed online. This did not combine hotplug
 with DPM/LP2. See [cpu1-92-result.md](docs/cpu1-92-result.md).
+
+
+**Image 92b — late/syscore fixed-request wrappers:** The CPU1-tested kernel now
+has fixed `LATETEST`/`SYSCTEST` and `LATESTATUS`/`SYSSTATUS` requests plus
+`run-stage-test.py`. Current image SHA-256
+`55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`
+(4,218,880 bytes). CPU1 remains hardware-passed on the earlier e04 image with
+the same kernel logic; late/noirq and syscore are not yet hardware-tested.
+Image 93 remains blocked by PMC/wake and late/syscore gates.
+
+
+**Image 92 syscore test correction:** The earlier SYSCTEST result0 used
+`PM_SUSPEND_FREEZE`; this kernel returns from that path at `freeze_enter()`
+before syscore, so it was not a syscore pass. Image 92c now uses a test-only
+dummy suspend_ops with `PM_SUSPEND_MEM`/`TEST_CORE`, which reaches
+`syscore_suspend()` and stops before the dummy platform enter. Earlier
+late/noirq `LATETEST_PASS` remains valid. The corrected syscore path is not
+hardware-tested. Image 93 remains blocked.
+
+
+**Image 92c corrected syscore status pass:** `PM_SUSPEND_MEM` with
+`TEST_CORE` reported `SYSCTEST_AFTER completed=1 last_result=0`, counter +1,
+process RC0 on image
+`55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`.
+This path reaches syscore and skips the dummy platform enter; it is not LP2.
+CPU1, late/noirq and syscore diagnostics have passed individually. The PMC
+handshake and physical wake remain blocking, so Image 93 is still not prepared.
+
+
+**Image 92c corrected syscore hardware path verified:** Same-boot dmesg records
+normal, late and noirq device suspend; `tegra_timer_syscore_suspend`,
+`cpu_pm_suspend` and `tegra_ictlr_suspend`; corresponding resume; and
+`WG_PM92_STAGE_COMPLETE selected=syscore result=0`. The dummy platform enter
+was not called. This is devices/late/noirq/syscore validation, not LP2.
+PMC handshake and physical wake remain blocking; Image 93 is still not prepared.
