@@ -204,6 +204,8 @@ def entries(runtime):
   files['bin/pm-snapshot']=(ROOT/'diagnostic/pm-snapshot.sh').read_bytes()
  if b'CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST=y\n' in config:
   files['bin/freezer-cycle']=(ROOT/'diagnostic/freezer-cycle.sh').read_bytes()
+ if b'CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST=y\n' in config:
+  files['bin/devicepm-cycle']=(ROOT/'diagnostic/devicepm-cycle.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
