@@ -7,13 +7,23 @@
 
 `artifacts/lp2-final-ready/wingray-android44-gpu.img`
 
-- Size: 4,220,928 bytes
-- SHA-256: `62541e5c9919abdf7e75c2b740c45a2cf8fc7ef7f11bf4ca5ae2913dbbccff17`
+- Size: 4,216,832 bytes
+- SHA-256: `afa116a83157c879c6bd0f3a4cb503a4aaf46804fd6a7c361e35bde84ee09542`
 - Profile: `android44-lp2test`
 - DT: `tegra20-motorola-wingray-android44-lp2`
 - `soc_suspend_enabled=true`, `lp2_candidate=true`, `hardware_tested=false`
 
 ## Source changes
+
+### Console retention
+
+`console_suspend_enabled` is forced off for this profile so the pstore console
+does not stop at `PM: suspend entry`. Without it, the LP2 entry and teardown
+markers are not retained even when the suspend succeeds. The kernel logs:
+
+```text
+Wingray LP2: console suspend disabled for evidence
+```
 
 ### Manual-only LP2 gate
 

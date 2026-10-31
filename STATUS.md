@@ -502,3 +502,11 @@ report. Image SHA-256
 (4,220,928 bytes), not flashed. The first two attempts returned zero and woke
 by physical power button on the same boot, but the reports never contained
 `WG_LP2_PLATFORM_ENTER` or `WG_LP2_CPU_RESUMED`; no LP2 success is claimed.
+
+
+**LP2 console-retention image 93d built:** sets `console_suspend_enabled=0` for
+the manual LP2 profile, so pstore no longer stops at `PM: suspend entry`.
+Image SHA-256
+`afa116a83157c879c6bd0f3a4cb503a4aaf46804fd6a7c361e35bde84ee09542`
+(4,216,832 bytes), not flashed. The previous attempt remains unverified; the
+CPCAP `-108` IRQ flood during resume is still an open ordering defect.

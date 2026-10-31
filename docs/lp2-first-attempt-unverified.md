@@ -71,3 +71,13 @@ low-power transition occurred, but this cannot be accepted as LP2 without the
 
 Do not retry the current image automatically. Do not claim LP2 success or
 failure beyond "unresolved pending instrumentation."
+
+
+## Root cause of the missing markers
+
+Later analysis showed the saved dmesg was only the last 262144 bytes and was
+entirely a CPCAP IRQ `-108` flood. The retained console stopped at
+`PM: suspend entry` because normal Linux console suspend was still enabled.
+The original Motorola board set `console_suspend_enabled = 0`; that was missing
+from Image 93. Image 93d restores it so the `WG_LP2_*` and teardown lines are
+retained for the next attempt.
