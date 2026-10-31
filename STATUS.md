@@ -484,3 +484,12 @@ armed. Image SHA-256
 (4,218,880 bytes). No LP2 attempt has been made; physical wake, actual CPU
 power loss, PL310 and TIMERUS retention remain unverified. See
 [lp2-candidate-93.md](docs/lp2-candidate-93.md).
+
+
+**First Image 93 LP2 attempt — unresolved, not claimed:** `LP2TEST
+last_result=0` and physical power-button wake/working Android were observed,
+but the same-boot report contains no `WG_LP2_PLATFORM_ENTER`/`WG_LP2_CPU_RESUMED`,
+no PM suspend-entry/DC-suspend sequence, and no pre-test boot ID. The retained
+console is from the previous boot e80b. The 1970 timestamp is not useful because
+wall time was already wrong. See
+[lp2-first-attempt-unverified.md](docs/lp2-first-attempt-unverified.md).
