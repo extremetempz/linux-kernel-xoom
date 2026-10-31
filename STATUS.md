@@ -369,3 +369,22 @@ PMC parameters, DC/GPU restore, peripheral callbacks and real wake arming are
 not validated. No hardware image-89 or ECC retention artifacts are present in
 this workspace for independent reproduction. Do not attempt deep sleep. See
 [image 89 review](docs/suspend-image89-review.md).
+
+
+**Image 91 — full-tree devices-only DPM prepared, not flashed:** Adds a
+default-off `MOTOROLA_WINGRAY_DPM_TEST` manual profile that reuses Linux
+`pm_test=devices` ordering to suspend/resume the whole device tree after task
+freeze, with platform/CPU/syscore entry still blocked. CPCAP has separate
+selected-test and genuine-DPM callback guards. LP2 source fixes add
+`cpu_suspend()` return propagation, one-CPU validation, PL310 outer-cache
+disable, timer syscore restore and mode-specific PMC parsing. Display/GPU
+system restoration remains blocked. Image size/SHA and the absence of hardware
+testing are recorded in [device-pm-91.md](docs/device-pm-91.md). Image 90
+review/test procedure is in [device-pm-90-test.md](docs/device-pm-90-test.md).
+
+
+**Image 91 build identity:** `artifacts/dpm91-final-ready/wingray-android44-gpu.img`,
+4,216,832 bytes, SHA-256
+`934ceaf67c38b2b4a415b5c7020af6bdae9f4b772cf66a9155bbee5885072164`,
+profile `android44-devicepm91`. Full-tree devices-only DPM and the LP2 source
+corrections build; no device operation or hardware sleep test was performed.

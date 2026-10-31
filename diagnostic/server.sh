@@ -7,6 +7,8 @@ while IFS= read -r -n 80 request; do
   FBTEST\ *) verb=FBTEST; nonce=${request#FBTEST } ;;
   DCTEST\ *) verb=DCTEST; nonce=${request#DCTEST } ;;
   DEVICEPMTEST\ *) verb=DEVICEPMTEST; nonce=${request#DEVICEPMTEST } ;;
+  DPMTEST\ *) verb=DPMTEST; nonce=${request#DPMTEST } ;;
+  DPMSTATUS\ *) verb=DPMSTATUS; nonce=${request#DPMSTATUS } ;;
   FREEZERTEST\ *) verb=FREEZERTEST; nonce=${request#FREEZERTEST } ;;
   WAKETEST\ *) verb=WAKETEST; nonce=${request#WAKETEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
@@ -80,6 +82,42 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf 'XOOM_DEVICEPMTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
   /bin/busybox cat /run/devicepm-test.b64
   /bin/busybox printf '\nXOOM_DEVICEPMTEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = DPMSTATUS ]; then
+  if [ ! -f /run/dpm-test.txt ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s DPMSTATUS_MISSING\n' "$nonce"
+   continue
+  fi
+  size=$(/bin/busybox wc -c < /run/dpm-test.txt)
+  size=$((size + 0))
+  checksum=$(/bin/busybox sha256sum /run/dpm-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/dpm-test.txt > /run/dpm-status.b64 || continue
+  /bin/busybox printf 'XOOM_DPMSTATUS_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/dpm-status.b64
+  /bin/busybox printf '\nXOOM_DPMSTATUS_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = DPMTEST ]; then
+  if [ ! -x /bin/dpm-cycle ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s DPMTEST_MISSING\n' "$nonce"
+   continue
+  fi
+  # USB may disappear while devices are suspended; frame the result after resume.
+  /bin/busybox sh /bin/dpm-cycle > /run/dpm-test.txt 2>&1
+  size=$(/bin/busybox wc -c < /run/dpm-test.txt)
+  size=$((size + 0))
+  if [ "$size" -le 0 ] || [ "$size" -gt 65536 ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s DPMTEST_SIZE\n' "$nonce"
+   continue
+  fi
+  checksum=$(/bin/busybox sha256sum /run/dpm-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/dpm-test.txt > /run/dpm-test.b64 || continue
+  /bin/busybox printf 'XOOM_DPMTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/dpm-test.b64
+  /bin/busybox printf '\nXOOM_DPMTEST_END_V1 %s\n' "$nonce"
   continue
  fi
  if [ "$verb" = WAKETEST ]; then
