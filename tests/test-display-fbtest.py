@@ -15,7 +15,7 @@ assert 'fb-blank-test' in server
 assert 'echo 4 > $FB' in test and 'echo 0 > $FB' in test
 assert 'trap restore EXIT' in test and 'Wingray (display|backlight|DC test|native mode)' in test
 assert 'eval ' not in server and 'eval ' not in test
-assert "('PING', 'REPORT', 'FBTEST', 'PSTORE', 'DCTEST', 'WAKETEST', 'FREEZERTEST', 'DEVICEPMTEST', 'DPMTEST', 'DPMSTATUS', 'BOOTID', 'CPU1TEST')" in protocol
+assert "('PING', 'REPORT', 'FBTEST', 'PSTORE', 'DCTEST', 'WAKETEST', 'FREEZERTEST', 'DEVICEPMTEST', 'DPMTEST', 'DPMSTATUS', 'BOOTID', 'CPU1TEST', 'LATETEST', 'SYSCTEST', 'LATESTATUS', 'SYSSTATUS')" in protocol
 assert 'FBTEST' in sender and 'fb-blank-test.txt' in sender
 assert 'arbitrary_shell_commands' in sender and "'FBTEST'" in sender
 subprocess.run([sys.executable,str(ROOT/'scripts/run-fb-blank-test.py'),'--help'],check=True,stdout=subprocess.DEVNULL)

@@ -426,7 +426,7 @@ the result comes from the normal report. This is not CPU sleep or LP2. See
 boot-ID status recovery, a fixed CPU1 offline/online diagnostic, and late/
 syscore PM test entry points while platform/LP2 entry remains blocked.
 Image SHA-256
-`e04cb8355989e24c94fbda3ad962c7b222aa4871d81e194ca86930bc9f9e8bc1`
+`5071964ba0dbe93aca41f335526503348a2e937eea331ae1e6e19261ec6ad9fb`
 (4,220,928 bytes). CPU1, late/noirq and syscore are not hardware-validated.
 PMC/wake review leaves Image 93 blocked. See
 [Image 92](docs/device-pm-92.md) and [PMC/wake review](docs/pmc-wake-92-review.md).
@@ -437,3 +437,12 @@ PMC/wake review leaves Image 93 blocked. See
 process RC0 on image `e04cb835…`. CPU1 was offlined and returned using the
 standard hotplug interface; CPU0 stayed online. This did not combine hotplug
 with DPM/LP2. See [cpu1-92-result.md](docs/cpu1-92-result.md).
+
+
+**Image 92b — late/syscore fixed-request wrappers:** The CPU1-tested kernel now
+has fixed `LATETEST`/`SYSCTEST` and `LATESTATUS`/`SYSSTATUS` requests plus
+`run-stage-test.py`. Current image SHA-256
+`5071964ba0dbe93aca41f335526503348a2e937eea331ae1e6e19261ec6ad9fb`
+(4,218,880 bytes). CPU1 remains hardware-passed on the earlier e04 image with
+the same kernel logic; late/noirq and syscore are not yet hardware-tested.
+Image 93 remains blocked by PMC/wake and late/syscore gates.

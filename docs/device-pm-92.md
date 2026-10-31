@@ -4,10 +4,13 @@
 
 ## Image
 
-`artifacts/dpm92-review-ready/wingray-android44-gpu.img`
+`artifacts/dpm92b-ready/wingray-android44-gpu.img`
 
-- Size: 4,220,928 bytes
-- SHA-256: `e04cb8355989e24c94fbda3ad962c7b222aa4871d81e194ca86930bc9f9e8bc1`
+- Size: 4,218,880 bytes
+- SHA-256: `5071964ba0dbe93aca41f335526503348a2e937eea331ae1e6e19261ec6ad9fb`
+- The earlier `e04cb835…` image was used for the successful CPU1 test; this
+  image adds the late/syscore fixed requests and host helper while keeping the
+  same CPU1/DPM kernel functionality.
 - Profile: `android44-devicepm92`
 - `soc_suspend_enabled=false`; platform/LP2 entry remains blocked.
 
@@ -42,8 +45,26 @@ python3 scripts/run-dpm-test.py \
   --output-dir artifacts/dpm92-cycle1
 ```
 
-The late/syscore sysfs attributes are fixed diagnostic triggers, not automatic
-boot actions. They must not be run together with CPU1 or each other.
+Late/noirq and syscore fixed requests:
+
+```sh
+# Trigger one stage. USB is expected to disconnect.
+python3 scripts/run-stage-test.py --stage late \
+  --output-dir artifacts/stage92-late-cycle1
+
+# After USB re-enumerates, retrieve the saved result; do not trigger again.
+python3 scripts/run-stage-test.py --stage late --status \
+  --output-dir artifacts/stage92-late-status1
+
+# Same for syscore:
+python3 scripts/run-stage-test.py --stage syscore \
+  --output-dir artifacts/stage92-syscore-cycle1
+python3 scripts/run-stage-test.py --stage syscore --status \
+  --output-dir artifacts/stage92-syscore-status1
+```
+
+These are fixed requests, not automatic boot actions. They must not be run
+together with CPU1 or each other.
 
 ## Status
 

@@ -11,6 +11,10 @@ while IFS= read -r -n 80 request; do
   DPMSTATUS\ *) verb=DPMSTATUS; nonce=${request#DPMSTATUS } ;;
   BOOTID\ *) verb=BOOTID; nonce=${request#BOOTID } ;;
   CPU1TEST\ *) verb=CPU1TEST; nonce=${request#CPU1TEST } ;;
+  LATETEST\ *) verb=LATETEST; nonce=${request#LATETEST } ;;
+  SYSCTEST\ *) verb=SYSCTEST; nonce=${request#SYSCTEST } ;;
+  LATESTATUS\ *) verb=LATESTATUS; nonce=${request#LATESTATUS } ;;
+  SYSSTATUS\ *) verb=SYSSTATUS; nonce=${request#SYSSTATUS } ;;
   FREEZERTEST\ *) verb=FREEZERTEST; nonce=${request#FREEZERTEST } ;;
   WAKETEST\ *) verb=WAKETEST; nonce=${request#WAKETEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
@@ -88,6 +92,42 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf 'XOOM_DEVICEPMTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
   /bin/busybox cat /run/devicepm-test.b64
   /bin/busybox printf '\nXOOM_DEVICEPMTEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = LATETEST ] || [ "$verb" = SYSCTEST ]; then
+  case "$verb" in
+   SYSCTEST) stage=syscore ;;
+   *) stage=late ;;
+  esac
+  if [ ! -x "/bin/$stage-cycle" ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s %sTEST_MISSING\n' "$nonce" "$stage"
+   continue
+  fi
+  /bin/busybox sh "/bin/$stage-cycle" > "/run/$stage-test.txt" 2>&1
+  size=$(/bin/busybox wc -c < "/run/$stage-test.txt")
+  size=$((size + 0))
+  checksum=$(/bin/busybox sha256sum "/run/$stage-test.txt") || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 "/run/$stage-test.txt" > "/run/$stage-test.b64" || continue
+  /bin/busybox printf 'XOOM_%s_V1 %s %s %s\n' "$verb" "$nonce" "$size" "$checksum"
+  /bin/busybox cat "/run/$stage-test.b64"
+  /bin/busybox printf '\nXOOM_%s_END_V1 %s\n' "$verb" "$nonce"
+  continue
+ fi
+ if [ "$verb" = LATESTATUS ] || [ "$verb" = SYSSTATUS ]; then
+  case "$verb" in
+   SYSSTATUS) stage=syscore ;;
+   *) stage=late ;;
+  esac
+  [ -f "/run/$stage-test.txt" ] || { /bin/busybox printf 'XOOM_ERROR_V2 %s %sSTATUS_MISSING\n' "$nonce" "$stage"; continue; }
+  size=$(/bin/busybox wc -c < "/run/$stage-test.txt")
+  size=$((size + 0))
+  checksum=$(/bin/busybox sha256sum "/run/$stage-test.txt") || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 "/run/$stage-test.txt" > "/run/$stage-status.b64" || continue
+  /bin/busybox printf 'XOOM_%s_V1 %s %s %s\n' "$verb" "$nonce" "$size" "$checksum"
+  /bin/busybox cat "/run/$stage-status.b64"
+  /bin/busybox printf '\nXOOM_%s_END_V1 %s\n' "$verb" "$nonce"
   continue
  fi
  if [ "$verb" = CPU1TEST ]; then
