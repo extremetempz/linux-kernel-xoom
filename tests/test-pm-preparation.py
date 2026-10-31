@@ -42,7 +42,8 @@ lower = function(suspend, 'suspend_devices_and_enter')
 assert lower.index('wingray_pm_prepare_only()') < lower.index('platform_suspend_begin(state)')
 assert lower.index('return -EOPNOTSUPP;') < lower.index('dpm_suspend_start(')
 pm_init = function((KERNEL/'arch/arm/mach-tegra/pm.c').read_text(), 'tegra_init_suspend')
-assert pm_init.index('wingray_pm_prepare_only()') < pm_init.index('tegra_tear_down_cpu_init()') < pm_init.index('suspend_set_ops(')
+assert pm_init.index('wingray_pm_prepare_only()') < pm_init.index('suspend_set_ops(&wingray_test_suspend_ops)')
+assert pm_init.index('tegra_tear_down_cpu_init()') < pm_init.index('suspend_set_ops(&tegra_suspend_ops)')
 source = r'''
 #include <stdbool.h>
 #include <assert.h>

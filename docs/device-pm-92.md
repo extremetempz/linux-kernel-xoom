@@ -81,3 +81,25 @@ together with CPU1 or each other.
 Keep the original boot/recovery images and Test 5. Never flash recovery or
 repartition. On a hang, power-cycle, enter fastboot, and restore the known-good
 boot image. Preserve ECC/pstore first when possible.
+
+## Correction: syscore test did not reach syscore
+
+The first `SYSCTEST` used `PM_SUSPEND_FREEZE` with `TEST_CPUS`. In this 4.4
+kernel, `suspend_enter()` returns from the `PM_SUSPEND_FREEZE` path via
+`freeze_enter()` **before** `disable_nonboot_cpus()`, IRQ disabling and
+`syscore_suspend()`. Therefore its `result=0` is **not syscore evidence**;
+only the freezer plus late/noirq path ran. It must not be counted as a syscore
+pass.
+
+The corrected Image 92c registers a test-only dummy `suspend_ops` and runs one
+`PM_SUSPEND_MEM` transaction with `TEST_CORE`. That path runs
+`disable_nonboot_cpus()`, disables IRQs, executes
+`syscore_suspend()`/`syscore_resume()` and stops before the dummy `.enter`
+callback. Ordinary `pm_suspend()` stays blocked. This is a new, untested
+diagnostic path.
+
+Corrected image:
+
+- `artifacts/dpm92c-ready/wingray-android44-gpu.img`
+- Size 4,222,976 bytes
+- SHA-256 `55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`

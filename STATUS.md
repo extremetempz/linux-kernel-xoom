@@ -426,7 +426,7 @@ the result comes from the normal report. This is not CPU sleep or LP2. See
 boot-ID status recovery, a fixed CPU1 offline/online diagnostic, and late/
 syscore PM test entry points while platform/LP2 entry remains blocked.
 Image SHA-256
-`5071964ba0dbe93aca41f335526503348a2e937eea331ae1e6e19261ec6ad9fb`
+`55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`
 (4,220,928 bytes). CPU1, late/noirq and syscore are not hardware-validated.
 PMC/wake review leaves Image 93 blocked. See
 [Image 92](docs/device-pm-92.md) and [PMC/wake review](docs/pmc-wake-92-review.md).
@@ -442,7 +442,16 @@ with DPM/LP2. See [cpu1-92-result.md](docs/cpu1-92-result.md).
 **Image 92b — late/syscore fixed-request wrappers:** The CPU1-tested kernel now
 has fixed `LATETEST`/`SYSCTEST` and `LATESTATUS`/`SYSSTATUS` requests plus
 `run-stage-test.py`. Current image SHA-256
-`5071964ba0dbe93aca41f335526503348a2e937eea331ae1e6e19261ec6ad9fb`
+`55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`
 (4,218,880 bytes). CPU1 remains hardware-passed on the earlier e04 image with
 the same kernel logic; late/noirq and syscore are not yet hardware-tested.
 Image 93 remains blocked by PMC/wake and late/syscore gates.
+
+
+**Image 92 syscore test correction:** The earlier SYSCTEST result0 used
+`PM_SUSPEND_FREEZE`; this kernel returns from that path at `freeze_enter()`
+before syscore, so it was not a syscore pass. Image 92c now uses a test-only
+dummy suspend_ops with `PM_SUSPEND_MEM`/`TEST_CORE`, which reaches
+`syscore_suspend()` and stops before the dummy platform enter. Earlier
+late/noirq `LATETEST_PASS` remains valid. The corrected syscore path is not
+hardware-tested. Image 93 remains blocked.

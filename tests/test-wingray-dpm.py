@@ -18,8 +18,9 @@ assert 'CONFIG_MOTOROLA_WINGRAY_DPM_TEST=y\n' in config
 assert 'WINGRAY_PM_TEST_DPM' in header and 'wingray_pm_dpm_test_active' in header
 assert 'if (wingray_pm_prepare_only() && !wingray_pm_dpm_test_active())' in suspend
 assert 'test_mode == WINGRAY_PM_TEST_DPM ? TEST_DEVICES' in suspend
-assert 'TEST_PLATFORM' in suspend and 'TEST_CPUS' in suspend
-assert 'suspend_devices_and_enter(PM_SUSPEND_FREEZE)' in suspend
+assert 'TEST_PLATFORM' in suspend and 'TEST_CORE' in suspend
+assert 'PM_SUSPEND_MEM' in suspend
+assert 'suspend_devices_and_enter(stage)' in suspend
 assert 'platform_entry=0 cpu_sleep=0' in suspend
 assert 'WG_PM92_STAGE_COMPLETE' in suspend
 assert 'int pm_suspend(suspend_state_t state)' in suspend
