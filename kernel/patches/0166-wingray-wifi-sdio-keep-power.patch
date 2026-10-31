@@ -1,0 +1,16 @@
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+index 6268227a..a6c17841 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi
+@@ -190,6 +190,11 @@
+ 		bus-width = <4>;
+ 		non-removable;
+ 		cap-sdio-irq;
++		/* BCM4329 function 2 refuses system suspend unless the SDIO
++		 * host advertises MMC_PM_KEEP_POWER.  The WLAN rail stays
++		 * powered while the SDHCI controller is suspended; this does
++		 * not enable SDIO wake or a shared-rail power-off. */
++		keep-power-in-suspend;
+ 		max-frequency = <25000000>;
+ 		mmc-pwrseq = <&wlan_pwrseq>;
+ 		vmmc-supply = <&wlan_power>;
