@@ -3,6 +3,7 @@
 BB=/bin/busybox
 TEST=/sys/power/wingray_dpm_test
 echo XOOM_DPM_TEST_V1
+echo "DPMTEST_BOOT_ID $("$BB" cat /proc/sys/kernel/random/boot_id)"
 finish()
 {
  rc=$?

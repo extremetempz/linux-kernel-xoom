@@ -52,6 +52,11 @@ because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
 
+**Image 92 prerequisites:** adds reconnect-safe DPM result recovery, CPU1
+hotplug and late/syscore diagnostics, with platform/LP2 entry still blocked.
+Image 93 is not prepared because the PMC handshake, physical wake, CPU1 and
+late/syscore gates remain unvalidated. See [Image 92](docs/device-pm-92.md).
+
 **Device-PM stage (1 November):** Image 91 adds a full-tree devices-only DPM
 test using Linux pm_test ordering, still with platform sleep blocked. Image 90
 is a selected-CPCAP callback step and remains hardware-untested. Display/GPU

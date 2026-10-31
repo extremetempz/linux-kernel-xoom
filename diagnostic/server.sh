@@ -9,6 +9,8 @@ while IFS= read -r -n 80 request; do
   DEVICEPMTEST\ *) verb=DEVICEPMTEST; nonce=${request#DEVICEPMTEST } ;;
   DPMTEST\ *) verb=DPMTEST; nonce=${request#DPMTEST } ;;
   DPMSTATUS\ *) verb=DPMSTATUS; nonce=${request#DPMSTATUS } ;;
+  BOOTID\ *) verb=BOOTID; nonce=${request#BOOTID } ;;
+  CPU1TEST\ *) verb=CPU1TEST; nonce=${request#CPU1TEST } ;;
   FREEZERTEST\ *) verb=FREEZERTEST; nonce=${request#FREEZERTEST } ;;
   WAKETEST\ *) verb=WAKETEST; nonce=${request#WAKETEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
@@ -19,6 +21,10 @@ while IFS= read -r -n 80 request; do
  case "$nonce" in *[!0123456789abcdef]*) continue ;; esac
  if [ "$verb" = PING ]; then
   /bin/busybox printf 'XOOM_READY_V2 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = BOOTID ]; then
+  /bin/busybox printf 'XOOM_BOOTID_V1 %s %s\n' "$nonce" "$(/bin/busybox cat /proc/sys/kernel/random/boot_id)"
   continue
  fi
  if [ "$verb" = PSTORE ]; then
@@ -84,10 +90,34 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf '\nXOOM_DEVICEPMTEST_END_V1 %s\n' "$nonce"
   continue
  fi
+ if [ "$verb" = CPU1TEST ]; then
+  if [ ! -x /bin/cpu1-cycle ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s CPU1TEST_MISSING\n' "$nonce"
+   continue
+  fi
+  /bin/busybox sh /bin/cpu1-cycle > /run/cpu1-test.txt 2>&1
+  size=$(/bin/busybox wc -c < /run/cpu1-test.txt)
+  size=$((size + 0))
+  if [ "$size" -le 0 ] || [ "$size" -gt 65536 ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s CPU1TEST_SIZE\n' "$nonce"
+   continue
+  fi
+  checksum=$(/bin/busybox sha256sum /run/cpu1-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/cpu1-test.txt > /run/cpu1-test.b64 || continue
+  /bin/busybox printf 'XOOM_CPU1TEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/cpu1-test.b64
+  /bin/busybox printf '\nXOOM_CPU1TEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
  if [ "$verb" = DPMSTATUS ]; then
   if [ ! -f /run/dpm-test.txt ]; then
-   /bin/busybox printf 'XOOM_ERROR_V2 %s DPMSTATUS_MISSING\n' "$nonce"
-   continue
+   if [ -r /sys/power/wingray_dpm_test ]; then
+    /bin/busybox cat /sys/power/wingray_dpm_test > /run/dpm-test.txt
+   else
+    /bin/busybox printf 'XOOM_ERROR_V2 %s DPMSTATUS_MISSING\n' "$nonce"
+    continue
+   fi
   fi
   size=$(/bin/busybox wc -c < /run/dpm-test.txt)
   size=$((size + 0))
