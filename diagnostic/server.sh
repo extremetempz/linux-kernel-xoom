@@ -6,6 +6,7 @@ while IFS= read -r -n 80 request; do
   REPORT\ *) verb=REPORT; nonce=${request#REPORT } ;;
   FBTEST\ *) verb=FBTEST; nonce=${request#FBTEST } ;;
   DCTEST\ *) verb=DCTEST; nonce=${request#DCTEST } ;;
+  DEVICEPMTEST\ *) verb=DEVICEPMTEST; nonce=${request#DEVICEPMTEST } ;;
   FREEZERTEST\ *) verb=FREEZERTEST; nonce=${request#FREEZERTEST } ;;
   WAKETEST\ *) verb=WAKETEST; nonce=${request#WAKETEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
@@ -58,6 +59,27 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf 'XOOM_FREEZERTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
   /bin/busybox cat /run/freezer-test.b64
   /bin/busybox printf '\nXOOM_FREEZERTEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = DEVICEPMTEST ]; then
+  if [ ! -x /bin/devicepm-cycle ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s DEVICEPMTEST_MISSING\n' "$nonce"
+   continue
+  fi
+  # Frame failures too: the fixed script preserves rollback evidence.
+  /bin/busybox sh /bin/devicepm-cycle > /run/devicepm-test.txt 2>&1
+  size=$(/bin/busybox wc -c < /run/devicepm-test.txt)
+  size=$((size + 0))
+  if [ "$size" -le 0 ] || [ "$size" -gt 65536 ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s DEVICEPMTEST_SIZE\n' "$nonce"
+   continue
+  fi
+  checksum=$(/bin/busybox sha256sum /run/devicepm-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/devicepm-test.txt > /run/devicepm-test.b64 || continue
+  /bin/busybox printf 'XOOM_DEVICEPMTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/devicepm-test.b64
+  /bin/busybox printf '\nXOOM_DEVICEPMTEST_END_V1 %s\n' "$nonce"
   continue
  fi
  if [ "$verb" = WAKETEST ]; then
