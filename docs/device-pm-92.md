@@ -47,7 +47,8 @@ boot actions. They must not be run together with CPU1 or each other.
 
 ## Status
 
-- CPU1 hotplug: **prepared, not hardware-validated**.
+- CPU1 hotplug: **hardware-validated once** (`CPU1TEST_PASS`); see
+  [cpu1-92-result.md](cpu1-92-result.md).
 - Late/noirq PM: **source/profile prepared, not hardware-validated**.
 - Syscore ordering: **source/profile prepared, not hardware-validated**.
 - PMC handshake: **blocked**; see [PMC/wake review](pmc-wake-92-review.md).

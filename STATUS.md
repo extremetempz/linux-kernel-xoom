@@ -430,3 +430,10 @@ Image SHA-256
 (4,220,928 bytes). CPU1, late/noirq and syscore are not hardware-validated.
 PMC/wake review leaves Image 93 blocked. See
 [Image 92](docs/device-pm-92.md) and [PMC/wake review](docs/pmc-wake-92-review.md).
+
+
+**Image 92 CPU1 hotplug hardware pass:** `CPU1TEST_ONLINE_BEFORE 0-1`,
+`CPU1TEST_CPU1_OFFLINE`, `CPU1TEST_ONLINE_AFTER 0-1`, `CPU1TEST_PASS`,
+process RC0 on image `e04cb835…`. CPU1 was offlined and returned using the
+standard hotplug interface; CPU0 stayed online. This did not combine hotplug
+with DPM/LP2. See [cpu1-92-result.md](docs/cpu1-92-result.md).
