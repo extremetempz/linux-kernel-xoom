@@ -1,3 +1,10 @@
+> **Image90 prepared (1 November 2026):** full ARM build and offline checks
+> pass for a selected CPCAP driver suspend/resume callback transaction after
+> task freezing. SPI/IRQs/CPUs stay active; whole-tree device PM and hardware
+> sleep remain blocked. No flash, reboot or live test occurred. Known-good89
+> is preserved. See [image, scope and procedure](docs/device-pm-90-prepared.md)
+> and [LP2 dependency/PMC audit](docs/suspend-lp2-dependencies-90.md).
+
 > **Candidate89 hardware result (28 October 2026):** one task-freezer/thaw
 > cycle passed after the requested two-minute wait. Android/USB/storage and
 > both CPUs remained healthy; the operator confirmed display/touch/key operation.
