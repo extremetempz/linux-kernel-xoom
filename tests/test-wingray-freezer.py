@@ -17,6 +17,9 @@ code=r'''
 #include <errno.h>
 #include <string.h>
 typedef int suspend_state_t;
+enum wingray_pm_test_mode { WINGRAY_PM_TEST_NONE, WINGRAY_PM_TEST_FREEZER, WINGRAY_PM_TEST_CPCAP };
+#define CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST 0
+static int wingray_cpcap_devicepm_test(void){assert(0);return -EIO;}
 #define CONFIG_PM_DEBUG 1
 #define CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST cfg
 #define IS_ENABLED(x) (x)

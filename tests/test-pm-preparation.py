@@ -49,6 +49,7 @@ source = r'''
 #include <errno.h>
 #include <string.h>
 typedef int suspend_state_t;
+#define WINGRAY_PM_TEST_NONE 0
 #define PM_SUSPEND_ON 0
 #define PM_SUSPEND_MAX 4
 static bool config, wingray;
