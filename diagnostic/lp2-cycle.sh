@@ -17,6 +17,9 @@ trap 'exit 1' HUP INT TERM
 [ "$#" -eq 0 ] && [ "$("$BB" id -u)" = 0 ] || exit 1
 [ -f "$TEST" ] || { echo LP2TEST_MISSING; exit 1; }
 before=$("$BB" cat "$TEST") || exit 1
+echo "LP2TEST_PM_TEST $("$BB" cat /sys/power/pm_test 2>&1)"
+echo "LP2TEST_POWER_STATE $("$BB" cat /sys/power/state 2>&1)"
+echo "LP2TEST_BOOT_ID $("$BB" cat /proc/sys/kernel/random/boot_id)"
 echo "LP2TEST_BEFORE $before"
 echo 1 > "$TEST"
 rc=$?

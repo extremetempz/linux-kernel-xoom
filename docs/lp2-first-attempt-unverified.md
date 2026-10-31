@@ -14,9 +14,12 @@ LP2TEST_RETURNED
 LP2TEST_PROCESS_RC 0
 ```
 
-Current boot: `d788416d-4523-4bd9-b0e7-93b9a0cc292e`.
-Retained console: previous boot `e80b3c39-39e2-4503-8a33-e246c5069f1f`.
-No pre-test boot ID or baseline report was saved.
+A second attempt on the same boot (`d788416d…`) advanced the LP2 counter to
+2, again returned zero, and the physical power button woke Android. The
+post-attempt report shows `PM: resume` and `PM: suspend exit` but still no
+`WG_LP2_PLATFORM_ENTER` or `WG_LP2_CPU_RESUMED`. The pre/post uptimes show the
+same boot. The pre-test report was taken after the attempt, not before it, so
+it did not establish a clean baseline.
 
 The same-boot report contains:
 
@@ -49,7 +52,9 @@ success. It does not prove:
 - PL310/TIMERUS/DRAM/CPU context were restored.
 
 The `1970` timestamp is suspicious but the operator reports wall time has
-always been wrong on this build, so it is not independent evidence.
+always been wrong on this build, so it is not independent evidence. The
+current report lacks `/sys/power/pm_test`, so an early pm_test skip cannot be
+excluded.
 
 The physical power-button wake and working Android session strongly suggest a
 low-power transition occurred, but this cannot be accepted as LP2 without the

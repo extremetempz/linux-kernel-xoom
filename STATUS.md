@@ -493,3 +493,12 @@ no PM suspend-entry/DC-suspend sequence, and no pre-test boot ID. The retained
 console is from the previous boot e80b. The 1970 timestamp is not useful because
 wall time was already wrong. See
 [lp2-first-attempt-unverified.md](docs/lp2-first-attempt-unverified.md).
+
+
+**LP2 diagnostic image 93b built:** Adds `WG_LP2_SUSPEND_ENTER` logging and
+exposes `/sys/power/pm_test`, `/sys/power/state` and the LP2 gate state in the
+report. Image SHA-256
+`62541e5c9919abdf7e75c2b740c45a2cf8fc7ef7f11bf4ca5ae2913dbbccff17`
+(4,220,928 bytes), not flashed. The first two attempts returned zero and woke
+by physical power button on the same boot, but the reports never contained
+`WG_LP2_PLATFORM_ENTER` or `WG_LP2_CPU_RESUMED`; no LP2 success is claimed.

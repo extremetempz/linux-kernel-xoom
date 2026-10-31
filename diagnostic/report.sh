@@ -81,6 +81,8 @@ if [ -r /run/cpu-handoff.txt ]; then
  /bin/busybox head -c 2048 /run/cpu-handoff.txt
  echo XOOM_CPU_HANDOFF_REPORT_END
 fi
+/bin/busybox printf 'XOOM_PM_TEST %s\n' "$(/bin/busybox cat /sys/power/pm_test 2>/dev/null)"
+/bin/busybox printf 'XOOM_LP2_TEST_STATE %s\n' "$(/bin/busybox cat /sys/power/wingray_lp2_test 2>/dev/null)"
 /bin/busybox printf 'XOOM_DMESG_BEGIN\n'
 /bin/busybox dmesg | /bin/busybox tail -c 262144
 /bin/busybox printf 'XOOM_DMESG_END\nXOOM_FRESH_REPORT_DONE %s\n' "$nonce"
