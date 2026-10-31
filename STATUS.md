@@ -411,3 +411,12 @@ A second run of the DC-fix image again completed device PM with `result=0`;
 the operator observed about five seconds of blanking rather than 30 seconds,
 and no scanout-restore failure was logged. Final visual/touch/radio confirmation
 is still requested. This remains devices-only PM, not LP2 or deep sleep.
+
+
+**Image 91 devices-only DPM hardware pass:** Same-boot dmesg records
+`WG_PM91_DPM_COMPLETE result=0` at boot `47bd83d8…`; all device
+suspend/resume callbacks completed, no scanout-restore failure was logged, and
+the operator saw about five seconds of blanking instead of 30. Host USB was
+lost during the suspension window, so the framed host response is not proof;
+the result comes from the normal report. This is not CPU sleep or LP2. See
+[device-pm-91-result.md](docs/device-pm-91-result.md).
