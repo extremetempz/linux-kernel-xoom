@@ -17,8 +17,9 @@ code=r'''
 #include <errno.h>
 #include <string.h>
 typedef int suspend_state_t;
-enum wingray_pm_test_mode { WINGRAY_PM_TEST_NONE, WINGRAY_PM_TEST_FREEZER, WINGRAY_PM_TEST_CPCAP };
+enum wingray_pm_test_mode { WINGRAY_PM_TEST_NONE, WINGRAY_PM_TEST_FREEZER, WINGRAY_PM_TEST_CPCAP, WINGRAY_PM_TEST_DPM };
 #define CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST 0
+#define CONFIG_MOTOROLA_WINGRAY_DPM_TEST 0
 static int wingray_cpcap_devicepm_test(void){assert(0);return -EIO;}
 #define CONFIG_PM_DEBUG 1
 #define CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST cfg
@@ -27,6 +28,8 @@ static int wingray_cpcap_devicepm_test(void){assert(0);return -EIO;}
 #define TEST_NONE 0
 #define TEST_CPUS 2
 #define TEST_FREEZER 5
+#define TEST_DEVICES 4
+static bool wingray_dpm_active;
 #define TPS(x) (x)
 #define trace_suspend_resume(...) ((void)0)
 #define pr_warning(...) ((void)0)
@@ -40,6 +43,7 @@ static unsigned wingray_freezer_completed;
 static const char *pm_states[]={"on","freeze"};
 static int prepare_error,prepares,finishes,holds,devices,syncs,gfps,begins;
 static bool wingray_pm_prepare_only(void){return prep;}
+__attribute__((unused)) static bool wingray_pm_dpm_test_active(void){return false;}
 static bool valid_state(int state){(void)state;return false;}
 static bool mutex_trylock(int *m){if(*m)return false;*m=1;return true;}
 static void mutex_unlock(int *m){assert(*m);*m=0;}

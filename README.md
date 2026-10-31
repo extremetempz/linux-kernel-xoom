@@ -52,6 +52,12 @@ because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
 
+**Device-PM stage (1 November):** Image 91 adds a full-tree devices-only DPM
+test using Linux pm_test ordering, still with platform sleep blocked. Image 90
+is a selected-CPCAP callback step and remains hardware-untested. Display/GPU
+system restore and physical sleep wake are still blocked. See
+[Image 91](docs/device-pm-91.md) and [Image 90](docs/device-pm-90-test.md).
+
 **Sleep status:** image 89 passes only a manual task-freezer test. Ordinary
 `pm_suspend()`, device suspend, CPU sleep and deep sleep remain blocked by
 design; the platform PMC parameters, device callbacks and real wake route are

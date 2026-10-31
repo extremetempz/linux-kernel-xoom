@@ -25,6 +25,7 @@ static int spi_bus_type,arm_error,disarm_error,arms,disarms,refs,dispatches;
 static struct cpcap_ddata c;
 static struct device target;
 static bool wingray_pm_prepare_only(void){return prep;}
+__attribute__((unused)) static bool wingray_pm_dpm_test_active(void){return false;}
 static void *dev_get_drvdata(struct device *d){return d->data;}
 static bool mutex_trylock(int *m){if(*m)return false;*m=1;return true;}
 static void mutex_unlock(int *m){assert(*m);*m=0;}

@@ -10,6 +10,8 @@ def blocked_pm(config):
         assert yes(key), 'Blocked PM profile missing '+key
     if yes('MOTOROLA_WINGRAY_DEVICEPM_TEST'):
         assert yes('MOTOROLA_WINGRAY_FREEZER_TEST') and yes('MFD_CPCAP'), 'Device test needs freezer and built-in CPCAP'
+    if yes('MOTOROLA_WINGRAY_DPM_TEST'):
+        assert yes('MOTOROLA_WINGRAY_DEVICEPM_TEST'), 'DPM test needs selected CPCAP callback path'
     for key in ('PM_AUTOSLEEP','PM_WAKELOCKS','PM_TEST_SUSPEND','HIBERNATION',
                 'DPM_WATCHDOG','CPU_IDLE','CPU_FREQ','REGULATOR_CPCAP',
                 'FB_TEGRA_WINGRAY_DC_RESUME_TEST','FB_TEGRA_WINGRAY_DC_TRACE_TEST'):
