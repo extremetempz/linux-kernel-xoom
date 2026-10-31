@@ -28,11 +28,28 @@ for a user sleep feature.
 
 ## Built image
 
-`artifacts/dpm91-final-ready/wingray-android44-gpu.img`
+`artifacts/dpm91-keepower2-ready/wingray-android44-gpu.img`
 Size 4,216,832 bytes.
-SHA-256 `934ceaf67c38b2b4a415b5c7020af6bdae9f4b772cf66a9155bbee5885072164`.
+SHA-256 `d9b5a515e695d10916d279bdabead9e7a58c7dc87a5ee9dfbb9d5f8bedae6539`.
 Manifest profile `android44-devicepm91`; `soc_suspend_enabled=false`,
 `dc_resume_experimental=false`, `hardware_tested=false`.
+
+## First hardware run — WiFi SDIO blocker found
+
+The first Image 91 DPM request failed at `mmc1:0001:2` (BCM4329 SDIO
+function 2) before any other device:
+
+```text
+bcmsdh_sdmmc_suspend: can't keep power while host is suspended
+dpm_run_callback(): pm_generic_suspend+0x0/0x30 returns -22
+PM: Device mmc1:0001:2 failed to suspend: error -22
+```
+
+The host did not advertise `MMC_PM_KEEP_POWER`. The final overlay now carries
+`keep-power-in-suspend` on the WiFi SDHCI node; this keeps the WLAN rail
+powered while the controller is suspended and does not enable SDIO wake or a
+shared-rail power-off. The first image (`934ceaf…`) is superseded. This
+correction is source/build-tested only; a new hardware run is required.
 
 ## Expected command and result
 
@@ -96,7 +113,7 @@ No automated CPU1 test is enabled in this profile.
 |---|---|
 | Task freezer | Hardware-validated on Image 89 (documented; artifacts absent here) |
 | CPCAP selected callbacks | Implemented; hardware test pending |
-| Full devices-only DPM | Implemented in Image 91; hardware test pending |
+| Full devices-only DPM | First hardware run reached DPM and failed at WiFi SDIO; corrected image pending re-test |
 | Display/GPU system restore | **Blocked/unimplemented** |
 | Storage/wireless/touch/battery callbacks | Partly implemented; not system-PM tested |
 | Wake source | Awake arm/disarm passed; system-PM wake blocked |

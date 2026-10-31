@@ -57,6 +57,8 @@ test using Linux pm_test ordering, still with platform sleep blocked. Image 90
 is a selected-CPCAP callback step and remains hardware-untested. Display/GPU
 system restore and physical sleep wake are still blocked. See
 [Image 91](docs/device-pm-91.md) and [Image 90](docs/device-pm-90-test.md).
+The first DPM run exposed a missing BCM4329 SDIO keep-power capability; the
+corrected image is built but not yet re-tested on hardware.
 
 **Sleep status:** image 89 passes only a manual task-freezer test. Ordinary
 `pm_suspend()`, device suspend, CPU sleep and deep sleep remain blocked by

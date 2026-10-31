@@ -385,6 +385,15 @@ review/test procedure is in [device-pm-90-test.md](docs/device-pm-90-test.md).
 
 **Image 91 build identity:** `artifacts/dpm91-final-ready/wingray-android44-gpu.img`,
 4,216,832 bytes, SHA-256
-`934ceaf67c38b2b4a415b5c7020af6bdae9f4b772cf66a9155bbee5885072164`,
+`d9b5a515e695d10916d279bdabead9e7a58c7dc87a5ee9dfbb9d5f8bedae6539`,
 profile `android44-devicepm91`. Full-tree devices-only DPM and the LP2 source
 corrections build; no device operation or hardware sleep test was performed.
+
+
+**Image 91 first DPM hardware result — WiFi SDIO EINVAL fixed:** The first
+run reached full devices-only DPM, then `mmc1:0001:2` failed with
+`-EINVAL` because BCM4329 function 2 requires `MMC_PM_KEEP_POWER` and the
+host did not advertise it. The final overlay now sets
+`keep-power-in-suspend`; corrected image SHA-256 is
+`d9b5a515e695d10916d279bdabead9e7a58c7dc87a5ee9dfbb9d5f8bedae6539`.
+A new hardware run is required; display/GPU restoration remains unresolved.

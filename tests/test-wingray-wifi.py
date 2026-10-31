@@ -97,4 +97,6 @@ assert 'WLC_SET_SSID' in connect_patch
 assert 'WL_CHANSPEC_BW_20' in connect_patch
 assert 'wl_bss_connect_done(cfg, ndev, e, data, true)' in connect_patch
 
-print('PASS native 4.4 bcmdhd / ASSOC result / 20 MHz WLC_SET_SSID / OEM NVRAM / series')
+dts=(Path(__file__).resolve().parents[1]/'sources/kernel-donor/arch/arm/boot/dts/tegra20-motorola-wingray-peripherals.dtsi').read_text()
+assert 'keep-power-in-suspend;' in dts
+print('PASS native 4.4 bcmdhd / ASSOC result / 20 MHz WLC_SET_SSID / OEM NVRAM / series / SDIO keep-power')
