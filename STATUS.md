@@ -517,3 +517,12 @@ filtered `WG_LP2`/PM suspend/teardown lines, bypassing the CPCAP `-108` flood.
 Image SHA-256
 `d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`
 (4,220,928 bytes), not flashed. No LP2 success claim yet.
+
+
+**FIRST GENUINE LP2 SUCCESS (Image 93e):** Same-boot LP2 entry/resume confirmed
+with `WG_LP2_SUSPEND_ENTER`, `WG_LP2_PLATFORM_ENTER mode=LP2 online=1`,
+`WG_LP2_CPU_RESUMED`, tegra timer syscore suspend and physical power-button
+wake. Boot ID c4b01baf…, counter 0→1, Android usable. Image SHA-256
+`d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`.
+Remaining: CPCAP -108 resume IRQ race and power measurement. See
+[lp2-first-success.md](docs/lp2-first-success.md).
