@@ -464,3 +464,11 @@ process RC0 on image
 This path reaches syscore and skips the dummy platform enter; it is not LP2.
 CPU1, late/noirq and syscore diagnostics have passed individually. The PMC
 handshake and physical wake remain blocking, so Image 93 is still not prepared.
+
+
+**Image 92c corrected syscore hardware path verified:** Same-boot dmesg records
+normal, late and noirq device suspend; `tegra_timer_syscore_suspend`,
+`cpu_pm_suspend` and `tegra_ictlr_suspend`; corresponding resume; and
+`WG_PM92_STAGE_COMPLETE selected=syscore result=0`. The dummy platform enter
+was not called. This is devices/late/noirq/syscore validation, not LP2.
+PMC handshake and physical wake remain blocking; Image 93 is still not prepared.
