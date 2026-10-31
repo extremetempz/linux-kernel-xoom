@@ -4,7 +4,7 @@ from pathlib import Path
 import argparse, array, base64, datetime, fcntl, getpass, hashlib, json, os, re, secrets, select, termios, time, tty
 from diagnostic_protocol import handshake, write_request, ProtocolError
 ROOT=Path(__file__).resolve().parents[1]
-P=argparse.ArgumentParser(description=__doc__);P.add_argument('--output-dir',type=Path,required=True);P.add_argument('--stage',choices=('late','syscore'),required=True);P.add_argument('--status',action='store_true');P.add_argument('--port',type=Path);P.add_argument('--timeout',type=int,default=25)
+P=argparse.ArgumentParser(description=__doc__);P.add_argument('--output-dir',type=Path,required=True);P.add_argument('--stage',choices=('late','syscore','lp2'),required=True);P.add_argument('--status',action='store_true');P.add_argument('--port',type=Path);P.add_argument('--timeout',type=int,default=25)
 A=P.parse_args()
 if not 5<=A.timeout<=60:P.error('timeout 5..60')
 OUT=A.output_dir.resolve()
@@ -26,7 +26,7 @@ else:
  PORT=ports[0]
 try:fd=os.open(PORT,os.O_RDWR|os.O_NOCTTY|os.O_NONBLOCK)
 except PermissionError:raise SystemExit(f'Host serial access needed. Run: sudo setfacl -m u:{getpass.getuser()}:rw {PORT}')
-nonce=secrets.token_hex(16);verb=('LATESTATUS' if A.stage=='late' else 'SYSSTATUS') if A.status else ('LATETEST' if A.stage=='late' else 'SYSCTEST')
+nonce=secrets.token_hex(16);verb={'late':('LATESTATUS','LATETEST'),'syscore':('SYSSTATUS','SYSCTEST'),'lp2':('LP2STATUS','LP2TEST')}[A.stage][0 if A.status else 1]
 status={'state':'started','nonce':nonce,'request':verb,'stage':A.stage,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'arbitrary_shell_commands':False}
 try:
  OUT.mkdir(parents=True,exist_ok=False);wire=(OUT/'wire-private.bin').open('xb');tty.setraw(fd,termios.TCSANOW);a=termios.tcgetattr(fd);a[2]|=termios.CLOCAL|termios.CREAD;a[4]=a[5]=termios.B115200;termios.tcsetattr(fd,termios.TCSANOW,a);fcntl.ioctl(fd,termios.TIOCMBIS,array.array('i',[termios.TIOCM_DTR|termios.TIOCM_RTS]));handshake(fd,nonce,record=wire.write)

@@ -472,3 +472,15 @@ normal, late and noirq device suspend; `tegra_timer_syscore_suspend`,
 `WG_PM92_STAGE_COMPLETE selected=syscore result=0`. The dummy platform enter
 was not called. This is devices/late/noirq/syscore validation, not LP2.
 PMC handshake and physical wake remain blocking; Image 93 is still not prepared.
+
+
+**Image 93 manual LP2 candidate built, not flashed:** Implements Motorola
+PMC core/CPU request outputs, original CPU/core timer registers, active-high
+COREREQ/SYSCLKREQ, CPU_PM/cluster enter/exit, outer_flush_all before
+outer_disable, real Tegra LP2 ops and a root-only single-shot
+`/sys/power/wingray_lp2_test` gate. Ordinary suspend stays rejected unless
+armed. Image SHA-256
+`fa527627d35a619a34507027246847f83c72a3c1753f257d1bcfb3ea2c62d52f`
+(4,218,880 bytes). No LP2 attempt has been made; physical wake, actual CPU
+power loss, PL310 and TIMERUS retention remain unverified. See
+[lp2-candidate-93.md](docs/lp2-candidate-93.md).

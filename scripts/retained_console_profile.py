@@ -6,9 +6,10 @@ from legacy_resources import parse_dtb
 
 TRACE_DT = 'tegra20-motorola-wingray-android44-wakeirqtrace'
 ECC_DT = 'tegra20-motorola-wingray-android44-wakeirqecc'
+LP2_DT = 'tegra20-motorola-wingray-android44-lp2'
 
 def selected_retained_dt(config):
-    for name in (TRACE_DT, ECC_DT):
+    for name in (TRACE_DT, ECC_DT, LP2_DT):
         if 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="' + name + '"\n' in config:
             return name
     return None
@@ -20,9 +21,21 @@ def validate_ecc_tree(before, after):
     for node in before:
         a, b = resolved(before, node), resolved(after, node)
         if node == '/':
+            assert a.pop('motorola,wingray-pstore-ecc-test', b'') == b''
             assert b.pop('motorola,wingray-pstore-ecc-test') == b''
         if node == '/ramoops@1ff00000':
+            assert a.pop('ecc-size', struct.pack('>I', 16)) == struct.pack('>I', 16)
             assert b.pop('ecc-size') == struct.pack('>I', 16)
+        if node == '/pmc@7000e400' and 'nvidia,suspend-mode' in b:
+                for name, value in (('nvidia,suspend-mode', 2),):
+                    assert b.pop(name) == struct.pack('>I', value), name
+                for name, value in (('nvidia,cpu-pwr-good-time', 1500),
+                                    ('nvidia,cpu-pwr-off-time', 1)):
+                    assert b.pop(name) == struct.pack('>I', value), name
+                assert b.pop('nvidia,core-pwr-good-time') == struct.pack('>II', 0x7e7e, 0)
+                assert b.pop('nvidia,core-pwr-off-time') == struct.pack('>I', 0xf)
+                assert b.pop('nvidia,core-power-req-active-high') == b''
+                assert b.pop('nvidia,sys-clock-req-active-high') == b''
         assert a == b, node
 
 def ranges(tree):
@@ -103,7 +116,10 @@ def validate_retained_console_artifacts(directory):
     before = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirq.dtb').read_bytes())
     after = parse_dtb((p / (TRACE_DT + '.dtb')).read_bytes())
     validate_trees(before, after)
-    if selected == ECC_DT:
+    if selected in (ECC_DT, LP2_DT):
         for name in ('REED_SOLOMON', 'REED_SOLOMON_ENC8', 'REED_SOLOMON_DEC8'):
             assert 'CONFIG_' + name + '=y\n' in cfg, name
         validate_ecc_tree(after, parse_dtb((p / (ECC_DT + '.dtb')).read_bytes()))
+        if selected == LP2_DT:
+            validate_ecc_tree(parse_dtb((p / (ECC_DT + '.dtb')).read_bytes()),
+                              parse_dtb((p / (LP2_DT + '.dtb')).read_bytes()))

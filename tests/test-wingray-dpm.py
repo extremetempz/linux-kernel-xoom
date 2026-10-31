@@ -38,10 +38,10 @@ assert 'if (WARN_ON(mode != TEGRA_SUSPEND_LP1 && mode != TEGRA_SUSPEND_LP2))' in
 assert 'ret = cpu_suspend(PHYS_OFFSET - PAGE_OFFSET, tegra_sleep_func);' in pm
 assert 'if (ret)\n\t\tpr_err' in pm
 assert 'num_online_cpus() != 1' in pm
-assert 'flush_cache_all();\n\touter_disable();' in pm
+assert 'flush_cache_all();\n\touter_flush_all();\n\touter_disable();' in pm
 assert 'register_syscore_ops(&tegra_timer_syscore_ops)' in timer
 # PMC parser validates only mode-required timing properties and zeroes locals.
 assert 'u32 value = 0, values[2] = { 0, 0 };' in pmc
-assert 'LP2 keeps the core rail up' in pmc
+assert 'The original Motorola board programmed core request timers' in pmc
 assert 'core_ok' in pmc and 'vec_ok' in pmc
 print('PASS image91 full-tree devices-only DPM gates; display/GPU restoration still blocked')

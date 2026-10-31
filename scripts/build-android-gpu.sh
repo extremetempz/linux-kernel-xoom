@@ -36,6 +36,7 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  freezertest) defconfig=wingray_android44_freezertest_defconfig; dt=tegra20-motorola-wingray-android44-wakeirqecc;;
  wakearm) defconfig=wingray_android44_wakearm_defconfig; dt=tegra20-motorola-wingray-android44-wakeirqecc;;
  wakeirqdc) defconfig=wingray_android44_wakeirqdc_defconfig; dt=tegra20-motorola-wingray-android44-wakeirqecc;;
+ lp2test) defconfig=wingray_android44_lp2test_defconfig; dt=tegra20-motorola-wingray-android44-lp2;;
  *) echo 'Choose fbmap, bluetooth, battery, displaypm, displaydc, wakeirq, wakeirqbl, wakeirqtrace, wakeirqecc wakeirqdc, wakearm, freezertest, devicepmtest, devicepm91 or devicepm92.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
@@ -51,9 +52,9 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  displaydc|wakeirq|wakeirqdc)
   grep -qx 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y' "$build/out/.config" || { echo 'Apply patch 0151 to the donor first.' >&2; exit 1; };;
 esac
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
  grep -qx 'CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y' "$build/out/.config" || { echo 'Apply patch 0152 to the donor first.' >&2; exit 1; }
- if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm ]]; then
+ if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm ]]; then
   python3 "$root/tests/test-pm-preparation.py" --config "$build/out/.config"
   python3 "$root/tests/test-cpcap-wake-arm.py"
   python3 - "$root" "$build/out/.config" <<'PYTEST'
@@ -66,7 +67,7 @@ PYTEST
  else
   ! grep -qx 'CONFIG_SUSPEND=y' "$build/out/.config" || { echo 'Wake IRQ test must remain awake-only.' >&2; exit 1; }
  fi
- if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
+ if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
   ! grep -qx 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y' "$build/out/.config" || { echo 'IRQ backlight/logging profiles must not enable DC resume.' >&2; exit 1; }
  fi
 fi
@@ -86,11 +87,18 @@ if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_P
  grep -qx 'CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST=y' "$build/out/.config" || { echo 'Image91 needs the CPCAP callback path.' >&2; exit 1; }
  python3 "$root/tests/test-wingray-dpm.py"
 fi
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test ]]; then
+ grep -qx 'CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y' "$build/out/.config" || { echo 'LP2 profile missing gate.' >&2; exit 1; }
+ grep -qx 'CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST=y' "$build/out/.config" || { echo 'LP2 needs CPCAP PM callbacks.' >&2; exit 1; }
+ ! grep -qx 'CONFIG_MOTOROLA_WINGRAY_DPM_TEST=y' "$build/out/.config" || { echo 'LP2 must not install diagnostic suspend ops.' >&2; exit 1; }
+ grep -qx 'CONFIG_SUSPEND=y' "$build/out/.config" || { echo 'LP2 missing SUSPEND.' >&2; exit 1; }
+ python3 "$root/tests/test-lp2-candidate.py"
+fi
 cp "$build/out/.config" "$dest/kernel.config"
 for helper in build-android44-probe build-display-pattern build-touch-events build-cpu-handoff-probe; do
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/$helper.sh"
 done
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/build-display-lights.sh"
 fi
 make "${args[@]}" -j"${JOBS:-4}" modules
@@ -100,6 +108,7 @@ cp "$build/out/drivers/net/wireless/bcmdhd/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
+make "${args[@]}" "$dt.dtb"
 make "${args[@]}" tegra20-motorola-wingray-android44-wakeirq.dtb tegra20-motorola-wingray-android44-displaypm.dtb tegra20-motorola-wingray-android44-battery.dtb tegra20-motorola-wingray-android44-bluetooth.dtb tegra20-motorola-wingray-gpu-test.dtb tegra20-motorola-wingray-android44-smp2.dtb tegra20-motorola-wingray-android44-gpu-fbmap.dtb
 cp "$build/out/arch/arm/boot/"{zImage,zImage-dtb} "$dest/"
 cp "$build/out/arch/arm/boot/dts/$dt.dtb" "$build/out/arch/arm/boot/dts/"tegra20-motorola-wingray-{gpu-test,android44-smp2}.dtb "$dest/"
@@ -107,9 +116,10 @@ cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-gpu-fbmap.dt
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-bluetooth.dtb" "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-battery.dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-displaypm.dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirq.dtb" "$dest/"
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc ]]; then
- make "${args[@]}" tegra20-motorola-wingray-android44-wakeirqtrace.dtb
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc ]]; then
+ make "${args[@]}" tegra20-motorola-wingray-android44-wakeirqtrace.dtb tegra20-motorola-wingray-android44-wakeirqecc.dtb
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqtrace.dtb" "$dest/"
+ cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqecc.dtb" "$dest/"
 fi
 cp "$build/out/System.map" "$dest/"
 for f in "$build/out/usr/initramfs_data.cpio.xz" "$build/out/usr/initramfs_data.cpio.lz4" "$build/out/usr/initramfs_data.cpio.gz"; do

@@ -16,5 +16,6 @@ def blocked_pm(config):
                 'DPM_WATCHDOG','CPU_IDLE','CPU_FREQ','REGULATOR_CPCAP',
                 'FB_TEGRA_WINGRAY_DC_RESUME_TEST','FB_TEGRA_WINGRAY_DC_TRACE_TEST'):
         assert not yes(key), 'Blocked PM profile forbids '+key
-    assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-wakeirqecc"\n' in config
+    dtbs=('tegra20-motorola-wingray-android44-wakeirqecc','tegra20-motorola-wingray-android44-lp2')
+    assert any('CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+d+'"\n' in config for d in dtbs)
     return True

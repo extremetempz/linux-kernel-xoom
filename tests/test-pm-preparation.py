@@ -30,7 +30,9 @@ def validate_config(path):
                    'DPM_WATCHDOG','CPU_FREQ','CPU_IDLE','REGULATOR_CPCAP',
                    'FB_TEGRA_WINGRAY_DC_RESUME_TEST','FB_TEGRA_WINGRAY_DC_TRACE_TEST'):
         assert option not in enabled, option
-    assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-wakeirqecc"' in path.read_text()
+    lp2 = 'MOTOROLA_WINGRAY_LP2_TEST' in enabled
+    dtb = 'tegra20-motorola-wingray-android44-lp2' if lp2 else 'tegra20-motorola-wingray-android44-wakeirqecc'
+    assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="' + dtb + '"' in path.read_text()
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--config', type=Path)
@@ -55,8 +57,10 @@ typedef int suspend_state_t;
 #define PM_SUSPEND_MAX 4
 static bool config, wingray;
 #define CONFIG_MOTOROLA_WINGRAY_PM_PREPARE config
+#define CONFIG_MOTOROLA_WINGRAY_LP2_TEST 0
 #define IS_ENABLED(x) (x)
 static bool of_machine_is_compatible(const char *s) { assert(!strcmp(s,"motorola,wingray")); return wingray; }
+__attribute__((unused)) static bool wingray_pm_lp2_test_active(void) { return true; }
 static int calls, markers;
 static struct {int success, fail;} suspend_stats;
 static int enter_state(int state,bool freezer_only) {assert(!freezer_only);calls++; return state == 3 ? -EIO : 0;}
@@ -84,7 +88,7 @@ if a.config:
     # Demonstrate that removing the mandatory gate cannot pass validation.
     with tempfile.TemporaryDirectory() as tmp:
         bad = Path(tmp)/'bad.config'
-        bad.write_text(a.config.read_text().replace('CONFIG_MOTOROLA_WINGRAY_PM_PREPARE=y',''))
+        bad.write_text(a.config.read_text().replace('CONFIG_MOTOROLA_WINGRAY_PM_PREPARE=y','') if 'CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y' not in a.config.read_text() else a.config.read_text().replace('CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y',''))
         try: validate_config(bad)
         except AssertionError: pass
         else: raise AssertionError('Missing entry block accepted')
