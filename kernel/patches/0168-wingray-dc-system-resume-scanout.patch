@@ -1,0 +1,93 @@
+diff --git a/drivers/staging/tegra/video/dc/dc.c b/drivers/staging/tegra/video/dc/dc.c
+index 53920401..f2b0a9cb 100644
+--- a/drivers/staging/tegra/video/dc/dc.c
++++ b/drivers/staging/tegra/video/dc/dc.c
+@@ -2491,8 +2491,14 @@ static int tegra_dc_suspend(struct nvhost_device *ndev, pm_message_t state)
+ 	if (dc->out_ops && dc->out_ops->suspend)
+ 		dc->out_ops->suspend(dc);
+ 
+-	if (dc->enabled)
++	if (dc->enabled) {
++		int i;
++
++		for (i = 0; i < DC_N_WINDOWS; i++)
++			dc->pm_saved_flags[i] = dc->windows[i].flags;
++		dc->pm_restore_windows = true;
+ 		_tegra_dc_disable(dc);
++	}
+ 
+ 	if (dc->out && dc->out->postsuspend) {
+ 		dc->out->postsuspend();
+@@ -2511,6 +2517,9 @@ static int tegra_dc_suspend(struct nvhost_device *ndev, pm_message_t state)
+ static int tegra_dc_resume(struct nvhost_device *ndev)
+ {
+ 	struct tegra_dc *dc = nvhost_get_drvdata(ndev);
++	struct tegra_dc_win *wins[DC_N_WINDOWS];
++	bool restore = false;
++	int i, ret = 0;
+ 
+ 	trace_printk("%s:resume\n", dc->ndev->name);
+ 	dev_info(&ndev->dev, "resume\n");
+@@ -2519,7 +2528,18 @@ static int tegra_dc_resume(struct nvhost_device *ndev)
+ 
+ 	if (dc->enabled) {
+ 		_tegra_dc_set_default_videomode(dc);
+-		_tegra_dc_enable(dc);
++		if (_tegra_dc_enable(dc) && dc->pm_restore_windows) {
++			for (i = 0; i < DC_N_WINDOWS; i++) {
++				wins[i] = tegra_dc_get_window(dc, i);
++				if (!wins[i]) {
++					ret = -EINVAL;
++					break;
++				}
++				wins[i]->flags = dc->pm_saved_flags[i];
++			}
++			if (!ret)
++				restore = true;
++		}
+ 	}
+ 
+ 	if (dc->out && dc->out->hotplug_init)
+@@ -2529,7 +2549,25 @@ static int tegra_dc_resume(struct nvhost_device *ndev)
+ 		dc->out_ops->resume(dc);
+ 	mutex_unlock(&dc->lock);
+ 
+-	return 0;
++	/* update_windows takes dc->lock itself; userspace is still frozen in
++	 * the system-PM path, so this is the first-frame restore, not a race
++	 * with a new composition.  Do not call it under dc->lock. */
++	if (restore) {
++		int sync;
++
++		ret = tegra_dc_update_windows(wins, DC_N_WINDOWS);
++		if (!ret) {
++			sync = tegra_dc_sync_windows(wins, DC_N_WINDOWS);
++			if (sync <= 0)
++				ret = sync ? sync : -ETIMEDOUT;
++		}
++		if (!ret)
++			dc->pm_restore_windows = false;
++		else
++			dev_err(&ndev->dev, "system resume scanout restore failed: %d\n", ret);
++	}
++
++	return ret;
+ }
+ 
+ #endif /* CONFIG_PM */
+diff --git a/drivers/staging/tegra/video/dc/dc_priv.h b/drivers/staging/tegra/video/dc/dc_priv.h
+index 557e6d9d..3f7c2eea 100644
+--- a/drivers/staging/tegra/video/dc/dc_priv.h
++++ b/drivers/staging/tegra/video/dc/dc_priv.h
+@@ -114,6 +114,11 @@ struct tegra_dc {
+ #endif /* !CONFIG_ANDROID */
+ 
+ 	struct tegra_dc_win		windows[DC_N_WINDOWS];
++	/* Legacy system-PM path clears every window flag in
++	 * _tegra_dc_controller_disable().  Preserve the hardware-validated
++	 * scanout set, including non-fb windows, for the first resumed frame. */
++	u32				pm_saved_flags[DC_N_WINDOWS];
++	bool				pm_restore_windows;
+ 	struct tegra_dc_blend		blend;
+ 	int				n_windows;
+ 

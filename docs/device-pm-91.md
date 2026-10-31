@@ -28,11 +28,40 @@ for a user sleep feature.
 
 ## Built image
 
-`artifacts/dpm91-keepower2-ready/wingray-android44-gpu.img`
+`artifacts/dpm91-dcfix-ready/wingray-android44-gpu.img`
 Size 4,216,832 bytes.
-SHA-256 `d9b5a515e695d10916d279bdabead9e7a58c7dc87a5ee9dfbb9d5f8bedae6539`.
+SHA-256 `075441429bad1cf5c3d844dfef4d3d4cf6898e1b0865f2cde0cca28e88c2f565`.
 Manifest profile `android44-devicepm91`; `soc_suspend_enabled=false`,
 `dc_resume_experimental=false`, `hardware_tested=false`.
+
+## Second hardware run — devices-only DPM callbacks passed
+
+The corrected keep-power image completed all device suspend/resume callbacks:
+
+```text
+WG_PM91_FREEZER_COMPLETE selected=dpm platform_entry=0 cpu_sleep=0
+PM: suspend of devices complete after 4.482 msecs
+suspend debug: Waiting for 5 second(s).
+tegradc tegradc.0: resume
+PM: resume of devices complete after 391.048 msecs
+WG_PM91_DPM_COMPLETE result=0 platform_entry=0 cpu_sleep=0
+WG_PM91_TASKS_THAWED result=0 cpu_sleep=0
+```
+
+This is genuine full-tree normal-phase device PM, still with platform/CPU/syscore
+entry blocked. It is not CPU sleep or LP2.
+
+The host still lost USB during the suspension window and did not receive the
+framed result; the result above is from the same boot's kernel log, recovered
+after USB re-enumeration. `run-dpm-test.py` therefore needs a resume/reconnect
+status path before this transport can be called clean.
+
+The display returned from its callback but the panel stayed blank for about
+30 seconds. The legacy system DC resume used `_tegra_dc_set_default_videomode()`
+and `_tegra_dc_enable()` without restoring the window enable set that
+`_tegra_dc_controller_disable()` clears. The image above adds saved window flags
+and a first-frame `tegra_dc_update_windows()`/`tegra_dc_sync_windows()` after
+resume, outside `dc->lock`. This is source/build-tested only.
 
 ## First hardware run — WiFi SDIO blocker found
 
@@ -113,8 +142,8 @@ No automated CPU1 test is enabled in this profile.
 |---|---|
 | Task freezer | Hardware-validated on Image 89 (documented; artifacts absent here) |
 | CPCAP selected callbacks | Implemented; hardware test pending |
-| Full devices-only DPM | First hardware run reached DPM and failed at WiFi SDIO; corrected image pending re-test |
-| Display/GPU system restore | **Blocked/unimplemented** |
+| Full devices-only DPM | Normal-phase callbacks completed `result=0`; transport/display re-test pending |
+| Display/GPU system restore | Window/first-frame restore implemented; hardware re-test pending |
 | Storage/wireless/touch/battery callbacks | Partly implemented; not system-PM tested |
 | Wake source | Awake arm/disarm passed; system-PM wake blocked |
 | PMC configuration | Parser fixed; board handshake and entry blocked |
