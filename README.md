@@ -52,6 +52,11 @@ because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
 
+**Sleep status:** image 89 passes only a manual task-freezer test. Ordinary
+`pm_suspend()`, device suspend, CPU sleep and deep sleep remain blocked by
+design; the platform PMC parameters, device callbacks and real wake route are
+still missing. See [image 89 review](docs/suspend-image89-review.md).
+
 **Retained console:** hardware diagnostics showed `ramoops` probe failing with
 `-EOVERFLOW` because the inherited size properties were one-cell u32 values.
 The trace DT now uses `/bits/ 64` sizes; the corrected image is built and
