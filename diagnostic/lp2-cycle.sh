@@ -27,5 +27,8 @@ echo "LP2TEST_WRITE_RC $rc"
 after=$("$BB" cat "$TEST") || exit 1
 echo "LP2TEST_AFTER $after"
 [ "$rc" -eq 0 ] || exit 1
+echo LP2TEST_DMESG_BEGIN
+"$BB" dmesg 2>/dev/null | "$BB" grep -E 'WG_LP2|PM: suspend|PM: Calling.*syscore|tegradc.*suspend' || true
+echo LP2TEST_DMESG_END
 echo LP2TEST_RETURNED
 exit 0

@@ -510,3 +510,10 @@ Image SHA-256
 `afa116a83157c879c6bd0f3a4cb503a4aaf46804fd6a7c361e35bde84ee09542`
 (4,216,832 bytes), not flashed. The previous attempt remains unverified; the
 CPCAP `-108` IRQ flood during resume is still an open ordering defect.
+
+
+**LP2 filtered-dmesg image 93e built:** the LP2 status helper now returns
+filtered `WG_LP2`/PM suspend/teardown lines, bypassing the CPCAP `-108` flood.
+Image SHA-256
+`d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`
+(4,220,928 bytes), not flashed. No LP2 success claim yet.

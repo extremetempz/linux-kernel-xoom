@@ -7,8 +7,8 @@
 
 `artifacts/lp2-final-ready/wingray-android44-gpu.img`
 
-- Size: 4,216,832 bytes
-- SHA-256: `afa116a83157c879c6bd0f3a4cb503a4aaf46804fd6a7c361e35bde84ee09542`
+- Size: 4,220,928 bytes
+- SHA-256: `d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`
 - Profile: `android44-lp2test`
 - DT: `tegra20-motorola-wingray-android44-lp2`
 - `soc_suspend_enabled=true`, `lp2_candidate=true`, `hardware_tested=false`
