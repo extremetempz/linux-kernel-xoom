@@ -71,7 +71,9 @@ together with CPU1 or each other.
 - CPU1 hotplug: **hardware-validated once** (`CPU1TEST_PASS`); see
   [cpu1-92-result.md](cpu1-92-result.md).
 - Late/noirq PM: **source/profile prepared, not hardware-validated**.
-- Syscore ordering: **source/profile prepared, not hardware-validated**.
+- Corrected syscore ordering: **hardware status-pass on Image 92c**;
+  same-boot report still required. See
+  [syscore result](syscore-92-result.md).
 - PMC handshake: **blocked**; see [PMC/wake review](pmc-wake-92-review.md).
 - Physical LP2 wake: **not validated**.
 - Image 93 LP2 candidate: **not prepared**; blockers remain.

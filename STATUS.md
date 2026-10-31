@@ -455,3 +455,12 @@ dummy suspend_ops with `PM_SUSPEND_MEM`/`TEST_CORE`, which reaches
 `syscore_suspend()` and stops before the dummy platform enter. Earlier
 late/noirq `LATETEST_PASS` remains valid. The corrected syscore path is not
 hardware-tested. Image 93 remains blocked.
+
+
+**Image 92c corrected syscore status pass:** `PM_SUSPEND_MEM` with
+`TEST_CORE` reported `SYSCTEST_AFTER completed=1 last_result=0`, counter +1,
+process RC0 on image
+`55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`.
+This path reaches syscore and skips the dummy platform enter; it is not LP2.
+CPU1, late/noirq and syscore diagnostics have passed individually. The PMC
+handshake and physical wake remain blocking, so Image 93 is still not prepared.
