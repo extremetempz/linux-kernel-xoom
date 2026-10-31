@@ -28,7 +28,7 @@ for a user sleep feature.
 
 ## Built image
 
-`artifacts/dpm91-dcfix-ready/wingray-android44-gpu.img`
+`artifacts/dpm91-dcfix-ready/wingray-android44-gpu.img` (tested image)
 Size 4,216,832 bytes.
 SHA-256 `075441429bad1cf5c3d844dfef4d3d4cf6898e1b0865f2cde0cca28e88c2f565`.
 Manifest profile `android44-devicepm91`; `soc_suspend_enabled=false`,
@@ -56,12 +56,19 @@ framed result; the result above is from the same boot's kernel log, recovered
 after USB re-enumeration. `run-dpm-test.py` therefore needs a resume/reconnect
 status path before this transport can be called clean.
 
-The display returned from its callback but the panel stayed blank for about
-30 seconds. The legacy system DC resume used `_tegra_dc_set_default_videomode()`
-and `_tegra_dc_enable()` without restoring the window enable set that
-`_tegra_dc_controller_disable()` clears. The image above adds saved window flags
-and a first-frame `tegra_dc_update_windows()`/`tegra_dc_sync_windows()` after
-resume, outside `dc->lock`. This is source/build-tested only.
+The previous image left the panel blank for about 30 seconds after resume.
+The legacy system DC resume used `_tegra_dc_set_default_videomode()` and
+`_tegra_dc_enable()` without restoring the window enable set that
+`_tegra_dc_controller_disable()` clears.
+
+The `07544142…` image adds saved window flags and a first-frame
+`tegra_dc_update_windows()`/`tegra_dc_sync_windows()` after resume, outside
+`dc->lock`. A second hardware run completed all device callbacks again with
+`WG_PM91_DPM_COMPLETE result=0`; the operator reports roughly five seconds of
+blanking (the pm_test hold) and the panel then returned. No
+`system resume scanout restore failed` message appeared. This is strong
+same-boot evidence for the normal-phase DPM and first-frame restore, but not
+yet a final visual/touch/radio certification.
 
 ## First hardware run — WiFi SDIO blocker found
 

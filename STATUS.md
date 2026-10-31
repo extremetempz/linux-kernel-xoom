@@ -407,5 +407,7 @@ recovered from the same-boot dmesg. The panel stayed blank about 30 seconds
 because legacy DC resume did not restore the window enable set; the new build
 saves window flags and synchronizes a first frame after resume. Corrected image
 SHA-256 `075441429bad1cf5c3d844dfef4d3d4cf6898e1b0865f2cde0cca28e88c2f565`.
-This remains devices-only PM, not LP2 or deep sleep; a new hardware test is
-required.
+A second run of the DC-fix image again completed device PM with `result=0`;
+the operator observed about five seconds of blanking rather than 30 seconds,
+and no scanout-restore failure was logged. Final visual/touch/radio confirmation
+is still requested. This remains devices-only PM, not LP2 or deep sleep.
