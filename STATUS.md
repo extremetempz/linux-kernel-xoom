@@ -385,7 +385,7 @@ review/test procedure is in [device-pm-90-test.md](docs/device-pm-90-test.md).
 
 **Image 91 build identity:** `artifacts/dpm91-final-ready/wingray-android44-gpu.img`,
 4,216,832 bytes, SHA-256
-`d9b5a515e695d10916d279bdabead9e7a58c7dc87a5ee9dfbb9d5f8bedae6539`,
+`075441429bad1cf5c3d844dfef4d3d4cf6898e1b0865f2cde0cca28e88c2f565`,
 profile `android44-devicepm91`. Full-tree devices-only DPM and the LP2 source
 corrections build; no device operation or hardware sleep test was performed.
 
@@ -395,5 +395,19 @@ run reached full devices-only DPM, then `mmc1:0001:2` failed with
 `-EINVAL` because BCM4329 function 2 requires `MMC_PM_KEEP_POWER` and the
 host did not advertise it. The final overlay now sets
 `keep-power-in-suspend`; corrected image SHA-256 is
-`d9b5a515e695d10916d279bdabead9e7a58c7dc87a5ee9dfbb9d5f8bedae6539`.
+`075441429bad1cf5c3d844dfef4d3d4cf6898e1b0865f2cde0cca28e88c2f565`.
 A new hardware run is required; display/GPU restoration remains unresolved.
+
+
+**Image 91 DPM callbacks pass; DC resume fix pending re-test:** The corrected
+WiFi image completed full devices-only `dpm_suspend`/`dpm_resume` with
+`WG_PM91_DPM_COMPLETE result=0`; platform/CPU/syscore entry stayed blocked.
+USB was lost during the window, so the host frame failed and the result was
+recovered from the same-boot dmesg. The panel stayed blank about 30 seconds
+because legacy DC resume did not restore the window enable set; the new build
+saves window flags and synchronizes a first frame after resume. Corrected image
+SHA-256 `075441429bad1cf5c3d844dfef4d3d4cf6898e1b0865f2cde0cca28e88c2f565`.
+A second run of the DC-fix image again completed device PM with `result=0`;
+the operator observed about five seconds of blanking rather than 30 seconds,
+and no scanout-restore failure was logged. Final visual/touch/radio confirmation
+is still requested. This remains devices-only PM, not LP2 or deep sleep.
