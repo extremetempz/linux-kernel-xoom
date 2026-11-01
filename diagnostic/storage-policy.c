@@ -56,9 +56,9 @@ static int release(const char *path)
 void _start(void) __attribute__((noreturn));
 void _start(void)
 {
-    if(!exists("/proc/device-tree/sdhci@c8000600/motorola,xoom-persistent-storage"))
+    if(!exists("/sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage"))
         end(1);
-    if(exists("/proc/device-tree/motorola,wingray-storage-inspect"))
+    if(exists("/sys/firmware/devicetree/base/motorola,wingray-storage-inspect"))
         end(2);
     if(release("/dev/mmcblk0p9"))end(3);
     if(release("/dev/mmcblk0p10"))end(4);

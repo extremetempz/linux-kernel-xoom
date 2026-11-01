@@ -13,11 +13,11 @@ case "$(/bin/busybox uname -r)" in
 esac
 /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray || fail board
 persistent=0
-[ -e /proc/device-tree/sdhci@c8000600/motorola,xoom-persistent-storage ] && persistent=1
+[ -e /sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage ] && persistent=1
 inspect=0
-[ -e /proc/device-tree/motorola,wingray-storage-inspect ] && inspect=1
+[ -e /sys/firmware/devicetree/base/motorola,wingray-storage-inspect ] && inspect=1
 write_test=0
-[ -e /proc/device-tree/motorola,wingray-storage-write-test ] && write_test=1
+[ -e /sys/firmware/devicetree/base/motorola,wingray-storage-write-test ] && write_test=1
 stage "storage_mode_persistent_${persistent}_inspect_${inspect}_write_${write_test}"
 waited=0
 while [ ! -d /sys/block/mmcblk0/mmcblk0p10 ] && [ "$waited" -lt 20 ]; do
