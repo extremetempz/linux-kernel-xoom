@@ -204,7 +204,12 @@ python3 scripts/capture-framed-diagnostic.py \
 ```
 
 5. Read `XOOM_ANDROID44_STORAGE_INSPECT_BEGIN` through
-   `XOOM_STORAGE_INSPECT_END` in `report-private.txt`.
+   `XOOM_STORAGE_INSPECT_END` in `report-private.txt`. Parse it offline with:
+
+```sh
+python3 scripts/parse-storage-inspection.py   --report artifacts/storage-inspect1/report-private.txt   --output artifacts/storage-inspect1/inspection.json
+```
+
 6. Require ext4 magic `53ef`, no crypto footer (unless you intentionally use
    Android encryption), readable superblock, e2fsck result understood, and
    `RO_MOUNT_OK`. Store full report off-device.
@@ -216,6 +221,15 @@ python3 scripts/capture-framed-diagnostic.py \
 off-device raw image of p10 (and p9 if desired), record its SHA-256, and verify
 the backup by reading it back. A boot-image backup is not sufficient.
 No private userdata image may be committed to GitHub.
+
+After both exist, the host-only readiness gate can be evaluated:
+
+```sh
+python3 scripts/persistent-readiness.py   --inspection artifacts/storage-inspect1/inspection.json   --backup /path/to/verified-userdata-p10.img   --backup-sha256 <sha256>   --output artifacts/storage-inspect1/write-readiness.json
+```
+
+`writes_allowed=true` is a prerequisite, not automatic authorization. It
+does not flash or write anything.
 
 ### Stage B — controlled write test (after backup only)
 

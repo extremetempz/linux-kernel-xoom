@@ -554,3 +554,9 @@ inspection `8f87cb9c…`, Stage B write test `ec962dd1…`, Stage C Android
 persistent `1d23c1dd…`. Existing `/system` remains ro; p9/p10 are the only
 releasable partitions. No verified userdata backup exists, so **no persistent
 write is authorized**. See [persistent-storage-94.md](docs/persistent-storage-94.md).
+
+
+**Stage-A parser/readiness tools added:** `parse-storage-inspection.py`
+classifies the read-only report and `persistent-readiness.py` verifies the
+p10 raw backup size/SHA before Stage B. Neither contacts a device. No verified
+backup exists, so physical write authorization remains false.
