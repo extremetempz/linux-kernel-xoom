@@ -24,7 +24,7 @@ assert 'persistent_data_mount' in boot and 'persistent_cache_mount' in boot
 assert 'tmpfs /data' in boot and 'tmpfs /cache' in boot  # only RAM branch
 assert boot.index('if [ "$persistent" = 1 ]') < boot.index('tmpfs -o size=256m')
 assert 'mkfs' not in boot and 'fsck' not in boot and 'wipefs' not in boot
-assert 'storage-inspect' in boot and 'storage-policy' in boot
+assert 'android44-storage-inspect' in boot and 'storage-policy' in boot
 # fstab is generated only for the persistent config; data/cache are rw.
 assert "b'/dev/block/mmcblk0p10 /data ext4 rw,noatime" in img
 assert 'nomblk_io_submit,errors=panic' in img

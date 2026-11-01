@@ -83,7 +83,7 @@ mount_system_readonly() {
 if [ "$persistent" = 1 ]; then
  mount_system_readonly
  if [ "$inspect" = 1 ]; then
-  /bin/storage-inspect > /run/storage-inspect-console.txt 2>&1
+  /bin/android44-storage-inspect > /run/storage-inspect-console.txt 2>&1
   echo "XOOM_STORAGE_INSPECT_RC $?" >> /run/android44-storage-inspect.txt
   stage inspection_complete_read_only
   while :; do /bin/busybox sleep 5; done

@@ -22,7 +22,7 @@ p.add_argument('--port', type=Path, help='Expected gadget ttyACM node; autodetec
 p.add_argument('--expected-geometry', type=Path, default=root/'artifacts/hardware-private/geometry.txt')
 p.add_argument('--expected-disk-sectors', type=int)
 p.add_argument('--report-timeout', type=int, default=45)
-p.add_argument('--storage-mode', choices=('virtual-only', 'android44-readonly'), default='virtual-only',
+p.add_argument('--storage-mode', choices=('virtual-only', 'android44-readonly', 'android44-persistent-inspect'), default='virtual-only',
                help='Explicit opt-in for the isolated Android44 RAM-data/read-only-system experiment')
 a = p.parse_args()
 if not 25 <= a.report_timeout <= 60:

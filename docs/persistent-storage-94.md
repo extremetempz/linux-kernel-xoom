@@ -143,7 +143,7 @@ retained. `wpa_supplicant.conf` is created only when absent.
 `artifacts/android44-persistent94-inspect-ready/wingray-android44-persistent-inspect.img`
 
 - 4,220,928 bytes
-- SHA-256 `5c973a53207fafc1a0f7d3581f8db712f9ebc68c9568dd0cee3a5dd51e4dac4d`
+- SHA-256 `152c658fa33d31217a141aecfcaf91bddeb2205dfd5f706f263da81af01348ca`
 - Never clears p9/p10, never mounts them rw, never starts Android.
 - Safe before a userdata backup.
 
@@ -200,7 +200,7 @@ Physical filesystem health is not yet validated; Stage A must run on hardware.
 sudo setfacl -m u:justin:rw /dev/ttyACM0
 python3 scripts/capture-framed-diagnostic.py \
   --output-dir artifacts/storage-inspect1 \
-  --storage-mode android44-readonly
+  --storage-mode android44-persistent-inspect
 ```
 
 5. Read `XOOM_ANDROID44_STORAGE_INSPECT_BEGIN` through
