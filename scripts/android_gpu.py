@@ -15,6 +15,7 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  displaypm='CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in config
  wakeirq='CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y\n' in config
  retained=selected_retained_dt(config)
+ persistent='CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y\n' in config
  selected=retained if retained else 'tegra20-motorola-wingray-android44-wakeirq' if wakeirq else 'tegra20-motorola-wingray-android44-displaypm' if displaypm else 'tegra20-motorola-wingray-android44-battery' if battery else 'tegra20-motorola-wingray-android44-bluetooth' if bluetooth else name
  assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+selected+'"\n' in config
  if bluetooth:
@@ -80,7 +81,12 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  assert dc['clock-names']==b'dc\0parent\0' and dc['clocks']==a[root]['clocks']
  assert u(dc['assigned-clock-rates'])==(598000000,)
  assert b['/panel']['status']==b'disabled\0' # no competing DRM panel client
- assert 'motorola,xoom-firstboot-ro' in b['/sdhci@c8000600']
+ if persistent:
+  selected_tree=parse_dtb((p/(selected+'.dtb')).read_bytes())
+  assert 'motorola,xoom-firstboot-ro' not in selected_tree['/sdhci@c8000600']
+  assert 'motorola,xoom-persistent-storage' in selected_tree['/sdhci@c8000600']
+ else:
+  assert 'motorola,xoom-firstboot-ro' in b['/sdhci@c8000600']
  mode=b[root+'/rgb/display'];timing=b[root+'/rgb/display/display-timings/timing0']
  for n,v in {'motorola,h-ref-to-sync':11,'motorola,v-ref-to-sync':1,'depth':24,'fb-xres':1280,'fb-yres':800,'fb-bpp':32,'lvds-to-bl':200}.items():assert u(mode[n])==(v,),n
  for n,v in {'clock-frequency':66400000,'hactive':1280,'vactive':800,'hfront-porch':45,'hsync-len':26,'hback-porch':12,'vfront-porch':3,'vsync-len':6,'vback-porch':3}.items():assert u(timing[n])==(v,),n

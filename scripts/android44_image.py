@@ -238,7 +238,7 @@ def default_properties(original):
             ''.join(f'{key}={value}\n' for key, value in sorted(props.items()))).encode()
 
 
-def ramdisk_entries(original, files):
+def ramdisk_entries(original, files, persistent=False):
     """Copy only the required baseline files, then add generated/runtime files."""
     entries = {}
     for name in ('.', 'data', 'dev', 'proc', 'sys', 'system', 'sbin',
@@ -258,9 +258,15 @@ def ramdisk_entries(original, files):
                          'sbin/watchdogd': '/init.android', 'vendor': '/system/vendor'}.items():
         entries[name] = Entry(name, stat.S_IFLNK | 0o777, target.encode())
     rc, log_uids = transform_init(original['init.rc'].data.decode())
+    if persistent:
+        fstab = (b'/dev/block/mmcblk0p8 /system ext4 ro,noload,nosuid,nodev wait\n'
+                 b'/dev/block/mmcblk0p10 /data ext4 rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic wait\n'
+                 b'/dev/block/mmcblk0p9 /cache ext4 rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic wait\n')
+    else:
+        fstab = b'/dev/block/mmcblk0p8 /system ext4 ro,noload,nosuid,nodev wait\n'
     generated = {'init.rc': rc, 'init.xoom-firstboot.rc': board_init(log_uids),
                  'default.prop': default_properties(original['default.prop'].data),
-                 'fstab.stingray': b'/dev/block/mmcblk0p8 /system ext4 ro,noload,nosuid,nodev wait\n'}
+                 'fstab.stingray': fstab}
     for name, data in generated.items():
         entries[name] = Entry(name, stat.S_IFREG | 0o644, data)
     for name, data in files.items():

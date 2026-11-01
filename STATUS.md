@@ -547,3 +547,10 @@ manual trigger returned `-16`; Image 95 logs the exact reject path and always
 returns dmesg on write failure. SHA-256
 `9f60f2abf8c94e6997f6b329b486aa6b7bbe14d4fb96cbefeab57cf6f8871e8b`, not
 flashed. Repeated deep sleep and power measurement remain unproven.
+
+
+**Persistent-storage candidates built (not flashed):** Stage A read-only
+inspection `9f2d90dd…`, Stage B write test `a62b5ea2…`, Stage C Android
+persistent `12b6f7ec…`. Existing `/system` remains ro; p9/p10 are the only
+releasable partitions. No verified userdata backup exists, so **no persistent
+write is authorized**. See [persistent-storage-94.md](docs/persistent-storage-94.md).

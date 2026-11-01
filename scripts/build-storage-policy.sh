@@ -7,7 +7,7 @@ test ! -e "$dest/storage-policy"
 "$build/toolchain/bin/arm-linux-androideabi-gcc" -std=gnu11 -nostdlib -static \
  -marm -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -fomit-frame-pointer \
  -fno-stack-protector -fno-builtin -fno-pic -Wall -Wextra -Werror -O2 \
- -Wl,-e,_start -Wl,--build-id=none \
+ -Wl,-e,_start -Wl,--build-id=none -isystem "$build/headers/include" \
  "$root/diagnostic/storage-policy.c" -o "$dest/storage-policy"
 python3 - "$dest/storage-policy" "$root/diagnostic/storage-policy.c" <<'PY'
 import hashlib,json,subprocess,sys

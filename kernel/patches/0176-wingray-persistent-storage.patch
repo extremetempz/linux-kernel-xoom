@@ -1,0 +1,976 @@
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent-inspect.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent-inspect.dts
+new file mode 100644
+index 00000000..9e7766ad
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent-inspect.dts
+@@ -0,0 +1,10 @@
++/* GPL-2.0: read-only userdata/cache inspection image.
++ * Same kernel and hardware as the persistent image, but the bootstrap must
++ * not release either partition or start Android.
++ */
++#include "tegra20-motorola-wingray-android44-persistent.dts"
++
++/ {
++	model = "Motorola Xoom P3 Android persistent-storage read-only inspection";
++	motorola,wingray-storage-inspect;
++};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent-write-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent-write-test.dts
+new file mode 100644
+index 00000000..9f7d999e
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent-write-test.dts
+@@ -0,0 +1,7 @@
++/* GPL-2.0: controlled persistent-file test. Requires a verified userdata backup. */
++#include "tegra20-motorola-wingray-android44-persistent.dts"
++
++/ {
++	model = "Motorola Xoom P3 persistent storage write test";
++	motorola,wingray-storage-write-test;
++};
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent.dts
+new file mode 100644
+index 00000000..1af8b953
+--- /dev/null
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-persistent.dts
+@@ -0,0 +1,13 @@
++/* GPL-2.0: persistent Android userdata/cache profile.
++ * Inherit the validated Android/LP2 hardware stack, remove the whole-device
++ * first-boot read-only marker, and select the partition-scoped MMC policy.
++ */
++#include "tegra20-motorola-wingray-android44-lp2.dts"
++
++/ {
++	model = "Motorola Xoom P3 Android 4.4 persistent storage";
++	sdhci@c8000600 {
++		/delete-property/ motorola,xoom-firstboot-ro;
++		motorola,xoom-persistent-storage;
++	};
++};
+diff --git a/arch/arm/configs/wingray_android44_persistent_defconfig b/arch/arm/configs/wingray_android44_persistent_defconfig
+new file mode 100644
+index 00000000..5111c362
+--- /dev/null
++++ b/arch/arm/configs/wingray_android44_persistent_defconfig
+@@ -0,0 +1,248 @@
++CONFIG_LOCALVERSION="-wingray-android44-gpu"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_SMP_ON_UP=y
++CONFIG_NR_CPUS=2
++CONFIG_HOTPLUG_CPU=y
++CONFIG_CACHE_L2X0=y
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++CONFIG_SUSPEND=y
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-persistent"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0 maxcpus=2"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_BLOCK=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_EXT4_FS=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_NET=y
++CONFIG_UNIX=y
++CONFIG_INET=y
++CONFIG_IPV6=y
++CONFIG_WIRELESS=y
++# Only the factory-preserving P3 maXTouch input path is added.
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++# CONFIG_TOUCHSCREEN_MXT1386 is not set
++# CONFIG_SAMSUNG_INPUT is not set
++# CONFIG_INPUT_LEDS is not set
++# CONFIG_INPUT_MOUSEDEV is not set
++# CONFIG_INPUT_JOYDEV is not set
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_GPIO=y
++# CONFIG_INPUT_MOUSE is not set
++# CONFIG_INPUT_JOYSTICK is not set
++# CONFIG_INPUT_TABLET is not set
++# CONFIG_INPUT_MISC is not set
++# CONFIG_SERIO is not set
++# CONFIG_GAMEPORT is not set
++# CONFIG_HID is not set
++# CONFIG_USB_HID is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_BACKLIGHT_LP855X=y
++
++# CONFIG_DRM is not set
++# CONFIG_DRM_TEGRA is not set
++# CONFIG_DRM_TEGRA_FBDEV is not set
++# CONFIG_DRM_PANEL_SIMPLE is not set
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=16
++
++# Installed Android 4.4 userspace ABI; separate from the future Oreo ABI.
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDER_DEVICES="binder"
++CONFIG_ANDROID_BINDER_IPC_32BIT=y
++CONFIG_STAGING=y
++CONFIG_ASHMEM=y
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++CONFIG_ANDROID_LOW_MEMORY_KILLER=y
++CONFIG_SYNC=y
++# CONFIG_SW_SYNC is not set
++CONFIG_CGROUPS=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_FAIR_GROUP_SCHED=y
++CONFIG_FUSE_FS=y
++CONFIG_INOTIFY_USER=y
++# CONFIG_MOTOROLA_XOOM_BOOT_TRACE is not set
++
++# Isolated Decatf nvmap backing-ownership experiment; no engine or DC access.
++CONFIG_MEMORY=y
++# CONFIG_TEGRA20_MC is not set
++# CONFIG_TEGRA_HOST1X is not set
++# CONFIG_IOMMU_SUPPORT is not set
++# CONFIG_IOMMU_API is not set
++# CONFIG_TEGRA_IOMMU_GART is not set
++CONFIG_TEGRA_DOWNSTREAM=y
++CONFIG_TEGRA_NVMAP=y
++# CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES is not set
++# CONFIG_TEGRA_RPC is not set
++# CONFIG_TEGRA_AVP is not set
++# CONFIG_TEGRA_AVP_KERNEL_ON_MMU is not set
++# CONFIG_TEGRA_MEDIASERVER is not set
++# CONFIG_TEGRA_IOVMM_GART is not set
++# CONFIG_TEGRA_IOVMM is not set
++CONFIG_TEGRA_GRHOST=y
++# CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST is not set
++CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y
++CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT=y
++CONFIG_TEGRA_SEMA_STANDALONE=y
++CONFIG_FB=y
++CONFIG_TEGRA_DC=y
++CONFIG_FB_TEGRA=y
++# CONFIG_TEGRA_DC_EXTENSIONS is not set
++# CONFIG_TEGRA_OVERLAY is not set
++CONFIG_FB_TEGRA_WINGRAY_LEGACY=y
++# CONFIG_FB_TEGRA_CMC623 is not set
++# CONFIG_NVMAP_ALLOW_SYSMEM is not set
++# CONFIG_NVMAP_RECLAIM_UNPINNED_VM is not set
++# CONFIG_NVMAP_HIGHMEM_ONLY is not set
++# CONFIG_NVMAP_CONVERT_CARVEOUT_TO_IOVMM is not set
++# CONFIG_NVMAP_CARVEOUT_KILLER is not set
++# CONFIG_NVMAP_CARVEOUT_COMPACTOR is not set
++# CONFIG_NVMAP_PAGE_POOLS is not set
++
++# Reserved-RAM startup localization only; no userspace GPU submission.
++CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0060
++
++# Bypass the externally loaded large initrd; RAM runtime stays private.
++CONFIG_INITRAMFS_SOURCE="usr/wingray-android-runtime.cpio"
++
++# Motorola CPCAP PMIC transport and IRQ core; power key only.
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_MFD_CPCAP=y
++
++# BCM4329 Wi-Fi bring-up: SDIO fullmac plus legacy WEXT for Android.
++CONFIG_NETDEVICES=y
++CONFIG_WLAN=y
++CONFIG_CFG80211=y
++CONFIG_CFG80211_WEXT=y
++CONFIG_RFKILL=y
++
++
++
++# Xoom bcmdhd 4329 module, loaded after /system is available.
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++
++# Native 4.4 bcmdhd, loaded after /system is available.
++CONFIG_BROADCOM_WIFI=y
++CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
++CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
++
++# Android Bluedroid owns HCI over ttyHS2, not Linux HCI line discipline.
++CONFIG_SERIAL_TEGRA=y
++CONFIG_RFKILL_WINGRAY_BT=y
++# CONFIG_BT is not set
++
++# Opt-in P3 input-only battery monitor; preserve all fixed-clock controls.
++CONFIG_POWER_SUPPLY=y
++CONFIG_W1=y
++CONFIG_W1_MASTER_TEGRA_WINGRAY=y
++CONFIG_W1_SLAVE_DS2781=y
++# CONFIG_W1_CON is not set
++# CONFIG_BATTERY_DS2781 is not set
++CONFIG_BATTERY_WINGRAY_MONITOR=y
++
++CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y
++CONFIG_PM=y
++
++
++CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y
++
++# PM compilation/inspection only. All system sleep entry is blocked.
++CONFIG_MOTOROLA_WINGRAY_PM_PREPARE=y
++CONFIG_PM_DEBUG=y
++CONFIG_PM_ADVANCED_DEBUG=y
++# CONFIG_PM_AUTOSLEEP is not set
++# CONFIG_PM_WAKELOCKS is not set
++# CONFIG_PM_TEST_SUSPEND is not set
++# CONFIG_HIBERNATION is not set
++# CONFIG_DPM_WATCHDOG is not set
++# CONFIG_CPU_IDLE is not set
++
++# Manual checked parent wake-reference test; no sleep entry.
++CONFIG_MFD_CPCAP_WINGRAY_WAKE_ARM_TEST=y
++
++# Root-only freezer test; no device/CPU sleep.
++CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y
+diff --git a/arch/arm/configs/wingray_android44_persistent_inspect_defconfig b/arch/arm/configs/wingray_android44_persistent_inspect_defconfig
+new file mode 100644
+index 00000000..18731be6
+--- /dev/null
++++ b/arch/arm/configs/wingray_android44_persistent_inspect_defconfig
+@@ -0,0 +1,248 @@
++CONFIG_LOCALVERSION="-wingray-android44-gpu"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_SMP_ON_UP=y
++CONFIG_NR_CPUS=2
++CONFIG_HOTPLUG_CPU=y
++CONFIG_CACHE_L2X0=y
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++CONFIG_SUSPEND=y
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-persistent-inspect"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0 maxcpus=2"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_BLOCK=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_EXT4_FS=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_NET=y
++CONFIG_UNIX=y
++CONFIG_INET=y
++CONFIG_IPV6=y
++CONFIG_WIRELESS=y
++# Only the factory-preserving P3 maXTouch input path is added.
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++# CONFIG_TOUCHSCREEN_MXT1386 is not set
++# CONFIG_SAMSUNG_INPUT is not set
++# CONFIG_INPUT_LEDS is not set
++# CONFIG_INPUT_MOUSEDEV is not set
++# CONFIG_INPUT_JOYDEV is not set
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_GPIO=y
++# CONFIG_INPUT_MOUSE is not set
++# CONFIG_INPUT_JOYSTICK is not set
++# CONFIG_INPUT_TABLET is not set
++# CONFIG_INPUT_MISC is not set
++# CONFIG_SERIO is not set
++# CONFIG_GAMEPORT is not set
++# CONFIG_HID is not set
++# CONFIG_USB_HID is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_BACKLIGHT_LP855X=y
++
++# CONFIG_DRM is not set
++# CONFIG_DRM_TEGRA is not set
++# CONFIG_DRM_TEGRA_FBDEV is not set
++# CONFIG_DRM_PANEL_SIMPLE is not set
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=16
++
++# Installed Android 4.4 userspace ABI; separate from the future Oreo ABI.
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDER_DEVICES="binder"
++CONFIG_ANDROID_BINDER_IPC_32BIT=y
++CONFIG_STAGING=y
++CONFIG_ASHMEM=y
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++CONFIG_ANDROID_LOW_MEMORY_KILLER=y
++CONFIG_SYNC=y
++# CONFIG_SW_SYNC is not set
++CONFIG_CGROUPS=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_FAIR_GROUP_SCHED=y
++CONFIG_FUSE_FS=y
++CONFIG_INOTIFY_USER=y
++# CONFIG_MOTOROLA_XOOM_BOOT_TRACE is not set
++
++# Isolated Decatf nvmap backing-ownership experiment; no engine or DC access.
++CONFIG_MEMORY=y
++# CONFIG_TEGRA20_MC is not set
++# CONFIG_TEGRA_HOST1X is not set
++# CONFIG_IOMMU_SUPPORT is not set
++# CONFIG_IOMMU_API is not set
++# CONFIG_TEGRA_IOMMU_GART is not set
++CONFIG_TEGRA_DOWNSTREAM=y
++CONFIG_TEGRA_NVMAP=y
++# CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES is not set
++# CONFIG_TEGRA_RPC is not set
++# CONFIG_TEGRA_AVP is not set
++# CONFIG_TEGRA_AVP_KERNEL_ON_MMU is not set
++# CONFIG_TEGRA_MEDIASERVER is not set
++# CONFIG_TEGRA_IOVMM_GART is not set
++# CONFIG_TEGRA_IOVMM is not set
++CONFIG_TEGRA_GRHOST=y
++# CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST is not set
++CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y
++CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT=y
++CONFIG_TEGRA_SEMA_STANDALONE=y
++CONFIG_FB=y
++CONFIG_TEGRA_DC=y
++CONFIG_FB_TEGRA=y
++# CONFIG_TEGRA_DC_EXTENSIONS is not set
++# CONFIG_TEGRA_OVERLAY is not set
++CONFIG_FB_TEGRA_WINGRAY_LEGACY=y
++# CONFIG_FB_TEGRA_CMC623 is not set
++# CONFIG_NVMAP_ALLOW_SYSMEM is not set
++# CONFIG_NVMAP_RECLAIM_UNPINNED_VM is not set
++# CONFIG_NVMAP_HIGHMEM_ONLY is not set
++# CONFIG_NVMAP_CONVERT_CARVEOUT_TO_IOVMM is not set
++# CONFIG_NVMAP_CARVEOUT_KILLER is not set
++# CONFIG_NVMAP_CARVEOUT_COMPACTOR is not set
++# CONFIG_NVMAP_PAGE_POOLS is not set
++
++# Reserved-RAM startup localization only; no userspace GPU submission.
++CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0060
++
++# Bypass the externally loaded large initrd; RAM runtime stays private.
++CONFIG_INITRAMFS_SOURCE="usr/wingray-android-runtime.cpio"
++
++# Motorola CPCAP PMIC transport and IRQ core; power key only.
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_MFD_CPCAP=y
++
++# BCM4329 Wi-Fi bring-up: SDIO fullmac plus legacy WEXT for Android.
++CONFIG_NETDEVICES=y
++CONFIG_WLAN=y
++CONFIG_CFG80211=y
++CONFIG_CFG80211_WEXT=y
++CONFIG_RFKILL=y
++
++
++
++# Xoom bcmdhd 4329 module, loaded after /system is available.
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++
++# Native 4.4 bcmdhd, loaded after /system is available.
++CONFIG_BROADCOM_WIFI=y
++CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
++CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
++
++# Android Bluedroid owns HCI over ttyHS2, not Linux HCI line discipline.
++CONFIG_SERIAL_TEGRA=y
++CONFIG_RFKILL_WINGRAY_BT=y
++# CONFIG_BT is not set
++
++# Opt-in P3 input-only battery monitor; preserve all fixed-clock controls.
++CONFIG_POWER_SUPPLY=y
++CONFIG_W1=y
++CONFIG_W1_MASTER_TEGRA_WINGRAY=y
++CONFIG_W1_SLAVE_DS2781=y
++# CONFIG_W1_CON is not set
++# CONFIG_BATTERY_DS2781 is not set
++CONFIG_BATTERY_WINGRAY_MONITOR=y
++
++CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y
++CONFIG_PM=y
++
++
++CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y
++
++# PM compilation/inspection only. All system sleep entry is blocked.
++CONFIG_MOTOROLA_WINGRAY_PM_PREPARE=y
++CONFIG_PM_DEBUG=y
++CONFIG_PM_ADVANCED_DEBUG=y
++# CONFIG_PM_AUTOSLEEP is not set
++# CONFIG_PM_WAKELOCKS is not set
++# CONFIG_PM_TEST_SUSPEND is not set
++# CONFIG_HIBERNATION is not set
++# CONFIG_DPM_WATCHDOG is not set
++# CONFIG_CPU_IDLE is not set
++
++# Manual checked parent wake-reference test; no sleep entry.
++CONFIG_MFD_CPCAP_WINGRAY_WAKE_ARM_TEST=y
++
++# Root-only freezer test; no device/CPU sleep.
++CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y
+diff --git a/arch/arm/configs/wingray_android44_persistent_write_test_defconfig b/arch/arm/configs/wingray_android44_persistent_write_test_defconfig
+new file mode 100644
+index 00000000..09899501
+--- /dev/null
++++ b/arch/arm/configs/wingray_android44_persistent_write_test_defconfig
+@@ -0,0 +1,248 @@
++CONFIG_LOCALVERSION="-wingray-android44-gpu"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_IKCONFIG=y
++CONFIG_IKCONFIG_PROC=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_RD_GZIP=y
++CONFIG_EXPERT=y
++CONFIG_KALLSYMS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_LOG_BUF_SHIFT=18
++CONFIG_ARCH_TEGRA=y
++CONFIG_ARCH_TEGRA_2x_SOC=y
++# CONFIG_ARCH_TEGRA_3x_SOC is not set
++# CONFIG_ARCH_TEGRA_114_SOC is not set
++# CONFIG_ARCH_TEGRA_124_SOC is not set
++CONFIG_MACH_MOTOROLA_WINGRAY=y
++# CONFIG_MACH_SAMSUNG_VARIATION_TEGRA is not set
++# CONFIG_MACH_SAMSUNG_P4WIFI is not set
++CONFIG_SMP=y
++CONFIG_SMP_ON_UP=y
++CONFIG_NR_CPUS=2
++CONFIG_HOTPLUG_CPU=y
++CONFIG_CACHE_L2X0=y
++CONFIG_HIGHMEM=y
++CONFIG_AEABI=y
++CONFIG_SWP_EMULATE=y
++CONFIG_VFP=y
++# CONFIG_NEON is not set
++# CONFIG_CPU_FREQ is not set
++# CONFIG_CPU_IDLE is not set
++CONFIG_SUSPEND=y
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_EXTEND=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE=y
++CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-persistent-write-test"
++CONFIG_CMDLINE="console=ttyS0,115200n8 ignore_loglevel loglevel=8 initcall_debug clk_ignore_unused regulator_ignore_unused ro panic=0 maxcpus=2"
++CONFIG_CMDLINE_EXTEND=y
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_PROC_FS=y
++CONFIG_SYSFS=y
++CONFIG_TMPFS=y
++CONFIG_BLOCK=y
++CONFIG_PARTITION_ADVANCED=y
++CONFIG_EFI_PARTITION=y
++CONFIG_MOTOROLA_XOOM_BIGPART=y
++CONFIG_MMC=y
++CONFIG_MMC_BLOCK=y
++CONFIG_MMC_BLOCK_MINORS=32
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_PLTFM=y
++CONFIG_MMC_SDHCI_TEGRA=y
++CONFIG_EXT4_FS=y
++CONFIG_USB=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_CHIPIDEA=y
++CONFIG_USB_CHIPIDEA_UDC=y
++CONFIG_USB_TEGRA_PHY=y
++CONFIG_USB_G_SERIAL=y
++CONFIG_NET=y
++CONFIG_UNIX=y
++CONFIG_INET=y
++CONFIG_IPV6=y
++CONFIG_WIRELESS=y
++# Only the factory-preserving P3 maXTouch input path is added.
++CONFIG_INPUT=y
++CONFIG_INPUT_EVDEV=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++# CONFIG_TOUCHSCREEN_MXT1386 is not set
++# CONFIG_SAMSUNG_INPUT is not set
++# CONFIG_INPUT_LEDS is not set
++# CONFIG_INPUT_MOUSEDEV is not set
++# CONFIG_INPUT_JOYDEV is not set
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_GPIO=y
++# CONFIG_INPUT_MOUSE is not set
++# CONFIG_INPUT_JOYSTICK is not set
++# CONFIG_INPUT_TABLET is not set
++# CONFIG_INPUT_MISC is not set
++# CONFIG_SERIO is not set
++# CONFIG_GAMEPORT is not set
++# CONFIG_HID is not set
++# CONFIG_USB_HID is not set
++# CONFIG_VT is not set
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_8250_NR_UARTS=5
++CONFIG_SERIAL_8250_RUNTIME_UARTS=5
++CONFIG_DEBUG_KERNEL=y
++CONFIG_DEBUG_FS=y
++# CONFIG_DEBUG_LL is not set
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_RAM=y
++
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_I2C=y
++CONFIG_I2C_TEGRA=y
++CONFIG_I2C_CHARDEV=y
++CONFIG_BACKLIGHT_LP855X=y
++
++# CONFIG_DRM is not set
++# CONFIG_DRM_TEGRA is not set
++# CONFIG_DRM_TEGRA_FBDEV is not set
++# CONFIG_DRM_PANEL_SIMPLE is not set
++CONFIG_BACKLIGHT_LCD_SUPPORT=y
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++CONFIG_PWM=y
++CONFIG_CMA=y
++CONFIG_DMA_CMA=y
++CONFIG_CMA_SIZE_MBYTES=16
++
++# Installed Android 4.4 userspace ABI; separate from the future Oreo ABI.
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDER_DEVICES="binder"
++CONFIG_ANDROID_BINDER_IPC_32BIT=y
++CONFIG_STAGING=y
++CONFIG_ASHMEM=y
++CONFIG_ANDROID_LOGGER=y
++# CONFIG_ANDROID_TIMED_OUTPUT is not set
++CONFIG_ANDROID_LOW_MEMORY_KILLER=y
++CONFIG_SYNC=y
++# CONFIG_SW_SYNC is not set
++CONFIG_CGROUPS=y
++CONFIG_CGROUP_FREEZER=y
++CONFIG_CGROUP_CPUACCT=y
++CONFIG_CGROUP_SCHED=y
++CONFIG_FAIR_GROUP_SCHED=y
++CONFIG_FUSE_FS=y
++CONFIG_INOTIFY_USER=y
++# CONFIG_MOTOROLA_XOOM_BOOT_TRACE is not set
++
++# Isolated Decatf nvmap backing-ownership experiment; no engine or DC access.
++CONFIG_MEMORY=y
++# CONFIG_TEGRA20_MC is not set
++# CONFIG_TEGRA_HOST1X is not set
++# CONFIG_IOMMU_SUPPORT is not set
++# CONFIG_IOMMU_API is not set
++# CONFIG_TEGRA_IOMMU_GART is not set
++CONFIG_TEGRA_DOWNSTREAM=y
++CONFIG_TEGRA_NVMAP=y
++# CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES is not set
++# CONFIG_TEGRA_RPC is not set
++# CONFIG_TEGRA_AVP is not set
++# CONFIG_TEGRA_AVP_KERNEL_ON_MMU is not set
++# CONFIG_TEGRA_MEDIASERVER is not set
++# CONFIG_TEGRA_IOVMM_GART is not set
++# CONFIG_TEGRA_IOVMM is not set
++CONFIG_TEGRA_GRHOST=y
++# CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST is not set
++CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y
++CONFIG_TEGRA_GRHOST_WINGRAY_LEGACY_SUBMIT=y
++CONFIG_TEGRA_SEMA_STANDALONE=y
++CONFIG_FB=y
++CONFIG_TEGRA_DC=y
++CONFIG_FB_TEGRA=y
++# CONFIG_TEGRA_DC_EXTENSIONS is not set
++# CONFIG_TEGRA_OVERLAY is not set
++CONFIG_FB_TEGRA_WINGRAY_LEGACY=y
++# CONFIG_FB_TEGRA_CMC623 is not set
++# CONFIG_NVMAP_ALLOW_SYSMEM is not set
++# CONFIG_NVMAP_RECLAIM_UNPINNED_VM is not set
++# CONFIG_NVMAP_HIGHMEM_ONLY is not set
++# CONFIG_NVMAP_CONVERT_CARVEOUT_TO_IOVMM is not set
++# CONFIG_NVMAP_CARVEOUT_KILLER is not set
++# CONFIG_NVMAP_CARVEOUT_COMPACTOR is not set
++# CONFIG_NVMAP_PAGE_POOLS is not set
++
++# Reserved-RAM startup localization only; no userspace GPU submission.
++CONFIG_MOTOROLA_XOOM_GPU_STARTUP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE=y
++CONFIG_MOTOROLA_XOOM_SMP_TRACE_COOKIE=0x584d0060
++
++# Bypass the externally loaded large initrd; RAM runtime stays private.
++CONFIG_INITRAMFS_SOURCE="usr/wingray-android-runtime.cpio"
++
++# Motorola CPCAP PMIC transport and IRQ core; power key only.
++CONFIG_SPI=y
++CONFIG_SPI_TEGRA20_SLINK=y
++CONFIG_DMADEVICES=y
++CONFIG_TEGRA20_APB_DMA=y
++CONFIG_MFD_CPCAP=y
++
++# BCM4329 Wi-Fi bring-up: SDIO fullmac plus legacy WEXT for Android.
++CONFIG_NETDEVICES=y
++CONFIG_WLAN=y
++CONFIG_CFG80211=y
++CONFIG_CFG80211_WEXT=y
++CONFIG_RFKILL=y
++
++
++
++# Xoom bcmdhd 4329 module, loaded after /system is available.
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++
++# Native 4.4 bcmdhd, loaded after /system is available.
++CONFIG_BROADCOM_WIFI=y
++CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
++CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
++
++# Android Bluedroid owns HCI over ttyHS2, not Linux HCI line discipline.
++CONFIG_SERIAL_TEGRA=y
++CONFIG_RFKILL_WINGRAY_BT=y
++# CONFIG_BT is not set
++
++# Opt-in P3 input-only battery monitor; preserve all fixed-clock controls.
++CONFIG_POWER_SUPPLY=y
++CONFIG_W1=y
++CONFIG_W1_MASTER_TEGRA_WINGRAY=y
++CONFIG_W1_SLAVE_DS2781=y
++# CONFIG_W1_CON is not set
++# CONFIG_BATTERY_DS2781 is not set
++CONFIG_BATTERY_WINGRAY_MONITOR=y
++
++CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y
++CONFIG_PM=y
++
++
++CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y
++
++# PM compilation/inspection only. All system sleep entry is blocked.
++CONFIG_MOTOROLA_WINGRAY_PM_PREPARE=y
++CONFIG_PM_DEBUG=y
++CONFIG_PM_ADVANCED_DEBUG=y
++# CONFIG_PM_AUTOSLEEP is not set
++# CONFIG_PM_WAKELOCKS is not set
++# CONFIG_PM_TEST_SUSPEND is not set
++# CONFIG_HIBERNATION is not set
++# CONFIG_DPM_WATCHDOG is not set
++# CONFIG_CPU_IDLE is not set
++
++# Manual checked parent wake-reference test; no sleep entry.
++CONFIG_MFD_CPCAP_WINGRAY_WAKE_ARM_TEST=y
++
++# Root-only freezer test; no device/CPU sleep.
++CONFIG_MOTOROLA_WINGRAY_FREEZER_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_DEVICEPM_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y
++
++CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y
+diff --git a/arch/arm/mach-tegra/Kconfig b/arch/arm/mach-tegra/Kconfig
+index ad7f2bb5..9cb2d2f1 100644
+--- a/arch/arm/mach-tegra/Kconfig
++++ b/arch/arm/mach-tegra/Kconfig
+@@ -134,6 +134,17 @@ config MOTOROLA_WINGRAY_LP2_TEST
+ 	  suspend stays disabled and ordinary pm_suspend() remains rejected
+ 	  unless the manual LP2 gate is active.  LP1/LP0 are not enabled.
+ 
++config MOTOROLA_WINGRAY_PERSISTENT_STORAGE
++	bool "Wingray persistent userdata/cache storage profile"
++	depends on MACH_MOTOROLA_WINGRAY && MMC_BLOCK && EXT4_FS
++	default n
++	help
++	  Enables the Android persistent-storage runtime. The boot DTB selects
++	  the driver policy; the whole eMMC stays read-only while only the
++	  existing BigPart userdata (p10) and cache (p9) may be released for
++	  normal ext4 I/O. All existing RAM-data diagnostic profiles remain
++	  unchanged and no partition table is rewritten.
++
+ config MOTOROLA_XOOM_GPU_STARTUP_TRACE
+ 	bool "Wingray retained GPU startup checkpoints (no rendering test)"
+ 	depends on TEGRA_GRHOST_WINGRAY_GPU_TEST && SMP && !THUMB2_KERNEL
+diff --git a/block/ioctl.c b/block/ioctl.c
+index 0918aed2..7ac16b5b 100644
+--- a/block/ioctl.c
++++ b/block/ioctl.c
+@@ -30,6 +30,11 @@ static int blkpg_ioctl(struct block_device *bdev, struct blkpg_ioctl_arg __user
+ 	disk = bdev->bd_disk;
+ 	if (bdev != bdev->bd_contains)
+ 		return -EINVAL;
++	/* A read-only whole disk must not accept in-memory partition aliases.
++	 * This covers the Wingray persistent profile, where the whole disk stays
++	 * read-only while only the two existing data partitions are released. */
++	if (get_disk_ro(disk))
++		return -EROFS;
+ 	partno = p.pno;
+ 	if (partno <= 0)
+ 		return -EINVAL;
+@@ -164,6 +169,8 @@ int __blkdev_reread_part(struct block_device *bdev)
+ 		return -EINVAL;
+ 	if (!capable(CAP_SYS_ADMIN))
+ 		return -EACCES;
++	if (get_disk_ro(disk))
++		return -EROFS;
+ 
+ 	lockdep_assert_held(&bdev->bd_mutex);
+ 
+diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
+index e7a3ed1c..f5122a95 100644
+--- a/drivers/mmc/card/block.c
++++ b/drivers/mmc/card/block.c
+@@ -28,6 +28,7 @@
+ #include <linux/hdreg.h>
+ #include <linux/kdev_t.h>
+ #include <linux/blkdev.h>
++#include <linux/blkpg.h>
+ #include <linux/mutex.h>
+ #include <linux/scatterlist.h>
+ #include <linux/string_helpers.h>
+@@ -49,6 +50,8 @@
+ 
+ #include "queue.h"
+ 
++static bool mmc_wingray_persistent_storage(struct mmc_card *card);
++
+ MODULE_ALIAS("mmc:block");
+ #ifdef MODULE_PARAM_PREFIX
+ #undef MODULE_PARAM_PREFIX
+@@ -282,7 +285,10 @@ static ssize_t force_ro_store(struct device *dev, struct device_attribute *attr,
+ 		goto out;
+ 	}
+ 
+-	set_disk_ro(dev_to_disk(dev), set || md->read_only);
++	if (mmc_wingray_persistent_storage(md->queue.card))
++		set_disk_ro(dev_to_disk(dev), 1);
++	else
++		set_disk_ro(dev_to_disk(dev), set || md->read_only);
+ 	ret = count;
+ out:
+ 	mmc_blk_put(md);
+@@ -544,7 +550,10 @@ static int mmc_blk_open(struct block_device *bdev, fmode_t mode)
+ 			check_disk_change(bdev);
+ 		ret = 0;
+ 
+-		if ((mode & FMODE_WRITE) && md->read_only) {
++		if ((mode & FMODE_WRITE) &&
++		    (md->read_only ||
++		     (mmc_wingray_persistent_storage(md->queue.card) &&
++		      bdev_read_only(bdev)))) {
+ 			mmc_blk_put(md);
+ 			ret = -EROFS;
+ 		}
+@@ -963,10 +972,28 @@ static bool mmc_wingray_firstboot_ro(struct mmc_card *card)
+ 		of_property_read_bool(parent->of_node, "motorola,xoom-firstboot-ro");
+ }
+ 
++/* Persistent Android profile: exact BigPart board only. The whole disk stays
++ * read-only; p9/p10 are explicitly released by the bootstrap after filesystem
++ * inspection. Raw MMC and partition-table ioctls remain forbidden. */
++static bool mmc_wingray_persistent_storage(struct mmc_card *card)
++{
++	struct device *parent = card->host->parent;
++
++	return of_machine_is_compatible("motorola,wingray") &&
++		mmc_card_mmc(card) &&
++		(card->host->caps & MMC_CAP_NONREMOVABLE) && parent &&
++		of_property_read_bool(parent->of_node, "motorola,xoom-bigpart") &&
++		of_property_read_bool(parent->of_node,
++				      "motorola,xoom-persistent-storage");
++}
++
++
+ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
+ 	unsigned int cmd, unsigned long arg)
+ {
+ 	struct mmc_blk_data *md = bdev->bd_disk->private_data;
++	unsigned int partno = bdev->bd_part ? bdev->bd_part->partno : 0;
++	int ro;
+ 
+ 	/* Raw commands can program media through an O_RDONLY fd. BLKROSET
+ 	 * otherwise falls back to generic set_device_ro() after -EINVAL.
+@@ -974,6 +1001,20 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
+ 	if ((cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD || cmd == BLKROSET) && md &&
+ 	    mmc_wingray_firstboot_ro(md->queue.card))
+ 		return -EROFS;
++	if (md && mmc_wingray_persistent_storage(md->queue.card)) {
++		if (cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD ||
++		    cmd == BLKPG || cmd == BLKRRPART)
++			return -EROFS;
++		if (cmd == BLKROSET) {
++			if (!arg)
++				return -EROFS; /* NULL cannot describe a policy */
++			if (get_user(ro, (int __user *)arg))
++				return -EFAULT;
++			if (ro == 0 && partno != 9 && partno != 10)
++				return -EROFS;
++			return -ENOTTY; /* generic set_device_ro */
++		}
++	}
+ 	switch (cmd) {
+ 	case MMC_IOC_CMD:
+ 		return mmc_blk_ioctl_cmd(bdev,
+@@ -2523,6 +2564,13 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
+ 		pr_info("%s: Wingray first-boot software read-only policy\n",
+ 			mmc_hostname(card->host));
+ 	}
++	if (mmc_wingray_persistent_storage(card)) {
++		/* Main disk p0 and every partition start read-only. Only p9/p10
++		 * may be released by the fixed storage helper after inspection. */
++		md->read_only = subname ? 1 : 0;
++		pr_info("%s: Wingray persistent-storage partition policy\n",
++			mmc_hostname(card->host));
++	}
+ 
+ 	md->disk = alloc_disk(perdev_minors);
+ 	if (md->disk == NULL) {
+@@ -2547,7 +2595,8 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
+ 	md->disk->private_data = md;
+ 	md->disk->queue = md->queue.queue;
+ 	md->disk->driverfs_dev = parent;
+-	set_disk_ro(md->disk, md->read_only || default_ro);
++	set_disk_ro(md->disk, md->read_only || default_ro ||
++		    mmc_wingray_persistent_storage(card));
+ 	md->disk->flags = GENHD_FL_EXT_DEVT;
+ 	if (area_type & (MMC_BLK_DATA_AREA_RPMB | MMC_BLK_DATA_AREA_BOOT))
+ 		md->disk->flags |= GENHD_FL_NO_PART_SCAN;

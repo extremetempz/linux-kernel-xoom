@@ -16,7 +16,9 @@ persistent=0
 [ -e /proc/device-tree/sdhci@c8000600/motorola,xoom-persistent-storage ] && persistent=1
 inspect=0
 [ -e /proc/device-tree/motorola,wingray-storage-inspect ] && inspect=1
-stage "storage_mode_persistent_${persistent}_inspect_${inspect}"
+write_test=0
+[ -e /proc/device-tree/motorola,wingray-storage-write-test ] && write_test=1
+stage "storage_mode_persistent_${persistent}_inspect_${inspect}_write_${write_test}"
 waited=0
 while [ ! -d /sys/block/mmcblk0/mmcblk0p10 ] && [ "$waited" -lt 20 ]; do
  /bin/busybox sleep 1
@@ -80,11 +82,37 @@ if [ "$persistent" = 1 ]; then
   stage inspection_complete_read_only
   while :; do /bin/busybox sleep 5; done
  fi
+ # Fail closed before releasing either partition. No format, journal replay or
+ # repair is allowed here; Stage A must inspect the filesystem first.
+ data_size=$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/size)
+ cache_size=$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/size)
+ data_tail_skip=$((data_size - 32))
+ cache_tail_skip=$((cache_size - 32))
+ /bin/busybox dd if=/dev/mmcblk0p10 of=/run/storage-p10-tail.bin bs=512 skip="$data_tail_skip" count=32 2>/dev/null || fail data_tail_read
+ /bin/busybox dd if=/dev/mmcblk0p9 of=/run/storage-p9-tail.bin bs=512 skip="$cache_tail_skip" count=32 2>/dev/null || fail cache_tail_read
+ data_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p10-tail.bin | /bin/busybox tr -d ' \n')
+ cache_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p9-tail.bin | /bin/busybox tr -d ' \n')
+ case "$data_footer" in *c4b1b5d0*) fail encrypted_userdata;; esac
+ case "$cache_footer" in *c4b1b5d0*) fail encrypted_cache;; esac
+ data_magic=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ cache_magic=$(/bin/busybox dd if=/dev/mmcblk0p9 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ [ "$data_magic" = 53ef ] || fail data_not_ext4
+ [ "$cache_magic" = 53ef ] || fail cache_not_ext4
+ stage persistent_fs_identity_checked
  /bin/storage-policy > /run/android44-storage-policy.txt 2>&1 || fail storage_policy
  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/ro)" = 0 ] || fail cache_policy
  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/ro)" = 0 ] || fail data_policy
  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p8/ro)" = 1 ] || fail system_policy
  [ "$(/bin/busybox cat /sys/block/mmcblk0/ro)" = 1 ] || fail disk_policy
+ /bin/busybox grep -q ' /data ' /proc/mounts && fail data_already_mounted
+ /bin/busybox grep -q ' /cache ' /proc/mounts && fail cache_already_mounted
+ if [ "$write_test" = 1 ]; then
+  /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p10 /data || fail write_test_data_mount
+  /bin/storage-write-test > /run/storage-write-console.txt 2>&1
+  echo "XOOM_STORAGE_WRITE_TEST_RC $?" >> /run/android44-storage-write-test.txt
+  stage persistent_write_test_complete
+  while :; do /bin/busybox sleep 5; done
+ fi
  /bin/busybox grep -q ' /data ' /proc/mounts && fail data_already_mounted
  /bin/busybox grep -q ' /cache ' /proc/mounts && fail cache_already_mounted
  # Original ROM options, without noload: writable ext4 may replay its journal.

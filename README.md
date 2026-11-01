@@ -52,6 +52,12 @@ because the ramoops DT binding lacks a memory-region. The full wakeirq failure
 is narrowed to the DC/candidate-81 path. See
 [IRQ result](docs/suspend-wake-82-backlight-result.md).
 
+**Persistent storage:** Stage A read-only inspection, Stage B controlled file
+test and Stage C Android persistent candidates are built. The existing
+whole-disk read-only diagnostic policy is unchanged; only the new DTS-gated
+profile can release p9/p10. A verified userdata backup is still required before
+any write test. See [persistent storage](docs/persistent-storage-94.md).
+
 **Image 93 LP2 candidate:** a separate manual-only LP2 image is built, with
 Motorola PMC request/timer sequencing and the real Tegra LP2 entry path. It is
 not flashed or hardware-validated; physical CPCAP wake and actual CPU/PL310/

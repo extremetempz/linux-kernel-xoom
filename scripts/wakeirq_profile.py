@@ -21,7 +21,7 @@ def validate_wakeirq_artifacts(directory, require_dc=None):
             continue
         assert 'CONFIG_' + name + '=y\n' not in cfg, name
     assert any('CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+name+'"\n' in cfg for name in
-               ('tegra20-motorola-wingray-android44-wakeirq', 'tegra20-motorola-wingray-android44-wakeirqtrace', 'tegra20-motorola-wingray-android44-wakeirqecc', 'tegra20-motorola-wingray-android44-lp2'))
+               ('tegra20-motorola-wingray-android44-wakeirq', 'tegra20-motorola-wingray-android44-wakeirqtrace', 'tegra20-motorola-wingray-android44-wakeirqecc', 'tegra20-motorola-wingray-android44-lp2', 'tegra20-motorola-wingray-android44-persistent', 'tegra20-motorola-wingray-android44-persistent-inspect', 'tegra20-motorola-wingray-android44-persistent-write-test'))
     before = parse_dtb((p / 'tegra20-motorola-wingray-android44-displaypm.dtb').read_bytes())
     after = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirq.dtb').read_bytes())
     assert set(before) == set(after)
