@@ -220,7 +220,7 @@ python3 scripts/parse-storage-inspection.py   --report artifacts/storage-inspect
 **Not satisfied in this workspace.** Before Stage B, produce a restorable
 off-device raw image of p10 (and p9 if desired), record its SHA-256, and verify
 the backup by reading it back. A boot-image backup is not sufficient.
-No private userdata image may be committed to GitHub.
+No private userdata image may be committed to GitHub. See [backup gate](persistent-storage-backup.md).
 
 After both exist, the host-only readiness gate can be evaluated:
 

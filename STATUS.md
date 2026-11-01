@@ -560,3 +560,9 @@ write is authorized**. See [persistent-storage-94.md](docs/persistent-storage-94
 classifies the read-only report and `persistent-readiness.py` verifies the
 p10 raw backup size/SHA before Stage B. Neither contacts a device. No verified
 backup exists, so physical write authorization remains false.
+
+
+**Storage artifact verifier and backup gate documented:** three-image offline
+artifact audit passes; Stage-A parser/readiness tests pass. No userdata backup
+exists; Stage B/C remain unauthorized. See
+[backup gate](docs/persistent-storage-backup.md).
