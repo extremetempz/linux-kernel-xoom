@@ -142,8 +142,8 @@ retained. `wpa_supplicant.conf` is created only when absent.
 
 `artifacts/android44-persistent94-inspect-ready/wingray-android44-persistent-inspect.img`
 
-- 4,220,928 bytes
-- SHA-256 `152c658fa33d31217a141aecfcaf91bddeb2205dfd5f706f263da81af01348ca`
+- 4,222,976 bytes
+- SHA-256 `b031f9d66eed6b2a372cfb0c8faa59ca9bb69a1e02b82f4cf91340e64c3b38fd`
 - Never clears p9/p10, never mounts them rw, never starts Android.
 - Safe before a userdata backup.
 

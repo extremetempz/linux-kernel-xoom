@@ -47,13 +47,44 @@ inspect_part() {
  case "$footer" in *c4b1b5d0*) say "ANDROID_CRYPTO_FOOTER $name present_or_candidate";; *) say "ANDROID_CRYPTO_FOOTER $name absent";; esac
  say "TAIL_SHA256 $name $(/bin/busybox sha256sum "$tail" 2>/dev/null | /bin/busybox cut -d' ' -f1)"
  # e2fsck -n opens read-only. It must never repair or replay a journal.
+ # Android's directly-executed tool segfaulted on the first Stage-A run; also
+ # try the explicit dynamic linker path and record every variant before
+ # deciding that the filesystem itself is unhealthy.
+ e2tool=""
  if [ -x /system/bin/e2fsck ]; then
-  LD_LIBRARY_PATH=/system/lib /bin/busybox timeout -s KILL 120 /system/bin/e2fsck -n "$dev" > /run/storage-$name-e2fsck.txt 2>&1
+  LD_LIBRARY_PATH=/system/lib /bin/busybox timeout -s KILL 30 /system/bin/e2fsck -V > /run/storage-$name-e2fsck-version.txt 2>&1
+  vrc=$?
+  say "E2FSCK_DIRECT_VERSION_RC $name $vrc"
+  if [ "$vrc" = 0 ]; then
+   e2tool="/system/bin/e2fsck"
+  elif [ -x /system/bin/linker ]; then
+   LD_LIBRARY_PATH=/system/lib /bin/busybox timeout -s KILL 30 /system/bin/linker /system/bin/e2fsck -V > /run/storage-$name-e2fsck-linker-version.txt 2>&1
+   vrc=$?
+   say "E2FSCK_LINKER_VERSION_RC $name $vrc"
+   [ "$vrc" = 0 ] && e2tool="linker"
+  fi
+ fi
+ if [ "$e2tool" = "/system/bin/e2fsck" ]; then
+  LD_LIBRARY_PATH=/system/lib /bin/busybox timeout -s KILL 180 /system/bin/e2fsck -n "$dev" > /run/storage-$name-e2fsck.txt 2>&1
   rc=$?
-  say "E2FSCK_N_RC $name $rc"
-  /bin/busybox head -c 8192 /run/storage-$name-e2fsck.txt | /bin/busybox sed 's/^/E2FSCK /' >> "$OUT"
+ elif [ "$e2tool" = linker ]; then
+  LD_LIBRARY_PATH=/system/lib /bin/busybox timeout -s KILL 180 /system/bin/linker /system/bin/e2fsck -n "$dev" > /run/storage-$name-e2fsck.txt 2>&1
+  rc=$?
  else
-  say "E2FSCK_UNAVAILABLE $name"
+  rc=127
+ fi
+ say "E2FSCK_TOOL $name ${e2tool:-none}"
+ say "E2FSCK_N_RC $name $rc"
+ if [ -s /run/storage-$name-e2fsck.txt ]; then
+  /bin/busybox head -c 8192 /run/storage-$name-e2fsck.txt | /bin/busybox sed 's/^/E2FSCK /' >> "$OUT"
+ fi
+ if [ "$rc" = 139 ] || [ "$rc" = 127 ]; then
+  if [ -x /system/bin/tune2fs ]; then
+   LD_LIBRARY_PATH=/system/lib /bin/busybox timeout -s KILL 60 /system/bin/tune2fs -l "$dev" > /run/storage-$name-tune2fs.txt 2>&1
+   trc=$?
+   say "TUNE2FS_L_RC $name $trc"
+   /bin/busybox head -c 4096 /run/storage-$name-tune2fs.txt | /bin/busybox sed 's/^/TUNE2FS /' >> "$OUT"
+  fi
  fi
  if [ "$magic" = "53ef" ] && [ "$footer" != "${footer#*c4b1b5d0}" ]; then
   say "RO_MOUNT_SKIPPED_ENCRYPTED $name"
