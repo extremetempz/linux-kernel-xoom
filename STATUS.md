@@ -540,3 +540,10 @@ unproven. See [cpcap-resume-order-94.md](docs/cpcap-resume-order-94.md).
 `LP2TEST_CPCAP_IRQ_ERRORS 0`, `WG_PM94` mask/unmask=1/0, and the full
 `WG_LP2_*` path. No reboot; boot 92abfe10. Remaining: repeated cycles and
 screen-on/screen-off/LP2 power comparison.
+
+
+**Image 95 -EBUSY diagnostics:** one LP2 cycle is validated, but the second
+manual trigger returned `-16`; Image 95 logs the exact reject path and always
+returns dmesg on write failure. SHA-256
+`9f60f2abf8c94e6997f6b329b486aa6b7bbe14d4fb96cbefeab57cf6f8871e8b`, not
+flashed. Repeated deep sleep and power measurement remain unproven.
