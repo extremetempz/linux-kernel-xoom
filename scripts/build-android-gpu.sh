@@ -40,6 +40,7 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  persistent) defconfig=wingray_android44_persistent_defconfig; dt=tegra20-motorola-wingray-android44-persistent;;
  persistentinspect) defconfig=wingray_android44_persistent_inspect_defconfig; dt=tegra20-motorola-wingray-android44-persistent-inspect;;
  persistentwritetest) defconfig=wingray_android44_persistent_write_test_defconfig; dt=tegra20-motorola-wingray-android44-persistent-write-test;;
+ storagebackup) defconfig=wingray_android44_storage_backup_defconfig; dt=tegra20-motorola-wingray-android44-storage-backup;;
  *) echo 'Choose fbmap, bluetooth, battery, displaypm, displaydc, wakeirq, wakeirqbl, wakeirqtrace, wakeirqecc wakeirqdc, wakearm, freezertest, devicepmtest, devicepm91 or devicepm92.' >&2; exit 1;;
 esac
 make "${args[@]}" "$defconfig"
@@ -55,9 +56,9 @@ case "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" in
  displaydc|wakeirq|wakeirqdc)
   grep -qx 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y' "$build/out/.config" || { echo 'Apply patch 0151 to the donor first.' >&2; exit 1; };;
 esac
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
  grep -qx 'CONFIG_MFD_CPCAP_WINGRAY_IRQ_TEST=y' "$build/out/.config" || { echo 'Apply patch 0152 to the donor first.' >&2; exit 1; }
- if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm ]]; then
+ if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm ]]; then
   python3 "$root/tests/test-pm-preparation.py" --config "$build/out/.config"
   python3 "$root/tests/test-cpcap-wake-arm.py"
   python3 - "$root" "$build/out/.config" <<'PYTEST'
@@ -70,7 +71,7 @@ PYTEST
  else
   ! grep -qx 'CONFIG_SUSPEND=y' "$build/out/.config" || { echo 'Wake IRQ test must remain awake-only.' >&2; exit 1; }
  fi
- if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
+ if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
   ! grep -qx 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y' "$build/out/.config" || { echo 'IRQ backlight/logging profiles must not enable DC resume.' >&2; exit 1; }
  fi
 fi
@@ -97,7 +98,7 @@ if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test ]]; then
  grep -qx 'CONFIG_SUSPEND=y' "$build/out/.config" || { echo 'LP2 missing SUSPEND.' >&2; exit 1; }
  python3 "$root/tests/test-lp2-candidate.py"
 fi
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup ]]; then
  grep -qx 'CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y' "$build/out/.config" || { echo 'Persistent profile missing storage symbol.' >&2; exit 1; }
  grep -qx 'CONFIG_MOTOROLA_WINGRAY_LP2_TEST=y' "$build/out/.config" || { echo 'Persistent profile must retain LP2.' >&2; exit 1; }
  grep -qx 'CONFIG_EXT4_FS=y' "$build/out/.config" || { echo 'Persistent profile needs ext4.' >&2; exit 1; }
@@ -110,18 +111,25 @@ done
 if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest ]]; then
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/build-storage-policy.sh"
 fi
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaypm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = displaydc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirq || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqbl || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqtrace || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc ]]; then
  XOOM_BUILD_ROOT="$build" XOOM_ARTIFACT_DIR="$dest" bash "$root/scripts/build-display-lights.sh"
 fi
 make "${args[@]}" -j"${JOBS:-4}" modules
 mkdir -p "$dest/modules"
 cp "$build/out/drivers/net/wireless/bcmdhd/bcmdhd.ko" "$dest/modules/bcmdhd.ko"
 "$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/bcmdhd.ko"
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup ]]; then
+ for pair in "configfs:fs/configfs/configfs.ko" "libcomposite:drivers/usb/gadget/libcomposite.ko" "usb_f_mass_storage:drivers/usb/gadget/function/usb_f_mass_storage.ko" "g_mass_storage:drivers/usb/gadget/legacy/g_mass_storage.ko"; do
+  name=${pair%%:*}; path=${pair#*:}
+  cp "$build/out/$path" "$dest/modules/$name.ko"
+  "$build/toolchain/bin/arm-linux-androideabi-strip" --strip-debug "$dest/modules/$name.ko"
+ done
+fi
 python3 "$root/scripts/prepare-android-gpu.py" --runtime-dir "$dest" --archive "$dest/runtime-source.cpio"
 cp "$dest/runtime-source.cpio" "$build/out/usr/wingray-android-runtime.cpio"
 make "${args[@]}" -j"${JOBS:-4}" zImage-dtb
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest ]]; then
- make "${args[@]}" tegra20-motorola-wingray-android44-persistent.dtb tegra20-motorola-wingray-android44-persistent-inspect.dtb tegra20-motorola-wingray-android44-persistent-write-test.dtb
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup ]]; then
+ make "${args[@]}" tegra20-motorola-wingray-android44-persistent.dtb tegra20-motorola-wingray-android44-persistent-inspect.dtb tegra20-motorola-wingray-android44-persistent-write-test.dtb tegra20-motorola-wingray-android44-storage-backup.dtb
  cp "$build/out/arch/arm/boot/dts/"tegra20-motorola-wingray-android44-persistent*.dtb "$dest/"
 fi
 make "${args[@]}" "$dt.dtb"
@@ -132,7 +140,7 @@ cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-gpu-fbmap.dt
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-bluetooth.dtb" "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-battery.dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-displaypm.dtb" "$dest/"
 cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirq.dtb" "$dest/"
-if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc ]]; then
+if [[ "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepmtest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm91 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = devicepm92 || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = freezertest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = lp2test || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistent || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentinspect || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = persistentwritetest || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = storagebackup || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakearm || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqecc || "${XOOM_ANDROID_GPU_PROFILE:-fbmap}" = wakeirqdc ]]; then
  make "${args[@]}" tegra20-motorola-wingray-android44-wakeirqtrace.dtb tegra20-motorola-wingray-android44-wakeirqecc.dtb
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqtrace.dtb" "$dest/"
  cp "$build/out/arch/arm/boot/dts/tegra20-motorola-wingray-android44-wakeirqecc.dtb" "$dest/"

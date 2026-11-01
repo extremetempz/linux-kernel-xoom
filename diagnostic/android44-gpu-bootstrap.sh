@@ -24,7 +24,25 @@ inspect=0
 [ -e /sys/firmware/devicetree/base/motorola,wingray-storage-inspect ] && inspect=1
 write_test=0
 [ -e /sys/firmware/devicetree/base/motorola,wingray-storage-write-test ] && write_test=1
-stage "storage_mode_persistent_${persistent}_inspect_${inspect}_write_${write_test}"
+backup=0
+[ -e /sys/firmware/devicetree/base/motorola,wingray-storage-backup ] && backup=1
+stage "storage_mode_persistent_${persistent}_inspect_${inspect}_write_${write_test}_backup_${backup}"
+if [ "$backup" = 1 ]; then
+ waited=0
+ while [ ! -b /dev/mmcblk0p10 ] && [ "$waited" -lt 30 ]; do
+  /bin/busybox sleep 1
+  waited=$((waited + 1))
+ done
+ [ -b /dev/mmcblk0p10 ] || fail backup_data_device_missing
+ for mod in configfs libcomposite usb_f_mass_storage; do
+  /bin/busybox insmod /lib/modules/$mod.ko >> /run/storage-backup.txt 2>&1 || fail backup_module_$mod
+ done
+ /bin/busybox insmod /lib/modules/g_mass_storage.ko file=/dev/mmcblk0p10 ro=1 removable=0 >> /run/storage-backup.txt 2>&1
+ rc=$?
+ echo "XOOM_STORAGE_BACKUP_MASS_STORAGE_RC $rc" >> /run/storage-backup.txt
+ stage storage_backup_mass_storage
+ while :; do /bin/busybox sleep 5; done
+fi
 waited=0
 while [ ! -d /sys/block/mmcblk0/mmcblk0p10 ] && [ "$waited" -lt 20 ]; do
  /bin/busybox sleep 1

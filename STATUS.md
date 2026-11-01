@@ -566,3 +566,10 @@ backup exists, so physical write authorization remains false.
 artifact audit passes; Stage-A parser/readiness tests pass. No userdata backup
 exists; Stage B/C remain unauthorized. See
 [backup gate](docs/persistent-storage-backup.md).
+
+
+**Read-only USB mass-storage backup image built:** exposes only p10 with
+`ro=1` for host-side `e2fsck -n` and backup because Android e2fsck/segfaults.
+Image SHA-256
+`7641d644655e88c012701ca0adafb58e6b4e0565f0615e74344381da179c0979`.
+No device writes; no backup yet; Stage B/C remain unauthorized.

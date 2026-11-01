@@ -270,3 +270,57 @@ recovery as part of this procedure.
 
 If Stage A/B/C fails, preserve the report and stop. Do not retry persistent
 writes automatically.
+
+## Stage A alternative — read-only USB mass-storage backup
+
+The Android `e2fsck`/`tune2fs` binaries segfault even through the linker. The
+read-only mass-storage image exposes **only p10** to the host:
+
+`artifacts/android44-storage-backup94-ready/wingray-android44-storage-backup.img`
+
+- 4,231,168 bytes
+- SHA-256 `7641d644655e88c012701ca0adafb58e6b4e0565f0615e74344381da179c0979`
+- G_SERIAL and ACM are intentionally absent.
+- Loads `configfs`, `libcomposite`, `usb_f_mass_storage` and
+  `g_mass_storage`; `ro=1`, `removable=0`.
+- The guest block device remains partition-read-only throughout.
+
+Procedure:
+
+```sh
+fastboot flash boot artifacts/android44-storage-backup94-ready/wingray-android44-storage-backup.img
+fastboot reboot
+```
+
+Then on the host:
+
+```sh
+lsusb
+sudo dmesg | tail -40
+lsblk -b -o NAME,SIZE,RO,TYPE,MODEL
+```
+
+Identify the new disk whose size is exactly `30334779392` and whose `RO` flag is
+`1`. Verify it before use:
+
+```sh
+sudo blockdev --getro /dev/sdX
+# must print 1
+sudo e2fsck -n /dev/sdX
+```
+
+A clean host `e2fsck -n` is the required filesystem-health evidence. Then create
+and verify the backup:
+
+```sh
+sudo dd if=/dev/sdX of=/path/to/p10.img bs=4M status=progress conv=fsync
+sha256sum /path/to/p10.img
+stat -c %s /path/to/p10.img
+```
+
+The expected byte size is `30334779392`. Do not let the host mount the device
+read-write. The gadget has `ro=1`, and p10 remains kernel-read-only.
+
+This image does not expose p9. The cache filesystem has passed a read-only
+mount but not a full host fsck. Keep that as a separate blocker before treating
+persistent `/cache` as production-ready.

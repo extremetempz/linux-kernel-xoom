@@ -217,25 +217,32 @@ def entries(runtime):
   files['bin/late-cycle']=(ROOT/'diagnostic/late-cycle.sh').read_bytes()
   files['bin/syscore-cycle']=(ROOT/'diagnostic/syscore-cycle.sh').read_bytes()
   files['bin/lp2-cycle']=(ROOT/'diagnostic/lp2-cycle.sh').read_bytes()
- if b'CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y\n' in config:
-  subprocess.run(['bash','-n',str(ROOT/'diagnostic/android44-storage-inspect.sh')],check=True)
-  files['bin/storage-policy']=(runtime/'storage-policy').read_bytes()
-  files['bin/android44-storage-inspect']=(ROOT/'diagnostic/android44-storage-inspect.sh').read_bytes()
-  subprocess.run(['bash','-n',str(ROOT/'diagnostic/android44-storage-write-test.sh')],check=True)
-  files['bin/storage-write-test']=(ROOT/'diagnostic/android44-storage-write-test.sh').read_bytes()
+ persistent=b'CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y\n' in config
+ storage_backup=b'CONFIG_USB_MASS_STORAGE=m\n' in config
+ if persistent:
+  if not storage_backup:
+   subprocess.run(['bash','-n',str(ROOT/'diagnostic/android44-storage-inspect.sh')],check=True)
+   files['bin/storage-policy']=(runtime/'storage-policy').read_bytes()
+   files['bin/android44-storage-inspect']=(ROOT/'diagnostic/android44-storage-inspect.sh').read_bytes()
+   subprocess.run(['bash','-n',str(ROOT/'diagnostic/android44-storage-write-test.sh')],check=True)
+   files['bin/storage-write-test']=(ROOT/'diagnostic/android44-storage-write-test.sh').read_bytes()
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
- persistent=b'CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y\n' in config
  result=ramdisk_entries(original,files,persistent=persistent)
  module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0
  for d in ('lib','lib/modules','lib/firmware','xoom-firmware'):
   result[d]=Entry(d,stat.S_IFDIR|0o755)
  result['lib/modules/bcmdhd.ko']=Entry('lib/modules/bcmdhd.ko',stat.S_IFREG|0o644,module.read_bytes())
+ if storage_backup:
+  for name in ('configfs','libcomposite','usb_f_mass_storage','g_mass_storage'):
+   mass=runtime/('modules/'+name+'.ko')
+   assert mass.is_file() and mass.stat().st_size > 0, name
+   result['lib/modules/'+name+'.ko']=Entry('lib/modules/'+name+'.ko',stat.S_IFREG|0o644,mass.read_bytes())
  result['init.xoom-awake.rc']=Entry('init.xoom-awake.rc',stat.S_IFREG|0o644,AWAKE_RC)
  result['init.xoom-wifi.rc']=Entry('init.xoom-wifi.rc',stat.S_IFREG|0o644,WIFI_RC)
  if b'CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in config:
