@@ -856,7 +856,7 @@ index 0918aed2..7ac16b5b 100644
  	lockdep_assert_held(&bdev->bd_mutex);
  
 diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
-index e7a3ed1c..f5122a95 100644
+index e7a3ed1c..84c2374b 100644
 --- a/drivers/mmc/card/block.c
 +++ b/drivers/mmc/card/block.c
 @@ -28,6 +28,7 @@
@@ -888,19 +888,7 @@ index e7a3ed1c..f5122a95 100644
  	ret = count;
  out:
  	mmc_blk_put(md);
-@@ -544,7 +550,10 @@ static int mmc_blk_open(struct block_device *bdev, fmode_t mode)
- 			check_disk_change(bdev);
- 		ret = 0;
- 
--		if ((mode & FMODE_WRITE) && md->read_only) {
-+		if ((mode & FMODE_WRITE) &&
-+		    (md->read_only ||
-+		     (mmc_wingray_persistent_storage(md->queue.card) &&
-+		      bdev_read_only(bdev)))) {
- 			mmc_blk_put(md);
- 			ret = -EROFS;
- 		}
-@@ -963,10 +972,28 @@ static bool mmc_wingray_firstboot_ro(struct mmc_card *card)
+@@ -963,10 +969,28 @@ static bool mmc_wingray_firstboot_ro(struct mmc_card *card)
  		of_property_read_bool(parent->of_node, "motorola,xoom-firstboot-ro");
  }
  
@@ -929,7 +917,7 @@ index e7a3ed1c..f5122a95 100644
  
  	/* Raw commands can program media through an O_RDONLY fd. BLKROSET
  	 * otherwise falls back to generic set_device_ro() after -EINVAL.
-@@ -974,6 +1001,20 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
+@@ -974,6 +998,20 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
  	if ((cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD || cmd == BLKROSET) && md &&
  	    mmc_wingray_firstboot_ro(md->queue.card))
  		return -EROFS;
@@ -950,7 +938,7 @@ index e7a3ed1c..f5122a95 100644
  	switch (cmd) {
  	case MMC_IOC_CMD:
  		return mmc_blk_ioctl_cmd(bdev,
-@@ -2523,6 +2564,13 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
+@@ -2523,6 +2561,13 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
  		pr_info("%s: Wingray first-boot software read-only policy\n",
  			mmc_hostname(card->host));
  	}
@@ -964,7 +952,7 @@ index e7a3ed1c..f5122a95 100644
  
  	md->disk = alloc_disk(perdev_minors);
  	if (md->disk == NULL) {
-@@ -2547,7 +2595,8 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
+@@ -2547,7 +2592,8 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
  	md->disk->private_data = md;
  	md->disk->queue = md->queue.queue;
  	md->disk->driverfs_dev = parent;
@@ -974,3 +962,34 @@ index e7a3ed1c..f5122a95 100644
  	md->disk->flags = GENHD_FL_EXT_DEVT;
  	if (area_type & (MMC_BLK_DATA_AREA_RPMB | MMC_BLK_DATA_AREA_BOOT))
  		md->disk->flags |= GENHD_FL_NO_PART_SCAN;
+diff --git a/fs/block_dev.c b/fs/block_dev.c
+index 26bbaaef..8a0e06d5 100644
+--- a/fs/block_dev.c
++++ b/fs/block_dev.c
+@@ -1483,6 +1483,7 @@ EXPORT_SYMBOL(blkdev_get_by_dev);
+ static int blkdev_open(struct inode * inode, struct file * filp)
+ {
+ 	struct block_device *bdev;
++	int ret;
+ 
+ 	/*
+ 	 * Preserve backwards compatibility and allow large file access
+@@ -1505,7 +1506,17 @@ static int blkdev_open(struct inode * inode, struct file * filp)
+ 
+ 	filp->f_mapping = bdev->bd_inode->i_mapping;
+ 
+-	return blkdev_get(bdev, filp->f_mode, filp);
++	ret = blkdev_get(bdev, filp->f_mode, filp);
++	if (ret)
++		return ret;
++	/* VFS block opens must honor the partition policy as well as the whole
++	 * disk policy. blkdev_get_by_path() already does this after opening;
++	 * mmc_blk_open() only sees the whole-disk bdev and cannot enforce p9/p10. */
++	if ((filp->f_mode & FMODE_WRITE) && bdev_read_only(bdev)) {
++		blkdev_put(bdev, filp->f_mode);
++		return -EROFS;
++	}
++	return 0;
+ }
+ 
+ static void __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)

@@ -27,6 +27,7 @@ check('persistent selection','motorola,xoom-persistent-storage' in b and 'CONFIG
 check('p9/p10 only','partno != 9 && partno != 10' in b)
 check('raw MMC rejected','cmd == MMC_IOC_CMD || cmd == MMC_IOC_MULTI_CMD' in b)
 check('BLKPG rejected','cmd == BLKPG || cmd == BLKRRPART' in b and 'get_disk_ro(disk)' in (ROOT/'sources/kernel-donor/block/ioctl.c').read_text())
+check('VFS partition policy','bdev_read_only(bdev)' in (ROOT/'sources/kernel-donor/fs/block_dev.c').read_text() and 'blkdev_put(bdev, filp->f_mode)' in (ROOT/'sources/kernel-donor/fs/block_dev.c').read_text())
 check('NULL BLKROSET','if (!arg)' in b and 'return -EROFS' in b)
 # 6/7 data/cache mount selection and independent mount failures
 check('data p10', '/dev/mmcblk0p10 /data' in boot)

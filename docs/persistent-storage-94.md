@@ -143,7 +143,7 @@ retained. `wpa_supplicant.conf` is created only when absent.
 `artifacts/android44-persistent94-inspect-ready/wingray-android44-persistent-inspect.img`
 
 - 4,222,976 bytes
-- SHA-256 `8f87cb9c1580ba432ee192decf010ecbbd38ae33f2a6dd14f0d44d41b57aa45c`
+- SHA-256 `5e1355ea84ea9d3dd44a29225c56e15241a95e52fca63d4da43011406d170756`
 - Never clears p9/p10, never mounts them rw, never starts Android.
 - Safe before a userdata backup.
 
@@ -152,7 +152,7 @@ retained. `wpa_supplicant.conf` is created only when absent.
 `artifacts/android44-persistent94-write-test-ready/wingray-android44-persistent-write-test.img`
 
 - 4,225,024 bytes
-- SHA-256 `ec962dd1aa3a2d66d6f2dc5127aea7a87e1959663578c637a22835bc0936a065`
+- SHA-256 `e398c3ae30ed0c8e1ffa72e3dba5f8bddfc30637b83da9357a6d424ed2059baa`
 - **Do not flash until a verified userdata backup exists.**
 - First boot writes the fixed file; second boot verifies it; no auto reboot.
 
@@ -161,7 +161,7 @@ retained. `wpa_supplicant.conf` is created only when absent.
 `artifacts/android44-persistent94-ready/wingray-android44-persistent.img`
 
 - 4,225,024 bytes
-- SHA-256 `1d23c1dd505d7158cf937cf7b075bd8b96c0d5eac3440e5cf526ff0aa7349761`
+- SHA-256 `62786ae0b6eadaf1fee4b57f09624c124a17eb25babead98aeb1abcbfe11d7a1`
 - **Do not flash until Stage A and Stage B pass and a verified backup exists.**
 
 Each ready directory also contains `kernel.config`, `System.map`,
