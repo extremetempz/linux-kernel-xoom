@@ -526,3 +526,11 @@ wake. Boot ID c4b01baf…, counter 0→1, Android usable. Image SHA-256
 `d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`.
 Remaining: CPCAP -108 resume IRQ race and power measurement. See
 [lp2-first-success.md](docs/lp2-first-success.md).
+
+
+**Image 94 CPCAP IRQ-ordering candidate built:** masks the CPCAP parent IRQ
+across the system-sleep pair after arming the LIC wake, re-enables it after SPI
+resume, and reports `LP2TEST_CPCAP_IRQ_ERRORS`. Image SHA-256
+`cefb6d82198bb9b516bd01be6b3a815331c541c6c419cf6fb4f7a1a842d52b6e`
+(4,218,880 bytes), not flashed. Physical wake with the parent IRQ masked is
+unproven. See [cpcap-resume-order-94.md](docs/cpcap-resume-order-94.md).

@@ -19,10 +19,13 @@ struct device;
 struct dev_pm_ops { int (*suspend)(struct device *);int (*resume)(struct device *);};
 struct device_driver {const struct dev_pm_ops *pm;};
 struct device {struct device_driver *driver;void *data,*of_node;int locked;};
-struct cpcap_ddata {bool pm_test_active,pm_cycle_owned,wake_arm_owned;int wake_arm_lock;};
+struct spi_device {int irq;};
+struct cpcap_ddata {struct spi_device *spi;bool pm_test_active,pm_cycle_owned,wake_arm_owned,irq_masked;int wake_arm_lock;};
 static bool prep=true,present=true,compatible=true,retain_on_arm_failure;
 static int spi_bus_type,arm_error,disarm_error,arms,disarms,refs,dispatches;
 static struct cpcap_ddata c;
+static struct spi_device sp={.irq=7};
+static int irq_masks,irq_unmasks;
 static struct device target;
 static bool wingray_pm_prepare_only(void){return prep;}
 __attribute__((unused)) static bool wingray_pm_dpm_test_active(void){return false;}
@@ -30,6 +33,8 @@ __attribute__((unused)) static bool wingray_pm_lp2_test_active(void){return fals
 static void *dev_get_drvdata(struct device *d){return d->data;}
 static bool mutex_trylock(int *m){if(*m)return false;*m=1;return true;}
 static void mutex_unlock(int *m){assert(*m);*m=0;}
+static void disable_irq(int irq){assert(irq==7);irq_masks++;}
+static void enable_irq(int irq){assert(irq==7);irq_unmasks++;assert(irq_masks>0);}
 static bool device_trylock(struct device *d){return mutex_trylock(&d->locked);}
 static void device_unlock(struct device *d){mutex_unlock(&d->locked);}
 static bool of_device_is_compatible(void *node,const char *name){(void)node;(void)name;return compatible;}
@@ -47,11 +52,11 @@ static const struct dev_pm_ops cpcap_wingray_test_pm_ops={cpcap_wingray_pm_suspe
 '''+func(s,'cpcap_wingray_pm_match')+func(generic,'pm_generic_suspend')+func(generic,'pm_generic_resume')+func(s,'wingray_cpcap_devicepm_test')+r'''
 static struct device_driver driver={&cpcap_wingray_test_pm_ops};
 static void reset(void){
- c=(struct cpcap_ddata){0};target=(struct device){.driver=&driver,.data=&c};
+ c=(struct cpcap_ddata){0};c.spi=&sp;target=(struct device){.driver=&driver,.data=&c};irq_masks=irq_unmasks=0;
  prep=present=compatible=true;retain_on_arm_failure=false;
  arm_error=disarm_error=arms=disarms=refs=dispatches=0;
 }
-static void clean(void){assert(!refs&&!target.locked&&!c.wake_arm_lock&&!c.pm_test_active);}
+static void clean(void){assert(!refs&&!target.locked&&!c.wake_arm_lock&&!c.pm_test_active);assert(irq_masks==irq_unmasks);}
 int main(void){
  reset();assert(wingray_cpcap_devicepm_test()==0);assert(arms==1&&disarms==1&&!c.wake_arm_owned&&!c.pm_cycle_owned);clean();
  for(int n=0;n<20;n++){assert(wingray_cpcap_devicepm_test()==0);clean();}assert(arms==21&&disarms==21);
