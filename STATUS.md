@@ -534,3 +534,9 @@ resume, and reports `LP2TEST_CPCAP_IRQ_ERRORS`. Image SHA-256
 `0b94d2117435b9df7b6a59b27a333b6fb3b3e2b69d649ee608f8ac6be0ce1328`
 (4,220,928 bytes), not flashed. Physical wake with the parent IRQ masked is
 unproven. See [cpcap-resume-order-94.md](docs/cpcap-resume-order-94.md).
+
+
+**CPCAP resume fix validated (Image 94 cefb6d82):** physical wake passed,
+`LP2TEST_CPCAP_IRQ_ERRORS 0`, `WG_PM94` mask/unmask=1/0, and the full
+`WG_LP2_*` path. No reboot; boot 92abfe10. Remaining: repeated cycles and
+screen-on/screen-off/LP2 power comparison.

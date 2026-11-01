@@ -50,4 +50,20 @@ the LIC wake path, the power button will not wake the tablet.
    `WG_PM94_CPCAP_RESUME ... irq_masked=0`,
    plus the `WG_LP2_*` markers and same boot.
 
-Only after this passes should repeated LP2 cycles and power measurement begin.
+## Hardware result — passed
+
+Tested Image 94 (`cefb6d82…`):
+
+```text
+LP2TEST_CPCAP_IRQ_ERRORS 0
+WG_PM94_CPCAP_SUSPEND result=0 owned=1 irq_masked=1
+WG_PM94_CPCAP_RESUME result=0 owned=0 irq_masked=0
+WG_LP2_SUSPEND_ENTER state=3 pm_test=0
+WG_LP2_PLATFORM_ENTER mode=LP2 online=1
+WG_LP2_CPU_RESUMED
+PM: suspend exit
+```
+
+Boot `92abfe10…`, counter 0→1, physical power-button wake, no reboot.
+The CPCAP `-108` flood is gone. Repeated LP2 cycles and power measurement are
+the remaining work.
