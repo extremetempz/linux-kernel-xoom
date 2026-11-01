@@ -550,8 +550,8 @@ flashed. Repeated deep sleep and power measurement remain unproven.
 
 
 **Persistent-storage candidates built (not flashed):** Stage A read-only
-inspection `5e1355ea…`, Stage B write test `e398c3ae…`, Stage C Android
-persistent `62786ae0…`. Existing `/system` remains ro; p9/p10 are the only
+inspection `5c973a53…`, Stage B write test `669962b8…`, Stage C Android
+persistent `6c10a25d…`. Existing `/system` remains ro; p9/p10 are the only
 releasable partitions. No verified userdata backup exists, so **no persistent
 write is authorized**. See [persistent-storage-94.md](docs/persistent-storage-94.md).
 

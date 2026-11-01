@@ -13,7 +13,13 @@ case "$(/bin/busybox uname -r)" in
 esac
 /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray || fail board
 persistent=0
-[ -e /sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage ] && persistent=1
+if [ -e /sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage ]; then
+ persistent=1
+elif [ -e /sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-firstboot-ro ]; then
+ persistent=0
+else
+ fail storage_profile_marker_missing
+fi
 inspect=0
 [ -e /sys/firmware/devicetree/base/motorola,wingray-storage-inspect ] && inspect=1
 write_test=0
