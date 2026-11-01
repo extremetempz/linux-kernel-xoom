@@ -443,7 +443,7 @@ with DPM/LP2. See [cpu1-92-result.md](docs/cpu1-92-result.md).
 has fixed `LATETEST`/`SYSCTEST` and `LATESTATUS`/`SYSSTATUS` requests plus
 `run-stage-test.py`. Current image SHA-256
 `55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`
-(4,218,880 bytes). CPU1 remains hardware-passed on the earlier e04 image with
+(4,220,928 bytes). CPU1 remains hardware-passed on the earlier e04 image with
 the same kernel logic; late/noirq and syscore are not yet hardware-tested.
 Image 93 remains blocked by PMC/wake and late/syscore gates.
 
@@ -481,7 +481,7 @@ outer_disable, real Tegra LP2 ops and a root-only single-shot
 `/sys/power/wingray_lp2_test` gate. Ordinary suspend stays rejected unless
 armed. Image SHA-256
 `fa527627d35a619a34507027246847f83c72a3c1753f257d1bcfb3ea2c62d52f`
-(4,218,880 bytes). No LP2 attempt has been made; physical wake, actual CPU
+(4,220,928 bytes). No LP2 attempt has been made; physical wake, actual CPU
 power loss, PL310 and TIMERUS retention remain unverified. See
 [lp2-candidate-93.md](docs/lp2-candidate-93.md).
 
@@ -531,6 +531,6 @@ Remaining: CPCAP -108 resume IRQ race and power measurement. See
 **Image 94 CPCAP IRQ-ordering candidate built:** masks the CPCAP parent IRQ
 across the system-sleep pair after arming the LIC wake, re-enables it after SPI
 resume, and reports `LP2TEST_CPCAP_IRQ_ERRORS`. Image SHA-256
-`cefb6d82198bb9b516bd01be6b3a815331c541c6c419cf6fb4f7a1a842d52b6e`
-(4,218,880 bytes), not flashed. Physical wake with the parent IRQ masked is
+`0b94d2117435b9df7b6a59b27a333b6fb3b3e2b69d649ee608f8ac6be0ce1328`
+(4,220,928 bytes), not flashed. Physical wake with the parent IRQ masked is
 unproven. See [cpcap-resume-order-94.md](docs/cpcap-resume-order-94.md).

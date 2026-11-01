@@ -29,8 +29,8 @@ suspend/resume pair:
 
 `artifacts/lp2g-ready/wingray-android44-gpu.img`
 
-- 4,218,880 bytes
-- SHA-256 `cefb6d82198bb9b516bd01be6b3a815331c541c6c419cf6fb4f7a1a842d52b6e`
+- 4,220,928 bytes
+- SHA-256 `0b94d2117435b9df7b6a59b27a333b6fb3b3e2b69d649ee608f8ac6be0ce1328`
 - Not flashed; physical wake with the parent IRQ masked is not yet proven.
 
 ## Critical test
