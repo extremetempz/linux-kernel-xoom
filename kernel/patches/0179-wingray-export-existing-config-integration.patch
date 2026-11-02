@@ -1,0 +1,42 @@
+--- a/arch/arm/configs/wingray_android44_displaypm_defconfig
++++ b/arch/arm/configs/wingray_android44_displaypm_defconfig
+@@ -220,4 +220,3 @@
+ 
+ CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y
+ # CONFIG_PM is not set
+-# CONFIG_SUSPEND is not set
+--- a/arch/arm/configs/wingray_android44_gpu_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_defconfig
+@@ -198,7 +198,8 @@
+ # Xoom bcmdhd 4329 module, loaded after /system is available.
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
++
++# Native 4.4 bcmdhd.
+ CONFIG_BROADCOM_WIFI=y
+-CONFIG_BCM4330=m
+ CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
+ CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
+--- a/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
++++ b/arch/arm/configs/wingray_android44_gpu_fbmap_defconfig
+@@ -203,4 +203,3 @@
+ CONFIG_BROADCOM_WIFI=y
+ CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
+ CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcm4329.cal"
+-# CONFIG_LEGACY_BCMDHD is not set
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -288,3 +288,4 @@
+ source "drivers/net/wireless/bcmdhd/Kconfig"
+ 
+ endif # WLAN
++
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -62,3 +62,4 @@
+ obj-$(CONFIG_RSI_91X)	+= rsi/
+ 
+ obj-$(CONFIG_BROADCOM_WIFI)	+= bcmdhd/
++
+
+# End of exported patch.

@@ -27,6 +27,6 @@ assert 'mkfs' not in boot and 'fsck' not in boot and 'wipefs' not in boot
 assert 'android44-storage-inspect' in boot and 'storage-policy' in boot
 # fstab is generated only for the persistent config; data/cache are rw.
 assert "b'/dev/block/mmcblk0p10 /data ext4 rw,noatime" in img
-assert 'nomblk_io_submit,errors=panic' in img
+assert 'nomblk_io_submit' not in img and 'errors=remount-ro' in img
 assert 'noload' not in img[img.index("b'/dev/block/mmcblk0p10"):img.index("b'/dev/block/mmcblk0p10")+160]
 print('PASS persistent profile, partition policy, bootstrap and fstab source gates')

@@ -27,22 +27,7 @@ write_test=0
 backup=0
 [ -e /sys/firmware/devicetree/base/motorola,wingray-storage-backup ] && backup=1
 stage "storage_mode_persistent_${persistent}_inspect_${inspect}_write_${write_test}_backup_${backup}"
-if [ "$backup" = 1 ]; then
- waited=0
- while [ ! -b /dev/mmcblk0p10 ] && [ "$waited" -lt 30 ]; do
-  /bin/busybox sleep 1
-  waited=$((waited + 1))
- done
- [ -b /dev/mmcblk0p10 ] || fail backup_data_device_missing
- for mod in configfs libcomposite usb_f_mass_storage; do
-  /bin/busybox insmod /lib/modules/$mod.ko >> /run/storage-backup.txt 2>&1 || fail backup_module_$mod
- done
- /bin/busybox insmod /lib/modules/g_mass_storage.ko file=/dev/mmcblk0p10 ro=1 removable=0 >> /run/storage-backup.txt 2>&1
- rc=$?
- echo "XOOM_STORAGE_BACKUP_MASS_STORAGE_RC $rc" >> /run/storage-backup.txt
- stage storage_backup_mass_storage
- while :; do /bin/busybox sleep 5; done
-fi
+
 waited=0
 while [ ! -d /sys/block/mmcblk0/mmcblk0p10 ] && [ "$waited" -lt 20 ]; do
  /bin/busybox sleep 1
@@ -68,6 +53,23 @@ done <<'XOOM_GEOMETRY'
 10 3264512 59247616
 XOOM_GEOMETRY
 stage readonly_geometry_passed
+if [ "$backup" = 1 ]; then
+ waited=0
+ while [ ! -b /dev/mmcblk0p10 ] && [ "$waited" -lt 30 ]; do
+  /bin/busybox sleep 1
+  waited=$((waited + 1))
+ done
+ [ -b /dev/mmcblk0p10 ] || fail backup_data_device_missing
+ for mod in configfs libcomposite usb_f_mass_storage; do
+  /bin/busybox insmod /lib/modules/$mod.ko >> /run/storage-backup.txt 2>&1 || fail backup_module_$mod
+ done
+ /bin/busybox insmod /lib/modules/g_mass_storage.ko file=/dev/mmcblk0p10 ro=1 removable=0 luns=1 >> /run/storage-backup.txt 2>&1
+ rc=$?
+ echo "XOOM_STORAGE_BACKUP_MASS_STORAGE_RC $rc" >> /run/storage-backup.txt
+ [ "$rc" = 0 ] || fail backup_mass_storage_bind
+ stage storage_backup_mass_storage
+ while :; do /bin/busybox sleep 5; done
+fi
 /bin/android44-abi-probe > /run/android44-abi.txt 2>&1
 result=$?
 echo "XOOM_ANDROID44_ABI_EXIT $result" >> /run/android44-abi.txt
@@ -98,6 +100,18 @@ mount_system_readonly() {
  /bin/busybox sha256sum -c /bin/android44-system-sha256 > /run/android44-system-check.txt 2>&1 || fail system_hashes
  stage system_readonly_verified
 }
+# Match the approved filesystem identity/features while policy is still RO.
+verify_persistent_data() {
+ expected_uuid=$(/bin/busybox sed -n '1p' /bin/storage-data-approved) || return 1
+ expected_features=$(/bin/busybox sed -n '2p' /bin/storage-data-approved) || return 1
+ current_uuid=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1128 count=16 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ current_features=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1116 count=12 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ current_state=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1082 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ current_errors=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1428 count=4 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ [ "${#expected_uuid}" = 32 ] && [ "${#expected_features}" = 24 ] &&
+ [ "$current_uuid" = "$expected_uuid" ] && [ "$current_features" = "$expected_features" ] &&
+ [ "$current_state" = 0100 ] && [ "$current_errors" = 00000000 ]
+}
 if [ "$persistent" = 1 ]; then
  mount_system_readonly
  if [ "$inspect" = 1 ]; then
@@ -106,6 +120,8 @@ if [ "$persistent" = 1 ]; then
   stage inspection_complete_read_only
   while :; do /bin/busybox sleep 5; done
  fi
+ [ -f /bin/storage-data-approved ] || fail data_readiness_not_embedded
+ verify_persistent_data || fail data_readiness_identity_or_health_changed
  # Fail closed before releasing either partition. No format, journal replay or
  # repair is allowed here; Stage A must inspect the filesystem first.
  data_size=$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/size)
@@ -113,35 +129,58 @@ if [ "$persistent" = 1 ]; then
  data_tail_skip=$((data_size - 32))
  cache_tail_skip=$((cache_size - 32))
  /bin/busybox dd if=/dev/mmcblk0p10 of=/run/storage-p10-tail.bin bs=512 skip="$data_tail_skip" count=32 2>/dev/null || fail data_tail_read
- /bin/busybox dd if=/dev/mmcblk0p9 of=/run/storage-p9-tail.bin bs=512 skip="$cache_tail_skip" count=32 2>/dev/null || fail cache_tail_read
+ if [ -f /bin/storage-cache-approved ]; then
+  /bin/busybox dd if=/dev/mmcblk0p9 of=/run/storage-p9-tail.bin bs=512 skip="$cache_tail_skip" count=32 2>/dev/null || fail cache_tail_read
+ fi
  data_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p10-tail.bin | /bin/busybox tr -d ' \n')
- cache_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p9-tail.bin | /bin/busybox tr -d ' \n')
+ cache_footer=''
+ if [ -f /bin/storage-cache-approved ]; then
+  cache_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p9-tail.bin | /bin/busybox tr -d ' \n')
+ fi
  case "$data_footer" in *c4b1b5d0*) fail encrypted_userdata;; esac
  case "$cache_footer" in *c4b1b5d0*) fail encrypted_cache;; esac
  data_magic=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
- cache_magic=$(/bin/busybox dd if=/dev/mmcblk0p9 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ cache_magic=''
+ if [ -f /bin/storage-cache-approved ]; then
+  cache_magic=$(/bin/busybox dd if=/dev/mmcblk0p9 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ fi
  [ "$data_magic" = 53ef ] || fail data_not_ext4
- [ "$cache_magic" = 53ef ] || fail cache_not_ext4
+ if [ -f /bin/storage-cache-approved ]; then
+  [ "$cache_magic" = 53ef ] || fail cache_not_ext4
+ fi
  stage persistent_fs_identity_checked
  /bin/storage-policy > /run/android44-storage-policy.txt 2>&1 || fail storage_policy
- [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/ro)" = 0 ] || fail cache_policy
+ if [ -f /bin/storage-cache-approved ]; then
+  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/ro)" = 0 ] || fail cache_policy
+ else
+  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/ro)" = 1 ] || fail cache_readonly
+ fi
  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/ro)" = 0 ] || fail data_policy
  [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p8/ro)" = 1 ] || fail system_policy
  [ "$(/bin/busybox cat /sys/block/mmcblk0/ro)" = 1 ] || fail disk_policy
  /bin/busybox grep -q ' /data ' /proc/mounts && fail data_already_mounted
  /bin/busybox grep -q ' /cache ' /proc/mounts && fail cache_already_mounted
  if [ "$write_test" = 1 ]; then
-  /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p10 /data || fail write_test_data_mount
+  /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,errors=remount-ro /dev/mmcblk0p10 /data || fail write_test_data_mount
   /bin/storage-write-test > /run/storage-write-console.txt 2>&1
-  echo "XOOM_STORAGE_WRITE_TEST_RC $?" >> /run/android44-storage-write-test.txt
+  result=$?
+  echo "XOOM_STORAGE_WRITE_TEST_RC $result" >> /run/android44-storage-write-test.txt
+  /bin/busybox umount /data
+  unmount_result=$?
+  echo "XOOM_STORAGE_WRITE_TEST_UNMOUNT_RC $unmount_result" >> /run/android44-storage-write-test.txt
+  [ "$result" = 0 ] && [ "$unmount_result" = 0 ] || fail write_test_or_clean_unmount
   stage persistent_write_test_complete
   while :; do /bin/busybox sleep 5; done
  fi
  /bin/busybox grep -q ' /data ' /proc/mounts && fail data_already_mounted
  /bin/busybox grep -q ' /cache ' /proc/mounts && fail cache_already_mounted
  # Original ROM options, without noload: writable ext4 may replay its journal.
- /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p10 /data || fail persistent_data_mount
- /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p9 /cache || fail persistent_cache_mount
+ /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,errors=remount-ro /dev/mmcblk0p10 /data || fail persistent_data_mount
+ if [ -f /bin/storage-cache-approved ]; then
+  /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,errors=remount-ro /dev/mmcblk0p9 /cache || fail persistent_cache_mount
+ else
+  /bin/busybox mount -t tmpfs -o size=96m,mode=0771,uid=1000,gid=2001,nosuid,nodev tmpfs /cache || fail ram_cache
+ fi
  stage persistent_data_cache_mounted
 else
  /bin/busybox mount -t tmpfs -o size=256m,mode=0771,uid=1000,gid=1000,nosuid,nodev tmpfs /data || fail ram_data

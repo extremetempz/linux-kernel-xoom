@@ -3,7 +3,7 @@ from pm_preparation_profile import blocked_pm
 from pathlib import Path
 import struct,hashlib
 from legacy_resources import parse_dtb
-from retained_console_profile import selected_retained_dt
+from retained_console_profile import selected_retained_dt, BACKUP_DT
 
 def validate_artifacts(directory, *, require_framebuffer_translation=False):
  p=Path(directory)
@@ -83,8 +83,12 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  assert b['/panel']['status']==b'disabled\0' # no competing DRM panel client
  if persistent:
   selected_tree=parse_dtb((p/(selected+'.dtb')).read_bytes())
-  assert 'motorola,xoom-firstboot-ro' not in selected_tree['/sdhci@c8000600']
-  assert 'motorola,xoom-persistent-storage' in selected_tree['/sdhci@c8000600']
+  if selected == BACKUP_DT:
+   assert 'motorola,xoom-firstboot-ro' in selected_tree['/sdhci@c8000600']
+   assert 'motorola,xoom-persistent-storage' not in selected_tree['/sdhci@c8000600']
+  else:
+   assert 'motorola,xoom-firstboot-ro' not in selected_tree['/sdhci@c8000600']
+   assert 'motorola,xoom-persistent-storage' in selected_tree['/sdhci@c8000600']
  else:
   assert 'motorola,xoom-firstboot-ro' in b['/sdhci@c8000600']
  mode=b[root+'/rgb/display'];timing=b[root+'/rgb/display/display-timings/timing0']

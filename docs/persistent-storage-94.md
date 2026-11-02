@@ -1,3 +1,9 @@
+> **Superseded safety review (3 November 2026):** Read
+> [candidate96](persistent-storage-96.md) before using these historical commands.
+> The old helper/readiness gates have defects, three local image hashes differ,
+> and no verified userdata backup is established. Do not deploy old writable
+> images or treat this historical procedure as write authorization.
+
 # Concurrent persistent storage bring-up — 1 November 2026
 
 This is a storage integration candidate, not a new ROM. It preserves the

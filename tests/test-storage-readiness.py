@@ -23,13 +23,10 @@ with tempfile.TemporaryDirectory() as td:
  t=Path(td); (t/'report').write_text(block)
  subprocess.run([str(ROOT/'scripts/parse-storage-inspection.py'),'--report',str(t/'report'),'--output',str(t/'i.json')],check=True)
  i=json.loads((t/'i.json').read_text()); assert i['inspection_passed'] and i['verdict']=='healthy_unencrypted'
- # backup size/hash gate; sparse-size file is enough for this host-only test
- with (t/'backup').open('wb') as f: f.truncate(59247616*512)
- h=__import__('hashlib').sha256()
- with (t/'backup').open('rb') as f:
-  for c in iter(lambda:f.read(8*1024*1024),b''): h.update(c)
- r=subprocess.run([str(ROOT/'scripts/persistent-readiness.py'),'--inspection',str(t/'i.json'),'--backup',str(t/'backup'),'--backup-sha256',h.hexdigest(),'--output',str(t/'r.json')],check=True)
- assert json.loads((t/'r.json').read_text())['writes_allowed']
+ # Legacy StageA booleans cannot establish an independently verified backup.
+ p=subprocess.run(['python3',str(ROOT/'scripts/persistent-readiness.py'),'--host-inspection',str(t/'i.json'),'--output',str(t/'r.json')],capture_output=True)
+ assert p.returncode==2
+ result=json.loads((t/'r.json').read_text());assert not result['CONTROLLED_WRITE_TEST_READY'] and not result['writes_allowed']
  # encrypted/missing fsck blocks
  bad=block.replace('ANDROID_CRYPTO_FOOTER data absent','ANDROID_CRYPTO_FOOTER data present_or_candidate')
  (t/'bad').write_text(bad)

@@ -63,9 +63,9 @@ for sym in ('MOTOROLA_WINGRAY_LP2_TEST','MOTOROLA_WINGRAY_DEVICEPM_TEST','MOTORO
     check('retain '+sym,'CONFIG_'+sym+'=y\n' in cfg)
 # 20 fstab persistent and no noload on rw data/cache
 fstab=img[img.index("if persistent:"):img.index("else:",img.index("if persistent:"))]
-check('persistent fstab','/data ext4 rw' in fstab and '/cache ext4 rw' in fstab)
+check('persistent fstab','/data ext4 rw' in fstab and 'cache deliberately tmpfs' in fstab and '/cache ext4 rw' not in fstab)
 check('no noload rw', 'noload' not in fstab[fstab.index('/data'):])
 # Write test is fixed and verification-only on second boot
-check('write test fixed', 'EXPECT=4f5a76d96d52a7902acb25f86971d101fc9fae1d7d97039fb6f0fbbb0a7e13ee' in wt and 'set -C' in wt)
+check('write test fixed', 'EXPECT=4f5a76d96d52a7902acb25f86971d101fc9fae1d7d97039fb6f0fbbb0a7e13ee' in wt and 'set -C' in wt and 'TEST_FILE_PRESENT_SAME_BOOT' in wt and 'first-boot-v1' in wt)
 check('write test no auto reboot','reboot' not in wt and '/system/bin/reboot' not in boot)
 print(f'PASS {len(checks)} persistent-storage offline gates; no device/filesystem writes')

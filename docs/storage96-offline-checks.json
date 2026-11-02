@@ -1,0 +1,84 @@
+{
+  "base": "525dc6d499",
+  "kernel": "66ad4c39",
+  "image": "wingray-android44-storage-backup.img",
+  "image_bytes": 4231168,
+  "image_sha256": "72717d7d7de316bba4bbbdc910b5668397d7a9b6e4b6aff275c43f2b1549fbac",
+  "physical_device_access": false,
+  "physical_write_or_flash": false,
+  "hardware_storage_persistence_validated": false,
+  "checks": [
+    "full ARM kernel and modules build; final linked runtime",
+    "static ARMv7 non-NEON storage helper build",
+    "BigPart 1000 capacities",
+    "boot header audit",
+    "deterministic image repack",
+    "exported series matches 218 changed source files",
+    "immutable backup DT and no Android fstab",
+    "7 host evidence tests",
+    "compiled helper/driver ioctl/bio fault tests",
+    "StageB fixture first/second boot and symlink/hardlink tests"
+  ],
+  "tests": [
+    {
+      "test": "test-storage-policy96.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-storage-host96.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-storage-write96.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-storage-readiness.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-storage-profile.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-persistent-storage.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-android44-bootstrap.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-android44-image.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-wingray-wifi.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-wingray-bluetooth-power.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-wingray-bluetooth-setup.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-lp2-candidate.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-lp2-pm-fixes.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-diagnostic-protocol.py",
+      "returncode": 0
+    },
+    {
+      "test": "test-storage-identity96.py",
+      "returncode": 0
+    }
+  ]
+}

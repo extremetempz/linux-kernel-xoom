@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare a separate RAM-only NVIDIA Android runtime; never flashes or mounts."""
 from pathlib import Path
+import os
 import argparse,dataclasses,gzip,hashlib,json,re,stat,subprocess,sys
 from android44_image import Entry,original_entries,ramdisk_entries,pack_newc,boot_image,digest,BUSYBOX_SHA256
 from prepare_android_gpu_inputs import graphics_hashes
@@ -106,7 +107,7 @@ fi
 /bin/busybox chown 1014:1014 /data/misc/dhcp
 /bin/busybox chmod 0770 /data/misc/dhcp
 # Use the Android 4.4 socket layout; the ROM config may target a stale path.
-if [ ! -e /data/misc/wifi/wpa_supplicant.conf ]; then
+if [ ! -e /data/misc/wifi/wpa_supplicant.conf ] && [ ! -L /data/misc/wifi/wpa_supplicant.conf ]; then
  echo "ctrl_interface=DIR=/data/misc/wifi/sockets GROUP=wifi" > /data/misc/wifi/wpa_supplicant.conf
  echo "update_config=1" >> /data/misc/wifi/wpa_supplicant.conf
  /bin/busybox chown 1000:1010 /data/misc/wifi/wpa_supplicant.conf
@@ -226,6 +227,22 @@ def entries(runtime):
    files['bin/android44-storage-inspect']=(ROOT/'diagnostic/android44-storage-inspect.sh').read_bytes()
    subprocess.run(['bash','-n',str(ROOT/'diagnostic/android44-storage-write-test.sh')],check=True)
    files['bin/storage-write-test']=(ROOT/'diagnostic/android44-storage-write-test.sh').read_bytes()
+ if b'CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y\n' in config and b'CONFIG_USB_MASS_STORAGE=m\n' not in config:
+  helper_manifest=json.loads((runtime/'storage-policy-manifest.json').read_text())
+  assert helper_manifest['source_sha256']==digest((ROOT/'diagnostic/storage-policy.c').read_bytes())
+  assert helper_manifest['sha256']==digest((runtime/'storage-policy').read_bytes())
+  approval=os.environ.get('XOOM_STORAGE_HOST_EVIDENCE')
+  if approval:
+   import importlib.util
+   rspec=importlib.util.spec_from_file_location('storage_readiness',ROOT/'scripts/persistent-readiness.py')
+   rmod=importlib.util.module_from_spec(rspec);rspec.loader.exec_module(rmod)
+   readiness=rmod.readiness
+   approved=readiness(Path(approval))
+   assert approved['CONTROLLED_WRITE_TEST_READY'], 'Filesystem/backup/policy evidence incomplete'
+   assert os.environ.get('XOOM_ANDROID_GPU_PROFILE')=='persistentwritetest', 'Android persistence needs two-boot proof first'
+   fs=json.loads((Path(approval).resolve().parent/'filesystem.json').read_text())
+   features=''.join(fs[key].to_bytes(4,'little').hex() for key in ('compat','incompat','ro_compat'))
+   files['bin/storage-data-approved']=(fs['uuid']+'\n'+features+'\n'+approved['data']['sha256']+'\n').encode('ascii')
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
@@ -233,6 +250,8 @@ def entries(runtime):
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
  result=ramdisk_entries(original,files,persistent=persistent)
+ if storage_backup:
+  result['fstab.stingray']=Entry('fstab.stingray',stat.S_IFREG|0o644,b'# Read-only USB backup only; no Android filesystem mounts\n')
  module=runtime/'modules/bcmdhd.ko'
  assert module.is_file() and module.stat().st_size > 0
  for d in ('lib','lib/modules','lib/firmware','xoom-firmware'):
