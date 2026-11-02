@@ -4,9 +4,12 @@
  * resulting policy. The kernel must expose the persistent-storage DT marker;
  * this helper refuses in inspection mode or on any other board/path.
  */
+#include <stddef.h>
 #include <linux/types.h>
 #include <linux/fs.h>
+#include <asm/fcntl.h>
 
+#ifndef STORAGE_POLICY_TEST
 static long call6(long n, long a, long b, long c, long d, long e, long f)
 {
     register long r0 __asm__("r0")=a, r1 __asm__("r1")=b;
@@ -18,6 +21,10 @@ static long call6(long n, long a, long b, long c, long d, long e, long f)
     return r0;
 }
 
+#else
+extern long call6(long,long,long,long,long,long,long);
+#endif
+
 static void line(const char *s)
 {
     unsigned int n=0;
@@ -25,6 +32,7 @@ static void line(const char *s)
     call6(4,1,(long)s,n,0,0,0);
 }
 
+#ifndef STORAGE_POLICY_TEST
 static void end(int code) __attribute__((noreturn));
 static void end(int code)
 {
@@ -32,6 +40,8 @@ static void end(int code)
     call6(1,code,0,0,0,0,0);
     for(;;) { }
 }
+
+#endif
 
 static int exists(const char *path)
 {
@@ -41,28 +51,87 @@ static int exists(const char *path)
     return 1;
 }
 
-static int release(const char *path)
+
+/* Both fds stay open until the transaction is verified or rolled back.
+ * BLKROGET returns an errno/status, and writes the flag through int *.
+ */
+static int set_ro(long fd, int wanted)
 {
-    long fd, value;
-    int zero=0;
-    fd=call6(5,(long)path,0,0,0,0,0);
-    if(fd<0)return 1;
-    if(call6(54,fd,BLKROSET,(long)&zero,0,0,0)<0)return 1;
-    value=call6(54,fd,BLKROGET,0,0,0,0);
-    call6(6,fd,0,0,0,0,0);
-    return value!=0;
+    int got = -1;
+    if (call6(54,fd,BLKROSET,(long)&wanted,0,0,0) != 0) return 1;
+    if (call6(54,fd,BLKROGET,(long)&got,0,0,0) != 0) return 1;
+    return got != wanted;
 }
 
-void _start(void) __attribute__((noreturn));
-void _start(void)
+static int board_ok(void)
 {
-    if(!exists("/sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage"))
-        end(1);
-    if(exists("/sys/firmware/devicetree/base/motorola,wingray-storage-inspect"))
-        end(2);
-    if(release("/dev/mmcblk0p9"))end(3);
-    if(release("/dev/mmcblk0p10"))end(4);
-    line("XOOM_STORAGE_POLICY_P9_P10_RW\n");
-    line("XOOM_STORAGE_POLICY_P0_P1_P8_RO_UNCHANGED\n");
-    end(0);
+    char buf[256]; long fd, n, i, j;
+    const char name[]="motorola,wingray";
+    fd=call6(5,(long)"/sys/firmware/devicetree/base/compatible",0,0,0,0,0);
+    if(fd<0) return 0;
+    n=call6(3,fd,(long)buf,sizeof(buf),0,0,0);
+    if(call6(6,fd,0,0,0,0,0)!=0 || n<=0 || n==(long)sizeof(buf))return 0;
+    for(i=0;i<n;) {
+        for(j=0;j<(long)sizeof(name)-1 && i+j<n && buf[i+j]==name[j];j++);
+        if(j==(long)sizeof(name)-1 && i+j<n && buf[i+j]==0)return 1;
+        while(i<n && buf[i])i++;
+        i++;
+    }
+    return 0;
 }
+
+static int storage_policy(void)
+{
+    long fds[2]={-1,-1}; int initial[2]={-1,-1};
+    int count=1, i, failed=0, rollback_failed=0;
+    if(!board_ok() ||
+       !exists("/sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage") ||
+       exists("/sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-firstboot-ro") ||
+       exists("/sys/firmware/devicetree/base/motorola,wingray-storage-inspect") ||
+       exists("/sys/firmware/devicetree/base/motorola,wingray-storage-backup") ||
+       !exists("/bin/storage-data-approved")) return 1;
+    /* Default is data only. Cache requires its independently built approval. */
+    if(exists("/bin/storage-cache-approved"))count=2;
+    for(i=0;i<count;i++) {
+        const char *path=i==0 ? "/dev/mmcblk0p10" : "/dev/mmcblk0p9";
+        fds[i]=call6(5,(long)path,O_NOFOLLOW|O_CLOEXEC,0,0,0,0);
+        if(fds[i]<0) { failed=1; break; }
+        { unsigned long long bytes=0;
+          if(call6(54,fds[i],BLKGETSIZE64,(long)&bytes,0,0,0)!=0 ||
+             bytes!=(i==0 ? 30334779392ULL : 536870912ULL)) { failed=1; break; }
+        }
+        if(call6(54,fds[i],BLKROGET,(long)&initial[i],0,0,0)!=0 || initial[i]!=1) {
+            failed=1; break;
+        }
+    }
+    if(failed) {
+        for(i=0;i<count;i++)if(fds[i]>=0)call6(6,fds[i],0,0,0,0,0);
+        return 1; /* Preflight never changes an existing owner's policy. */
+    }
+    for(i=0;i<count;i++)if(set_ro(fds[i],0)) { failed=1; break; }
+    if(failed) {
+        /* Fail closed, even after an uncertain ioctl result. Never retry RW. */
+        for(i=0;i<count;i++)if(fds[i]>=0 && set_ro(fds[i],1))rollback_failed=1;
+        line(rollback_failed ? "XOOM_STORAGE_POLICY_ROLLBACK_FAILED\n" : "XOOM_STORAGE_POLICY_ROLLED_BACK_RO\n");
+    }
+    for(i=0;i<count;i++)if(fds[i]>=0 && call6(6,fds[i],0,0,0,0,0)!=0)failed=1;
+    if(failed) {
+        /* A close error has ambiguous descriptor state. Reopen fixed paths
+         * to restore RO; report if the backend refuses cleanup. */
+        for(i=0;i<count;i++) {
+            const char *path=i==0 ? "/dev/mmcblk0p10" : "/dev/mmcblk0p9";
+            long fd=call6(5,(long)path,O_NOFOLLOW|O_CLOEXEC,0,0,0,0);
+            if(fd<0) { rollback_failed=1; continue; }
+            if(set_ro(fd,1))rollback_failed=1;
+            call6(6,fd,0,0,0,0,0);
+        }
+        return rollback_failed ? 3 : 2;
+    }
+    line(count==1 ? "XOOM_STORAGE_POLICY_P10_RW_CACHE_RO\n" : "XOOM_STORAGE_POLICY_P9_P10_RW\n");
+    return 0;
+}
+
+#ifndef STORAGE_POLICY_TEST
+void _start(void) __attribute__((noreturn));
+void _start(void) { end(storage_policy()); }
+#endif
