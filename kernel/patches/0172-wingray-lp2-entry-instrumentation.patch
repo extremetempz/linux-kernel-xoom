@@ -1,0 +1,13 @@
+diff --git a/kernel/power/suspend.c b/kernel/power/suspend.c
+index d0da54c2..94b7a1f6 100644
+--- a/kernel/power/suspend.c
++++ b/kernel/power/suspend.c
+@@ -343,6 +343,8 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
+ 	char suspend_abort[MAX_SUSPEND_ABORT_LEN];
+ 	int error, last_dev;
+ 
++	pr_info("WG_LP2_SUSPEND_ENTER state=%d pm_test=%d\n", state, pm_test_level);
++
+ 	error = platform_suspend_prepare(state);
+ 	if (error)
+ 		goto Platform_finish;

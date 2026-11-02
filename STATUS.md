@@ -443,7 +443,7 @@ with DPM/LP2. See [cpu1-92-result.md](docs/cpu1-92-result.md).
 has fixed `LATETEST`/`SYSCTEST` and `LATESTATUS`/`SYSSTATUS` requests plus
 `run-stage-test.py`. Current image SHA-256
 `55f4165541fdc724b0f15e6d444a0686efc95091045cbfb6cc84720083de51b7`
-(4,218,880 bytes). CPU1 remains hardware-passed on the earlier e04 image with
+(4,220,928 bytes). CPU1 remains hardware-passed on the earlier e04 image with
 the same kernel logic; late/noirq and syscore are not yet hardware-tested.
 Image 93 remains blocked by PMC/wake and late/syscore gates.
 
@@ -472,3 +472,104 @@ normal, late and noirq device suspend; `tegra_timer_syscore_suspend`,
 `WG_PM92_STAGE_COMPLETE selected=syscore result=0`. The dummy platform enter
 was not called. This is devices/late/noirq/syscore validation, not LP2.
 PMC handshake and physical wake remain blocking; Image 93 is still not prepared.
+
+
+**Image 93 manual LP2 candidate built, not flashed:** Implements Motorola
+PMC core/CPU request outputs, original CPU/core timer registers, active-high
+COREREQ/SYSCLKREQ, CPU_PM/cluster enter/exit, outer_flush_all before
+outer_disable, real Tegra LP2 ops and a root-only single-shot
+`/sys/power/wingray_lp2_test` gate. Ordinary suspend stays rejected unless
+armed. Image SHA-256
+`fa527627d35a619a34507027246847f83c72a3c1753f257d1bcfb3ea2c62d52f`
+(4,220,928 bytes). No LP2 attempt has been made; physical wake, actual CPU
+power loss, PL310 and TIMERUS retention remain unverified. See
+[lp2-candidate-93.md](docs/lp2-candidate-93.md).
+
+
+**First Image 93 LP2 attempt — unresolved, not claimed:** `LP2TEST
+last_result=0` and physical power-button wake/working Android were observed,
+but the same-boot report contains no `WG_LP2_PLATFORM_ENTER`/`WG_LP2_CPU_RESUMED`,
+no PM suspend-entry/DC-suspend sequence, and no pre-test boot ID. The retained
+console is from the previous boot e80b. The 1970 timestamp is not useful because
+wall time was already wrong. See
+[lp2-first-attempt-unverified.md](docs/lp2-first-attempt-unverified.md).
+
+
+**LP2 diagnostic image 93b built:** Adds `WG_LP2_SUSPEND_ENTER` logging and
+exposes `/sys/power/pm_test`, `/sys/power/state` and the LP2 gate state in the
+report. Image SHA-256
+`62541e5c9919abdf7e75c2b740c45a2cf8fc7ef7f11bf4ca5ae2913dbbccff17`
+(4,220,928 bytes), not flashed. The first two attempts returned zero and woke
+by physical power button on the same boot, but the reports never contained
+`WG_LP2_PLATFORM_ENTER` or `WG_LP2_CPU_RESUMED`; no LP2 success is claimed.
+
+
+**LP2 console-retention image 93d built:** sets `console_suspend_enabled=0` for
+the manual LP2 profile, so pstore no longer stops at `PM: suspend entry`.
+Image SHA-256
+`afa116a83157c879c6bd0f3a4cb503a4aaf46804fd6a7c361e35bde84ee09542`
+(4,216,832 bytes), not flashed. The previous attempt remains unverified; the
+CPCAP `-108` IRQ flood during resume is still an open ordering defect.
+
+
+**LP2 filtered-dmesg image 93e built:** the LP2 status helper now returns
+filtered `WG_LP2`/PM suspend/teardown lines, bypassing the CPCAP `-108` flood.
+Image SHA-256
+`d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`
+(4,220,928 bytes), not flashed. No LP2 success claim yet.
+
+
+**FIRST GENUINE LP2 SUCCESS (Image 93e):** Same-boot LP2 entry/resume confirmed
+with `WG_LP2_SUSPEND_ENTER`, `WG_LP2_PLATFORM_ENTER mode=LP2 online=1`,
+`WG_LP2_CPU_RESUMED`, tegra timer syscore suspend and physical power-button
+wake. Boot ID c4b01baf…, counter 0→1, Android usable. Image SHA-256
+`d40c5a4a41443a767dd4f7c7e49c43074f22bd80393ee6e5b6f4201b21571a68`.
+Remaining: CPCAP -108 resume IRQ race and power measurement. See
+[lp2-first-success.md](docs/lp2-first-success.md).
+
+
+**Image 94 CPCAP IRQ-ordering candidate built:** masks the CPCAP parent IRQ
+across the system-sleep pair after arming the LIC wake, re-enables it after SPI
+resume, and reports `LP2TEST_CPCAP_IRQ_ERRORS`. Image SHA-256
+`0b94d2117435b9df7b6a59b27a333b6fb3b3e2b69d649ee608f8ac6be0ce1328`
+(4,220,928 bytes), not flashed. Physical wake with the parent IRQ masked is
+unproven. See [cpcap-resume-order-94.md](docs/cpcap-resume-order-94.md).
+
+
+**CPCAP resume fix validated (Image 94 cefb6d82):** physical wake passed,
+`LP2TEST_CPCAP_IRQ_ERRORS 0`, `WG_PM94` mask/unmask=1/0, and the full
+`WG_LP2_*` path. No reboot; boot 92abfe10. Remaining: repeated cycles and
+screen-on/screen-off/LP2 power comparison.
+
+
+**Image 95 -EBUSY diagnostics:** one LP2 cycle is validated, but the second
+manual trigger returned `-16`; Image 95 logs the exact reject path and always
+returns dmesg on write failure. SHA-256
+`9f60f2abf8c94e6997f6b329b486aa6b7bbe14d4fb96cbefeab57cf6f8871e8b`, not
+flashed. Repeated deep sleep and power measurement remain unproven.
+
+
+**Persistent-storage candidates built (not flashed):** Stage A read-only
+inspection `b031f9d6…`, Stage B write test `669962b8…`, Stage C Android
+persistent `6c10a25d…`. Existing `/system` remains ro; p9/p10 are the only
+releasable partitions. No verified userdata backup exists, so **no persistent
+write is authorized**. See [persistent-storage-94.md](docs/persistent-storage-94.md).
+
+
+**Stage-A parser/readiness tools added:** `parse-storage-inspection.py`
+classifies the read-only report and `persistent-readiness.py` verifies the
+p10 raw backup size/SHA before Stage B. Neither contacts a device. No verified
+backup exists, so physical write authorization remains false.
+
+
+**Storage artifact verifier and backup gate documented:** three-image offline
+artifact audit passes; Stage-A parser/readiness tests pass. No userdata backup
+exists; Stage B/C remain unauthorized. See
+[backup gate](docs/persistent-storage-backup.md).
+
+
+**Read-only USB mass-storage backup image built:** exposes only p10 with
+`ro=1` for host-side `e2fsck -n` and backup because Android e2fsck/segfaults.
+Image SHA-256
+`7641d644655e88c012701ca0adafb58e6b4e0565f0615e74344381da179c0979`.
+No device writes; no backup yet; Stage B/C remain unauthorized.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only audit of the preserved working and failed diagnostic boot images."""
 from pathlib import Path
-import argparse, gzip, hashlib, json, struct, zlib
+import argparse, gzip, hashlib, json, lzma, struct, zlib
 p=argparse.ArgumentParser();p.add_argument('--working',type=Path,default=Path('artifacts/hardware-private/backup-boot.img'));p.add_argument('--candidate',type=Path,default=Path('artifacts/diagnostic/wingray-diagnostic.img'));args=p.parse_args()
 def sha(data):return hashlib.sha256(data).hexdigest()
 def kernel_payload(z):
@@ -34,7 +34,18 @@ def audit(path):
         dtb=kernel[zend:];magic,total=struct.unpack_from('>II',dtb)
         assert magic==0xd00dfeed and total==len(dtb) and (ka+zend)%8==0
         d['appended_dtb']={'size':total,'address_before_fixup':hex(ka+zend),'sha256':sha(dtb)}
-    d['ramdisk_gzip_valid']=len(gzip.decompress(ramdisk))>0
+    try:
+        d['ramdisk_compression']='gzip'
+        d['ramdisk_gzip_valid']=len(gzip.decompress(ramdisk))>0
+        d['ramdisk_payload_valid']=d['ramdisk_gzip_valid']
+    except (gzip.BadGzipFile, EOFError):
+        try:
+            d['ramdisk_compression']='xz'
+            d['ramdisk_xz_valid']=len(lzma.decompress(ramdisk))>0
+            d['ramdisk_payload_valid']=d['ramdisk_xz_valid']
+        except lzma.LZMAError:
+            d['ramdisk_compression']='unknown'
+            d['ramdisk_payload_valid']=False
     marker=raw.find(b'IKCFG_ST')
     if marker>=0:
         decoder=zlib.decompressobj(31)

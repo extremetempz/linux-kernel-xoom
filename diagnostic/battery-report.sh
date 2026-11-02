@@ -5,7 +5,7 @@ echo XOOM_BATTERY_MONITOR_V1_BEGIN
 for supply in /sys/class/power_supply/*; do
  [ -d "$supply" ] || continue
  echo "SUPPLY ${supply##*/}"
- for prop in type present capacity status voltage_now current_now temp health online; do
+ for prop in type present capacity status voltage_now current_now charge_counter energy_now power_now temp health online; do
   if [ -e "$supply/$prop" ]; then
    echo "PROPERTY $prop"
    /bin/busybox cat "$supply/$prop" 2>&1

@@ -80,6 +80,15 @@ bounded_file() {
 echo XOOM_ANDROID44_STAGES_BEGIN
 bounded_file /run/android44-stages.txt 4096
 echo XOOM_ANDROID44_STAGES_END
+echo XOOM_ANDROID44_STORAGE_INSPECT_BEGIN
+bounded_file /run/android44-storage-inspect.txt 65536
+echo XOOM_ANDROID44_STORAGE_INSPECT_END
+echo XOOM_STORAGE_POLICY_BEGIN
+bounded_file /run/android44-storage-policy.txt 4096
+echo XOOM_STORAGE_POLICY_END
+echo XOOM_STORAGE_WRITE_TEST_BEGIN
+bounded_file /run/android44-storage-write-test.txt 16384
+echo XOOM_STORAGE_WRITE_TEST_END
 echo XOOM_ANDROID44_ABI_BEGIN
 bounded_file /run/android44-abi.txt 8192
 echo XOOM_ANDROID44_ABI_END

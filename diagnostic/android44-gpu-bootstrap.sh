@@ -12,6 +12,37 @@ case "$(/bin/busybox uname -r)" in
  *) fail release;;
 esac
 /bin/busybox tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | /bin/busybox grep -qx motorola,wingray || fail board
+persistent=0
+if [ -e /sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-persistent-storage ]; then
+ persistent=1
+elif [ -e /sys/firmware/devicetree/base/sdhci@c8000600/motorola,xoom-firstboot-ro ]; then
+ persistent=0
+else
+ fail storage_profile_marker_missing
+fi
+inspect=0
+[ -e /sys/firmware/devicetree/base/motorola,wingray-storage-inspect ] && inspect=1
+write_test=0
+[ -e /sys/firmware/devicetree/base/motorola,wingray-storage-write-test ] && write_test=1
+backup=0
+[ -e /sys/firmware/devicetree/base/motorola,wingray-storage-backup ] && backup=1
+stage "storage_mode_persistent_${persistent}_inspect_${inspect}_write_${write_test}_backup_${backup}"
+if [ "$backup" = 1 ]; then
+ waited=0
+ while [ ! -b /dev/mmcblk0p10 ] && [ "$waited" -lt 30 ]; do
+  /bin/busybox sleep 1
+  waited=$((waited + 1))
+ done
+ [ -b /dev/mmcblk0p10 ] || fail backup_data_device_missing
+ for mod in configfs libcomposite usb_f_mass_storage; do
+  /bin/busybox insmod /lib/modules/$mod.ko >> /run/storage-backup.txt 2>&1 || fail backup_module_$mod
+ done
+ /bin/busybox insmod /lib/modules/g_mass_storage.ko file=/dev/mmcblk0p10 ro=1 removable=0 >> /run/storage-backup.txt 2>&1
+ rc=$?
+ echo "XOOM_STORAGE_BACKUP_MASS_STORAGE_RC $rc" >> /run/storage-backup.txt
+ stage storage_backup_mass_storage
+ while :; do /bin/busybox sleep 5; done
+fi
 waited=0
 while [ ! -d /sys/block/mmcblk0/mmcblk0p10 ] && [ "$waited" -lt 20 ]; do
  /bin/busybox sleep 1
@@ -61,12 +92,62 @@ echo "XOOM_PATTERN_EXIT $result" >> /run/display-pattern-result.txt
 [ "$result" -eq 0 ] || fail display
 stage display_passed
 /bin/busybox mkdir -p /system /data /cache /run/xoom-hw /run/xoom-egl /run/android-logs
-/bin/busybox mount -t tmpfs -o size=256m,mode=0771,uid=1000,gid=1000,nosuid,nodev tmpfs /data || fail ram_data
-/bin/busybox mount -t tmpfs -o size=96m,mode=0771,uid=1000,gid=2001,nosuid,nodev tmpfs /cache || fail ram_cache
-# noload prevents ext4 journal replay, in addition to the kernel's RO policy.
-/bin/busybox mount -t ext4 -o ro,noload,nosuid,nodev /dev/mmcblk0p8 /system || fail system_mount
-/bin/busybox sha256sum -c /bin/android44-system-sha256 > /run/android44-system-check.txt 2>&1 || fail system_hashes
-stage system_readonly_verified
+mount_system_readonly() {
+ # noload prevents ext4 journal replay, in addition to the kernel's RO policy.
+ /bin/busybox mount -t ext4 -o ro,noload,nosuid,nodev /dev/mmcblk0p8 /system || fail system_mount
+ /bin/busybox sha256sum -c /bin/android44-system-sha256 > /run/android44-system-check.txt 2>&1 || fail system_hashes
+ stage system_readonly_verified
+}
+if [ "$persistent" = 1 ]; then
+ mount_system_readonly
+ if [ "$inspect" = 1 ]; then
+  /bin/android44-storage-inspect > /run/storage-inspect-console.txt 2>&1
+  echo "XOOM_STORAGE_INSPECT_RC $?" >> /run/android44-storage-inspect.txt
+  stage inspection_complete_read_only
+  while :; do /bin/busybox sleep 5; done
+ fi
+ # Fail closed before releasing either partition. No format, journal replay or
+ # repair is allowed here; Stage A must inspect the filesystem first.
+ data_size=$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/size)
+ cache_size=$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/size)
+ data_tail_skip=$((data_size - 32))
+ cache_tail_skip=$((cache_size - 32))
+ /bin/busybox dd if=/dev/mmcblk0p10 of=/run/storage-p10-tail.bin bs=512 skip="$data_tail_skip" count=32 2>/dev/null || fail data_tail_read
+ /bin/busybox dd if=/dev/mmcblk0p9 of=/run/storage-p9-tail.bin bs=512 skip="$cache_tail_skip" count=32 2>/dev/null || fail cache_tail_read
+ data_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p10-tail.bin | /bin/busybox tr -d ' \n')
+ cache_footer=$(/bin/busybox od -An -v -tx1 /run/storage-p9-tail.bin | /bin/busybox tr -d ' \n')
+ case "$data_footer" in *c4b1b5d0*) fail encrypted_userdata;; esac
+ case "$cache_footer" in *c4b1b5d0*) fail encrypted_cache;; esac
+ data_magic=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ cache_magic=$(/bin/busybox dd if=/dev/mmcblk0p9 bs=1 skip=1080 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ [ "$data_magic" = 53ef ] || fail data_not_ext4
+ [ "$cache_magic" = 53ef ] || fail cache_not_ext4
+ stage persistent_fs_identity_checked
+ /bin/storage-policy > /run/android44-storage-policy.txt 2>&1 || fail storage_policy
+ [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p9/ro)" = 0 ] || fail cache_policy
+ [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/ro)" = 0 ] || fail data_policy
+ [ "$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p8/ro)" = 1 ] || fail system_policy
+ [ "$(/bin/busybox cat /sys/block/mmcblk0/ro)" = 1 ] || fail disk_policy
+ /bin/busybox grep -q ' /data ' /proc/mounts && fail data_already_mounted
+ /bin/busybox grep -q ' /cache ' /proc/mounts && fail cache_already_mounted
+ if [ "$write_test" = 1 ]; then
+  /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p10 /data || fail write_test_data_mount
+  /bin/storage-write-test > /run/storage-write-console.txt 2>&1
+  echo "XOOM_STORAGE_WRITE_TEST_RC $?" >> /run/android44-storage-write-test.txt
+  stage persistent_write_test_complete
+  while :; do /bin/busybox sleep 5; done
+ fi
+ /bin/busybox grep -q ' /data ' /proc/mounts && fail data_already_mounted
+ /bin/busybox grep -q ' /cache ' /proc/mounts && fail cache_already_mounted
+ # Original ROM options, without noload: writable ext4 may replay its journal.
+ /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p10 /data || fail persistent_data_mount
+ /bin/busybox mount -t ext4 -o rw,noatime,nosuid,nodev,nomblk_io_submit,errors=panic /dev/mmcblk0p9 /cache || fail persistent_cache_mount
+ stage persistent_data_cache_mounted
+else
+ /bin/busybox mount -t tmpfs -o size=256m,mode=0771,uid=1000,gid=1000,nosuid,nodev tmpfs /data || fail ram_data
+ /bin/busybox mount -t tmpfs -o size=96m,mode=0771,uid=1000,gid=2001,nosuid,nodev tmpfs /cache || fail ram_cache
+ mount_system_readonly
+fi
 # This ROM has no vendor HAL/EGL directories. Refuse an unreviewed layout.
 [ ! -d /system/vendor/lib/hw ] && [ ! -d /system/vendor/lib/egl ] || fail vendor_layout
 for name in gralloc.tegra hwcomposer.tegra audio.primary.default audio_policy.default power.default keystore.default local_time.default; do

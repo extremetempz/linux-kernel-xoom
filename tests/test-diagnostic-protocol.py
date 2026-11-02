@@ -15,13 +15,14 @@ def frame(data,nonce=N,size=None,digest=None):
 def storage_body(parts=GEOMETRY,mount='rootfs / rootfs rw 0 0\n',capacity=70000000):
  return ('XOOM_MOUNTS_BEGIN\n'+mount+'XOOM_MOUNTS_END\n'+f'XOOM_DISK mmcblk0 {capacity} 0\n'+''.join(f'XOOM_PART {n} {s} {z}\n' for n,(s,z) in parts.items())).encode()
 
-def android_body(system=True,overlays=True,execute=True,fuse=False,extras=()):
+def android_body(system=True,overlays=True,execute=True,fuse=False,extras=(),data_cache=True):
  # (source, target, filesystem, mount options, major:minor, fs root, super options)
  mounts=[('rootfs','/','rootfs','ro','0:1','/','ro'),
          ('tmpfs','/run','tmpfs','rw,nosuid,nodev','0:5','/','rw'),
-         ('proc','/proc','proc','rw','0:3','/','rw'),
-         ('tmpfs','/data','tmpfs','rw,nosuid,nodev','0:6','/','rw'),
-         ('tmpfs','/cache','tmpfs','rw,nosuid,nodev','0:7','/','rw')]
+         ('proc','/proc','proc','rw','0:3','/','rw')]
+ if data_cache:
+  mounts.extend([('tmpfs','/data','tmpfs','rw,nosuid,nodev','0:6','/','rw'),
+                 ('tmpfs','/cache','tmpfs','rw,nosuid,nodev','0:7','/','rw')])
  if system:
   mounts.append(('/dev/mmcblk0p8','/system','ext4','ro,nosuid,nodev,norecovery','179:8','/','ro,norecovery'))
  if overlays:
@@ -77,6 +78,16 @@ class AndroidReadOnly(unittest.TestCase):
   self.assertTrue(result['android_init_exec_attempted'])
   self.assertEqual(result['readonly_graphics_overlays'],['/system/lib/egl','/system/lib/hw'])
   self.assertNotIn('android_boot_completed',result) # Storage evidence cannot establish Android boot.
+ def test_persistent_inspection_has_system_but_no_data_cache_mounts(self):
+  data=android_body(overlays=False,execute=False,data_cache=False)
+  result=storage_result(data,GEOMETRY,62521344,'android44-persistent-inspect')
+  self.assertEqual(result['state'],'geometry_matches_reference')
+  self.assertEqual(result['storage_mode'],'android44-persistent-inspect')
+  self.assertTrue(result['android_filesystems_mounted'])
+  self.assertFalse(result['ram_data_mounted'])
+  self.assertFalse(result['ram_cache_mounted'])
+  with self.assertRaisesRegex(ProtocolError,'RAM data and cache'):
+   storage_result(data,GEOMETRY,62521344,'android44-readonly')
  def test_before_system_mount_is_a_diagnostic_snapshot(self):
   result=self.result(android_body(system=False,overlays=False,execute=False))
   self.assertFalse(result['android_filesystems_mounted'])

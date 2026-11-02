@@ -15,6 +15,8 @@ while IFS= read -r -n 80 request; do
   SYSCTEST\ *) verb=SYSCTEST; nonce=${request#SYSCTEST } ;;
   LATESTATUS\ *) verb=LATESTATUS; nonce=${request#LATESTATUS } ;;
   SYSSTATUS\ *) verb=SYSSTATUS; nonce=${request#SYSSTATUS } ;;
+  LP2TEST\ *) verb=LP2TEST; nonce=${request#LP2TEST } ;;
+  LP2STATUS\ *) verb=LP2STATUS; nonce=${request#LP2STATUS } ;;
   FREEZERTEST\ *) verb=FREEZERTEST; nonce=${request#FREEZERTEST } ;;
   WAKETEST\ *) verb=WAKETEST; nonce=${request#WAKETEST } ;;
   PSTORE\ *) verb=PSTORE; nonce=${request#PSTORE } ;;
@@ -92,6 +94,34 @@ while IFS= read -r -n 80 request; do
   /bin/busybox printf 'XOOM_DEVICEPMTEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
   /bin/busybox cat /run/devicepm-test.b64
   /bin/busybox printf '\nXOOM_DEVICEPMTEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = LP2TEST ]; then
+  if [ ! -x /bin/lp2-cycle ]; then
+   /bin/busybox printf 'XOOM_ERROR_V2 %s LP2TEST_MISSING\n' "$nonce"
+   continue
+  fi
+  /bin/busybox sh /bin/lp2-cycle > /run/lp2-test.txt 2>&1
+  size=$(/bin/busybox wc -c < /run/lp2-test.txt)
+  size=$((size + 0))
+  checksum=$(/bin/busybox sha256sum /run/lp2-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/lp2-test.txt > /run/lp2-test.b64 || continue
+  /bin/busybox printf 'XOOM_LP2TEST_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/lp2-test.b64
+  /bin/busybox printf '\nXOOM_LP2TEST_END_V1 %s\n' "$nonce"
+  continue
+ fi
+ if [ "$verb" = LP2STATUS ]; then
+  [ -f /run/lp2-test.txt ] || { /bin/busybox printf 'XOOM_ERROR_V2 %s LP2STATUS_MISSING\n' "$nonce"; continue; }
+  size=$(/bin/busybox wc -c < /run/lp2-test.txt)
+  size=$((size + 0))
+  checksum=$(/bin/busybox sha256sum /run/lp2-test.txt) || continue
+  checksum=${checksum%% *}
+  /bin/busybox base64 /run/lp2-test.txt > /run/lp2-status.b64 || continue
+  /bin/busybox printf 'XOOM_LP2STATUS_V1 %s %s %s\n' "$nonce" "$size" "$checksum"
+  /bin/busybox cat /run/lp2-status.b64
+  /bin/busybox printf '\nXOOM_LP2STATUS_END_V1 %s\n' "$nonce"
   continue
  fi
  if [ "$verb" = LATETEST ] || [ "$verb" = SYSCTEST ]; then

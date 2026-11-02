@@ -12,7 +12,7 @@ for f in /proc/sys/kernel/random/boot_id /proc/uptime /sys/power/state /sys/powe
 done
 for d in /sys/class/backlight/* /sys/class/power_supply/*; do
     [ -d "$d" ] || continue
-    for n in brightness actual_brightness bl_power capacity voltage_now current_now temp status online; do
+    for n in brightness actual_brightness bl_power capacity voltage_now current_now charge_counter energy_now power_now temp status online; do
         [ ! -e "$d/$n" ] || read_file "$d/$n"
     done
 done
