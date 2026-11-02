@@ -17,9 +17,15 @@ fail() {
 /bin/busybox mount -t devpts devpts /dev/pts || fail pts
 /bin/busybox sh /bin/usb-report-loop > /run/usb-loop-errors.txt 2>&1 &
 echo preparing > /run/offline97-state
-/bin/busybox dd if=/bin/e2fsck of=/run/e2fsck bs=4096 2>/dev/null || fail checker_copy
+/bin/busybox sha256sum /bin/e2fsck > /run/checker-source.txt 2>&1
+/bin/busybox wc -c < /bin/e2fsck >> /run/checker-source.txt 2>&1
+src=$(/bin/busybox head -n1 /run/checker-source.txt); src=${src%% *}
+[ "$src" = b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171 ] || fail checker_source_hash
+/bin/busybox cat /bin/e2fsck > /run/e2fsck || fail checker_copy
 /bin/busybox chmod 0755 /run/e2fsck || fail checker_chmod
-got=$(/bin/busybox sha256sum /run/e2fsck); got=${got%% *}
+/bin/busybox sha256sum /run/e2fsck > /run/checker-copy.txt 2>&1
+/bin/busybox wc -c < /run/e2fsck >> /run/checker-copy.txt 2>&1
+got=$(/bin/busybox head -n1 /run/checker-copy.txt); got=${got%% *}
 [ "$got" = b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171 ] || fail checker_copy_hash
 echo running > /run/offline97-state
 /bin/busybox timeout -s KILL 60 /bin/busybox sh /bin/offline97-ramtest > /run/offline97-ramtest.txt 2>&1

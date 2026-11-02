@@ -43,7 +43,7 @@ Standalone checker:
 `artifacts/offline97-readonly-ready/wingray-offline97-readonly.img`
 
 - 5,074,944 bytes
-- SHA256 `7c155d5dd0ecc2dbe54b23e3693599c28f93254e236456bb6d02196f5978c294`
+- SHA256 `aa770b9bb02602effff58d164751107430fd8622fd7fc7fcdd91e3c0a938d565`
 - Built from the tested inspect kernel/DTB plus a new minimal RAM initramfs.
 - Contains the standalone checker and the two compressed fixtures.
 - PID1 is `offline97-init`; no Android, TWRP, mass storage, cache, p9/p10 mount
