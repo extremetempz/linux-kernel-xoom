@@ -35,6 +35,13 @@ def validate_ecc_tree(before, after):
             assert b.pop('motorola,wingray-storage-inspect', b'') == b''
             assert b.pop('motorola,wingray-storage-write-test', b'') == b''
             assert b.pop('motorola,wingray-storage-backup', b'') == b''
+        if (node == '/sdhci@c8000600' and
+            'motorola,wingray-storage-backup' in after['/'] and
+            'motorola,xoom-firstboot-ro' in b):
+            assert 'motorola,xoom-persistent-storage' not in b
+            a.pop('motorola,xoom-persistent-storage', b'')
+            a.pop('motorola,xoom-firstboot-ro', b'')
+            assert b.pop('motorola,xoom-firstboot-ro') == b''
         if node == '/sdhci@c8000600' and 'motorola,xoom-persistent-storage' in b:
             assert a.pop('motorola,xoom-firstboot-ro', b'') == b''
             assert a.pop('motorola,xoom-persistent-storage', b'') == b''
