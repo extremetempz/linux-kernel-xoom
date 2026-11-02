@@ -43,7 +43,7 @@ Standalone checker:
 `artifacts/offline97-readonly-ready/wingray-offline97-readonly.img`
 
 - 5,074,944 bytes
-- SHA256 `969f61e6ce02a89ccfe4805ff2779d4690a3d38d259f85ae3f4fba3d1af145c3`
+- SHA256 `f3aebcc2ccb30ad9f7dc6fc41efddaaec5a2da6d35397bf4bed12eb5a72abc5c`
 - Built from the tested inspect kernel/DTB plus a new minimal RAM initramfs.
 - Contains the standalone checker and the two compressed fixtures.
 - PID1 is `offline97-init`; no Android, TWRP, mass storage, cache, p9/p10 mount
@@ -53,8 +53,11 @@ Standalone checker:
   then checks the checker on RAM fixtures only.
 - Fits below the 8MiB boot limit.
 
-Host mode `offline97` validates the framed report. A synthetic report passes;
-the image itself is **not hardware-tested**.
+Host mode `offline97` validates the framed report. The first hardware boot exposed
+an ETXTBSY on `/bin/e2fsck` and a missing fresh-report header; the current image
+copies the checker to `/run/e2fsck` before execution and wraps its report in the
+fixed `XOOM_FRESH_REPORT_V2` framing. A synthetic report passes; the image itself
+is **not hardware-tested**.
 
 ## Boundary
 
