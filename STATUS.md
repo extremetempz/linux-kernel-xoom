@@ -1,4 +1,15 @@
-> **Storage96 prepared — 3 November 2026:** read-only USB p10 inspection/backup
+> **Storage96 host evidence — 3 November 2026:** the operator booted the RO
+> mass-storage environment and completed a verified p10 acquisition with two
+> independent source reads. The original filesystem is blocked by journal/orphan,
+> counter and bitmap inconsistencies. A separate host-copy repair passes full
+> read-only fsck;90 ordinary package directories have matching UIDs, and the
+> apparent Bluetooth group mismatch was a corrected checker error. The tablet's
+> userdata has not been repaired or restored. Persistent writes remain blocked;
+> the live offline repair environment/tool still needs validation. See
+> [host evidence](docs/persistent-storage-96-host-repair-review.md) and
+> [gated offline repair plan](docs/persistent-storage-96-offline-repair-plan.md).
+
+> **Storage96 prepared — 3 November 2026 (historical pre-test status):** read-only USB p10 inspection/backup
 > image built and audited; helper ABI/rollback, pre-remap block policy, host
 > evidence/readiness and independent cache gates corrected offline. No flash,
 > device access or physical writes occurred. Filesystem health, a verified
