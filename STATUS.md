@@ -1,3 +1,10 @@
+> **Storage96 prepared — 3 November 2026:** read-only USB p10 inspection/backup
+> image built and audited; helper ABI/rollback, pre-remap block policy, host
+> evidence/readiness and independent cache gates corrected offline. No flash,
+> device access or physical writes occurred. Filesystem health, a verified
+> backup and persistence remain unproven. See
+> [review, image hash and next read-only procedure](docs/persistent-storage-96.md).
+
 > **Image90 prepared (1 November 2026):** full ARM build and offline checks
 > pass for a selected CPCAP driver suspend/resume callback transaction after
 > task freezing. SPI/IRQs/CPUs stay active; whole-tree device PM and hardware
