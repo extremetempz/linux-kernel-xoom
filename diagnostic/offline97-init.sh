@@ -20,6 +20,12 @@ echo preparing > /run/offline97-state
 /bin/busybox : > /run/checker-chunks.txt
 /bin/busybox : > /run/e2fsck
 final=""; final_size=""
+/bin/busybox ls -la /chunks > /run/chunks-list.txt 2>&1
+if [ -f /chunks/manifest ]; then
+ /bin/busybox cat /chunks/manifest > /run/chunks-manifest.txt 2>&1
+else
+ echo manifest_missing > /run/chunks-manifest.txt
+fi
 while read name hash size; do
  if [ "$name" = FINAL ]; then final=$hash; final_size=$size; break; fi
  case "$name" in e2fsck.[0-9][0-9][0-9]) :;; *) fail checker_chunk_name;; esac
@@ -27,7 +33,9 @@ while read name hash size; do
  [ "$got" = "$hash" ] || fail checker_chunk_hash
  /bin/busybox cat "/chunks/$name" >> /run/e2fsck || fail checker_chunk_copy
  echo "$name $got" >> /run/checker-chunks.txt
-done < /chunks/manifest
+done <<'CHUNK_MANIFEST'
+#__CHUNK_MANIFEST__
+CHUNK_MANIFEST
 [ "$final" = b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171 ] || fail checker_final_hash
 /bin/busybox chmod 0755 /run/e2fsck || fail checker_chmod
 /bin/busybox sha256sum /run/e2fsck > /run/checker-copy.txt 2>&1

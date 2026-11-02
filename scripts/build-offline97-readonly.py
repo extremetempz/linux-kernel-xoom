@@ -47,6 +47,8 @@ def main():
   manifest.append(f'{name} {sha(data)} {len(data)}')
  manifest.append(f'FINAL {sha(checker)} {len(checker)}')
  entries['chunks/manifest']=Entry('chunks/manifest',stat.S_IFREG|0o644,('\n'.join(manifest)+'\n').encode())
+ init_bytes=scripts['offline97-init.sh'].replace(b'#__CHUNK_MANIFEST__\n', ('\n'.join(manifest)+'\n').encode())
+ entries['init']=Entry('init',stat.S_IFREG|0o755,init_bytes)
  for n,b in fixtures.items(): entries['fixtures/'+n]=Entry('fixtures/'+n,stat.S_IFREG|0o644,b)
  cpio=pack_newc(entries)
  ram=cpio if a.uncompressed else lzma.compress(cpio,format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32)
