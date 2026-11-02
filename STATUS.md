@@ -1,3 +1,12 @@
+> **Offline97 read-only candidate built — 3 November 2026:** the locally present
+> raw p10 backup was rehashed to `c637b516…` and the repaired host copy to
+> `9c0826d8…`; both are 30334779392 bytes. The repaired host copy passes full
+> read-only fsck, but the tablet remains unrepaired and its original source is
+> still blocked. A read-only offline97 image now embeds the standalone ARM
+> checker and RAM fixtures: 5,074,944 bytes, SHA256 `969f61e6…`. It has no
+> Android, mass storage, physical filesystem mount or repair command and is not
+> hardware-tested. See [verification](docs/offline97-verification.md).
+
 > **Storage96 host evidence — 3 November 2026:** the operator booted the RO
 > mass-storage environment and completed a verified p10 acquisition with two
 > independent source reads. The original filesystem is blocked by journal/orphan,

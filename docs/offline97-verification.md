@@ -1,69 +1,66 @@
 # Offline97 verification checkpoint — 3 November 2026
 
-This verifies the committed storage96/offline97 checkpoint. It does not
-authorize a tablet flash, physical userdata repair, restore or writable mount.
+This verifies the committed storage96/offline97 work and the locally present
+host evidence. No physical repair, restore or writable mount was performed.
 
-## Source state
+## Host evidence rehashed locally
 
-- Project branch: `deepseek`
-- Verified project commit: `3fd6b67` (fast-forwarded from
-  `codex/persistent-storage96`)
-- Kernel patch `0178-wingray-storage-bio-and-backup-readonly.patch` is applied
-  to the local donor and committed as `989370f8`. The project test requires the
-  `wingray_storage_write_blocked` path and fails without it.
-- The offline97 runtime drafts are syntax-checked only.
+- Raw p10 image: `/home/justin/xoom-p10-backup96/userdata-p10.img`
+  - size: 30334779392 bytes
+  - SHA256: `c637b516529dbee491bc3d435ffcf451527ef9902d3cad8035e4fc6437133579`
+  - acquisition and independent second read agree; both records report RO1.
+- Repaired host experiment:
+  `/home/justin/xoom-p10-preen96-2y07el_a/userdata-repair-experiment.img`
+  - size: 30334779392 bytes
+  - SHA256: `9c0826d8d98c77c785c7829388167955481e48f4778b85576233824ed17a375f`
+  - read-only e2fsck returned 0 with all five passes and no unresolved-output
+    warning.
+- `scripts/persistent-readiness.py` rehashed the backup and confirmed:
+  - `DATA_BACKUP_VERIFIED=true`
+  - `DATA_FILESYSTEM_VERIFIED=false` for the original source
+  - `DATA_WRITE_POLICY_VERIFIED=true`
+  - `writes_allowed=false`
 
-## Tests rerun
+The original tablet filesystem remains blocked by its source fsck and
+`needs_recovery` feature. The repaired image is a host experiment only. The
+tablet has not been repaired.
 
-- `tests/test-offline97-tools.py`: passed under Cortex-A9 emulation with the
-  standalone checker. Covered clean fsck, counter/bitmap detection,
-  conservative preen, recheck, journal-only replay and a write beyond 30 GB.
-- `tests/test-storage-host96.py`: 8/8 passed.
-- `tests/test-storage-policy96.py`: passed after applying kernel patch 0178.
-- `tests/test-storage-write96.py`: passed.
-- `tests/test-storage-identity96.py`: passed.
-- `tests/test-recovery-storage-preflight.py`: passed; write approval remained
-  false.
+## Tests
 
-Checker SHA256:
+- `test-offline97-tools.py`: passed under Cortex-A9 emulation.
+- `test-storage-host96.py`: 8/8 passed.
+- `test-storage-policy96.py`: passed after applying kernel patch 0178.
+- `test-storage-write96.py`: passed.
+- `test-storage-identity96.py`: passed.
+- `test-recovery-storage-preflight.py`: passed; approval remained false.
+
+Standalone checker:
 `b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171`,
-815912 bytes, static ARMv7, non-NEON. Physical runtime remains unvalidated.
+815912 bytes, static ARMv7 non-NEON. Physical runtime is still unvalidated.
 
-## Evidence not local
+## Read-only offline97 image built
 
-The host-repair review records a complete raw p10 backup of
-30334779392 bytes with SHA256
-`c637b516529dbee491bc3d435ffcf451527ef9902d3cad8035e4fc6437133579`,
-and a repaired host copy with SHA256
-`9c0826d8d98c77c785c7829388167955481e48f4778b85576233824ed17a375f`.
+`artifacts/offline97-readonly-ready/wingray-offline97-readonly.img`
 
-Neither object is present under `/home/justin` in this checkout, and
-`/home/justin/xoom-backups` is empty. Those hashes are therefore
-operator-supplied evidence and cannot be independently rehashed here. Do not
-claim the backup or repaired copy is locally verified.
+- 5,074,944 bytes
+- SHA256 `969f61e6ce02a89ccfe4805ff2779d4690a3d38d259f85ae3f4fba3d1af145c3`
+- Built from the tested inspect kernel/DTB plus a new minimal RAM initramfs.
+- Contains the standalone checker and the two compressed fixtures.
+- PID1 is `offline97-init`; no Android, TWRP, mass storage, cache, p9/p10 mount
+  or physical repair command.
+- Serial gadget is enabled; only fixed PING/REPORT framing is exposed.
+- RAM test requires the whole disk and all ten BigPart partitions to remain RO,
+  then checks the checker on RAM fixtures only.
+- Fits below the 8MiB boot limit.
 
-## Not yet built
-
-No offline97 boot image exists. `diagnostic/offline97-{init,ramtest,report,server}.sh`
-are not packaged, linked, boot-audited or hardware-tested.
-
-The safe next build is a read-only RAM runtime with:
-
-- the serial gadget and no mass-storage LUN;
-- no Android/TWRP and no physical filesystem mounts;
-- immutable p9/p10/whole-disk policy;
-- the standalone checker and the two compressed fixtures;
-- fixed PING/REPORT framing only.
-
-It must be boot-audited and reviewed before a read-only hardware boot. It cannot
-repair userdata.
+Host mode `offline97` validates the framed report. A synthetic report passes;
+the image itself is **not hardware-tested**.
 
 ## Boundary
 
-- No tablet access, flash, mount, repair or restore was performed by this
-  verification.
-- No StageB/C or persistent Android authorization.
-- No cache or userdata modification.
-- Physical repair remains blocked until the exact raw backup and repaired copy
-  are located and rehashed and a read-only offline97 environment passes hardware
-  validation.
+- No flash, tablet write, physical repair or restore occurred.
+- No StageB/C, Android persistent boot or cache change.
+- The read-only offline97 image may be reviewed and optionally booted only after
+  explicit operator approval; it must not be given a writable part.
+- Physical repair requires a separate review and authorization after this image
+  proves the checker and policy behavior on hardware.
