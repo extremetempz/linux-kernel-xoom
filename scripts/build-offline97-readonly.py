@@ -31,7 +31,7 @@ def main():
  scripts={n:(ROOT/'diagnostic'/n).read_bytes() for n in
           ('offline97-init.sh','offline97-ramtest.sh','offline97-report.sh','offline97-server.sh')}
  entries={}
- for d in ('bin','dev','fixtures','proc','run','sys','tmp'):
+ for d in ('bin','chunks','dev','fixtures','proc','run','sys','tmp'):
   entries[d]=Entry(d,stat.S_IFDIR|0o755)
  entries['init']=Entry('init',stat.S_IFREG|0o755,scripts['offline97-init.sh'])
  entries['bin/busybox']=Entry('bin/busybox',stat.S_IFREG|0o755,busybox)
@@ -39,7 +39,14 @@ def main():
  entries['bin/offline97-ramtest']=Entry('bin/offline97-ramtest',stat.S_IFREG|0o755,scripts['offline97-ramtest.sh'])
  entries['bin/diagnostic-report']=Entry('bin/diagnostic-report',stat.S_IFREG|0o755,scripts['offline97-report.sh'])
  entries['bin/diagnostic-server']=Entry('bin/diagnostic-server',stat.S_IFREG|0o755,scripts['offline97-server.sh'])
- entries['bin/e2fsck']=Entry('bin/e2fsck',stat.S_IFREG|0o755,checker)
+ chunk_size=64*1024
+ manifest=[]
+ for i in range(0,len(checker),chunk_size):
+  name='e2fsck.%03d'%(i//chunk_size); data=checker[i:i+chunk_size]
+  entries['chunks/'+name]=Entry('chunks/'+name,stat.S_IFREG|0o644,data)
+  manifest.append(f'{name} {sha(data)} {len(data)}')
+ manifest.append(f'FINAL {sha(checker)} {len(checker)}')
+ entries['chunks/manifest']=Entry('chunks/manifest',stat.S_IFREG|0o644,('\n'.join(manifest)+'\n').encode())
  for n,b in fixtures.items(): entries['fixtures/'+n]=Entry('fixtures/'+n,stat.S_IFREG|0o644,b)
  cpio=pack_newc(entries)
  ram=cpio if a.uncompressed else lzma.compress(cpio,format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32)

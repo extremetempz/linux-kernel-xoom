@@ -17,16 +17,24 @@ fail() {
 /bin/busybox mount -t devpts devpts /dev/pts || fail pts
 /bin/busybox sh /bin/usb-report-loop > /run/usb-loop-errors.txt 2>&1 &
 echo preparing > /run/offline97-state
-/bin/busybox sha256sum /bin/e2fsck > /run/checker-source.txt 2>&1
-/bin/busybox wc -c < /bin/e2fsck >> /run/checker-source.txt 2>&1
-src=$(/bin/busybox head -n1 /run/checker-source.txt); src=${src%% *}
-[ "$src" = b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171 ] || fail checker_source_hash
-/bin/busybox cat /bin/e2fsck > /run/e2fsck || fail checker_copy
+/bin/busybox : > /run/checker-chunks.txt
+/bin/busybox : > /run/e2fsck
+final=""; final_size=""
+while read name hash size; do
+ if [ "$name" = FINAL ]; then final=$hash; final_size=$size; break; fi
+ case "$name" in e2fsck.[0-9][0-9][0-9]) :;; *) fail checker_chunk_name;; esac
+ got=$(/bin/busybox sha256sum "/chunks/$name" 2>/dev/null); got=${got%% *}
+ [ "$got" = "$hash" ] || fail checker_chunk_hash
+ /bin/busybox cat "/chunks/$name" >> /run/e2fsck || fail checker_chunk_copy
+ echo "$name $got" >> /run/checker-chunks.txt
+done < /chunks/manifest
+[ "$final" = b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171 ] || fail checker_final_hash
 /bin/busybox chmod 0755 /run/e2fsck || fail checker_chmod
 /bin/busybox sha256sum /run/e2fsck > /run/checker-copy.txt 2>&1
 /bin/busybox wc -c < /run/e2fsck >> /run/checker-copy.txt 2>&1
 got=$(/bin/busybox head -n1 /run/checker-copy.txt); got=${got%% *}
-[ "$got" = b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171 ] || fail checker_copy_hash
+[ "$got" = "$final" ] || fail checker_copy_hash
+[ "$(/bin/busybox wc -c < /run/e2fsck)" = "$final_size" ] || fail checker_copy_size
 echo running > /run/offline97-state
 /bin/busybox timeout -s KILL 60 /bin/busybox sh /bin/offline97-ramtest > /run/offline97-ramtest.txt 2>&1
 rc=$?

@@ -3,7 +3,7 @@
 > `9c0826d8…`; both are 30334779392 bytes. The repaired host copy passes full
 > read-only fsck, but the tablet remains unrepaired and its original source is
 > still blocked. A read-only offline97 image now embeds the standalone ARM
-> checker and RAM fixtures: 5,074,944 bytes, SHA256 `2d8ca1fb…`. It has no
+> checker and RAM fixtures: 5,074,944 bytes, SHA256 `91175b8f…`. It has no
 > Android, mass storage, physical filesystem mount or repair command and is not
 > hardware-tested. See [verification](docs/offline97-verification.md).
 
