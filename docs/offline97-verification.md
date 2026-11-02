@@ -69,3 +69,29 @@ framing. The image is rebuilt but still **not hardware-tested**.
   explicit operator approval; it must not be given a writable part.
 - Physical repair requires a separate review and authorization after this image
   proves the checker and policy behavior on hardware.
+
+
+## Hardware result — 3 November 2026
+
+The internal-initramfs image booted on the Wingray and passed the read-only RAM
+suite:
+
+- all 13 checker chunks and the embedded manifest matched;
+- `/run/e2fsck` final SHA256
+  `b063d57f8bdd3c8474a6ad3ad69faa13dfac3e17d251da50557052b07096d171`;
+- `e2fsck 1.47.0`;
+- clean fixture exit 0;
+- corrupted counter/bitmap fixture exit 4;
+- conservative preen exit 1;
+- recheck exit 0;
+- `OFFLINE97_RAMTEST_PASSED_PHYSICAL_WRITES_DISABLED`;
+- `RAMTEST_EXIT 0`;
+- capture state `offline97_ramtest_passed`.
+
+Report capture:
+`artifacts/offline97-hw8/report-private.txt`
+(SHA256 `a33fdde2631514ee8bca9d0fa63c4f9088bd4c8ccc8fb7318d97aaa9346f6812`).
+
+No p9/p10 mount, physical fsck, repair, restore or writable operation occurred.
+The tablet userdata remains the original unmodified source. The physical repair
+environment has not been designed or built yet.

@@ -1,3 +1,11 @@
+> **Offline97 read-only hardware validation PASSED — 3 November 2026:** the
+> internal-initramfs image booted, all 13 chunk hashes and the final checker hash
+> matched, and the standalone ARM e2fsck completed clean/counter/preen/recheck
+> RAM tests with `RAMTEST_EXIT 0`. Image SHA256 `fd3af657…`; report H8. No
+> p9/p10 mount, physical fsck, repair or userdata write occurred. The physical
+> repair environment remains unbuilt and unauthorized. See
+> [verification](docs/offline97-verification.md).
+
 > **Offline97 read-only candidate built — 3 November 2026:** the locally present
 > raw p10 backup was rehashed to `c637b516…` and the repaired host copy to
 > `9c0826d8…`; both are 30334779392 bytes. The repaired host copy passes full
