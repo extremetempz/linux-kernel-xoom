@@ -1,0 +1,86 @@
+From 66ad4c3992b37804cb73da5ce53afca2b2fcba65 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Tue, 3 Nov 2026 07:42:56 +1100
+Subject: [PATCH] Wingray: enforce storage bio policy and immutable backup LUN
+ source
+
+---
+ ...20-motorola-wingray-android44-storage-backup.dts |  5 +++++
+ block/blk-core.c                                    | 13 +++++++++++++
+ drivers/mmc/card/block.c                            |  2 ++
+ include/linux/genhd.h                               |  2 ++
+ 4 files changed, 22 insertions(+)
+
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-storage-backup.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-storage-backup.dts
+index d17b189b..70259832 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-android44-storage-backup.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-android44-storage-backup.dts
+@@ -7,3 +7,8 @@
+ 	model = "Motorola Xoom P3 storage backup read-only mass storage";
+ 	motorola,wingray-storage-backup;
+ };
++
++&{/sdhci@c8000600} {
++ /delete-property/ motorola,xoom-persistent-storage;
++ motorola,xoom-firstboot-ro;
++};
+diff --git a/block/blk-core.c b/block/blk-core.c
+index e149b84c..7a29d81d 100644
+--- a/block/blk-core.c
++++ b/block/blk-core.c
+@@ -1909,6 +1909,14 @@ static inline int bio_check_eod(struct bio *bio, unsigned int nr_sectors)
+ 	return 0;
+ }
+ 
++/* Enforce policy on the original partition before partition remapping. */
++static bool wingray_storage_write_blocked(struct bio *bio)
++{
++ return (bio->bi_bdev->bd_disk->flags & GENHD_FL_WINGRAY_STORAGE_RO) &&
++  (bio->bi_rw & (REQ_WRITE | REQ_DISCARD | REQ_WRITE_SAME)) &&
++  bdev_read_only(bio->bi_bdev);
++}
++
+ static noinline_for_stack bool
+ generic_make_request_checks(struct bio *bio)
+ {
+@@ -1920,6 +1928,11 @@ generic_make_request_checks(struct bio *bio)
+ 
+ 	might_sleep();
+ 
++	if (wingray_storage_write_blocked(bio)) {
++		err = -EROFS;
++		goto end_io;
++	}
++
+ 	if (bio_check_eod(bio, nr_sectors))
+ 		goto end_io;
+ 
+diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
+index 84c2374b..67fd1851 100644
+--- a/drivers/mmc/card/block.c
++++ b/drivers/mmc/card/block.c
+@@ -2595,6 +2595,8 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
+ 	set_disk_ro(md->disk, md->read_only || default_ro ||
+ 		    mmc_wingray_persistent_storage(card));
+ 	md->disk->flags = GENHD_FL_EXT_DEVT;
++	if (mmc_wingray_persistent_storage(card) || mmc_wingray_firstboot_ro(card))
++		md->disk->flags |= GENHD_FL_WINGRAY_STORAGE_RO;
+ 	if (area_type & (MMC_BLK_DATA_AREA_RPMB | MMC_BLK_DATA_AREA_BOOT))
+ 		md->disk->flags |= GENHD_FL_NO_PART_SCAN;
+ 
+diff --git a/include/linux/genhd.h b/include/linux/genhd.h
+index 5012fcdb..5716373d 100644
+--- a/include/linux/genhd.h
++++ b/include/linux/genhd.h
+@@ -138,6 +138,8 @@ struct hd_struct {
+ #define GENHD_FL_EXT_DEVT			64 /* allow extended devt */
+ #define GENHD_FL_NATIVE_CAPACITY		128
+ #define GENHD_FL_BLOCK_EVENTS_ON_EXCL_WRITE	256
++/* Enforce original partition RO policy before bio partition remapping. */
++#define GENHD_FL_WINGRAY_STORAGE_RO 1024
+ #define GENHD_FL_NO_PART_SCAN			512
+ 
+ enum {
+-- 
+2.43.0
+
