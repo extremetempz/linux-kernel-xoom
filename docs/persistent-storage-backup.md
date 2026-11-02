@@ -1,59 +1,20 @@
-# Userdata backup gate for persistent storage
+# Userdata backup gate — updated 3 November 2026
 
-**No verified off-device p10 backup exists in this workspace.** Stage B and
-Stage C are therefore not authorized.
+No verified p10 host-evidence bundle has been provided or found in the reviewed
+local artifact directories. StageB and StageC remain blocked.
 
-## Required object
+Use the complete [Image96 read-only host procedure](persistent-storage-96.md).
+It replaces this page's old example, which incorrectly included `conv=noerror`
+and verified only the backup file's own hash. Neither is acceptable evidence
+of a complete source copy.
 
-A restorable raw image of the existing userdata partition:
+Required: exact30334779392-byte raw p10 image from a stable/unmounted source,
+full read without I/O errors, host filesystem/encryption/feature inspection,
+independent complete O_DIRECT source read, matching source/image SHA256,
+retained raw evidence and a reviewed BigPart-aware offline restore procedure.
+Do not save it on the tablet, exported USB device or in GitHub.
 
-```text
-source: /dev/block/mmcblk0p10
-size:   59,247,616 sectors = 30,334,779,392 bytes
-```
-
-The backup must be taken with p10 **not mounted read-write** and must be
-verified by size and SHA-256. A boot-image backup is insufficient.
-
-## Acquisition options
-
-Use an environment and procedure you already trust; this repository does not
-flash recovery, repartition or automate userdata writes.
-
-- Existing recovery/TWRP that can read the BigPart p10 without restoring or
-  formatting it, with output to an external SD card or ADB stream.
-- Existing original Android with a verified root shell, p10 unmounted, and
-  output to a removable medium.
-- Any offline method that yields the exact partition byte stream.
-
-Example command shape only, to be run by the operator in such an environment:
-
-```sh
-# Confirm p10 is not mounted and the external target is not p10/cache/system.
-dd if=/dev/block/mmcblk0p10 of=/path/to/external/p10.img bs=4M conv=fsync,noerror
-sha256sum /path/to/external/p10.img
-stat -c %s /path/to/external/p10.img
-```
-
-Do not run a command like this against a path you have not verified. Do not
-write the backup into p10 itself. Do not commit it to GitHub.
-
-## Verification
-
-```sh
-python3 scripts/persistent-readiness.py \
-  --inspection artifacts/storage-inspect1/inspection.json \
-  --backup /path/to/external/p10.img \
-  --backup-sha256 <sha256> \
-  --output artifacts/storage-inspect1/write-readiness.json
-```
-
-This only verifies the Stage-A verdict, exact p10 size and SHA-256. It does not
-flash, mount or authorize a physical write.
-
-## Restore
-
-Restoring boot does not undo changes to `/data`. A userdata restore is a raw
-write to p10 using the verified backup and an operator-approved offline
-procedure. Do not format, repartition or factory-reset. Preserve the current
-backup hash and stop if the target size does not match.
+The new readiness command uses --host-inspection and verifies the underlying
+bundle rather than trusting a JSON `inspection_passed` boolean. It does not
+flash, repair, mount RW, authorize writes or restore anything. Dirty/encrypted/
+unknown filesystems remain blocked for writable mounting even if backed up.
