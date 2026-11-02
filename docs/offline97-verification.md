@@ -43,7 +43,7 @@ Standalone checker:
 `artifacts/offline97-readonly-ready/wingray-offline97-readonly.img`
 
 - 5,074,944 bytes
-- SHA256 `f3aebcc2ccb30ad9f7dc6fc41efddaaec5a2da6d35397bf4bed12eb5a72abc5c`
+- SHA256 `7c155d5dd0ecc2dbe54b23e3693599c28f93254e236456bb6d02196f5978c294`
 - Built from the tested inspect kernel/DTB plus a new minimal RAM initramfs.
 - Contains the standalone checker and the two compressed fixtures.
 - PID1 is `offline97-init`; no Android, TWRP, mass storage, cache, p9/p10 mount
@@ -53,11 +53,13 @@ Standalone checker:
   then checks the checker on RAM fixtures only.
 - Fits below the 8MiB boot limit.
 
-Host mode `offline97` validates the framed report. The first hardware boot exposed
-an ETXTBSY on `/bin/e2fsck` and a missing fresh-report header; the current image
-copies the checker to `/run/e2fsck` before execution and wraps its report in the
-fixed `XOOM_FRESH_REPORT_V2` framing. A synthetic report passes; the image itself
-is **not hardware-tested**.
+Host mode `offline97` validates the framed report. Hardware boots exposed
+ETXTBSY on `/bin/e2fsck`, then a corrupt `/run/e2fsck` copy (SHA256
+`0139774e…` instead of `b063d57f…`) when using BusyBox `cp`. The current image
+uses `dd` to copy the checker to `/run`, verifies its exact SHA256 before
+execution, starts the serial reporter before the copy, records copy failures in
+`offline97-state`, and wraps the report in the fixed `XOOM_FRESH_REPORT_V2`
+framing. The image is rebuilt but still **not hardware-tested**.
 
 ## Boundary
 
