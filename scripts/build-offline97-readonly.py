@@ -14,6 +14,7 @@ def main():
  ap.add_argument('--checker',type=Path,required=True)
  ap.add_argument('--fixtures',type=Path,required=True)
  ap.add_argument('--output-dir',type=Path,required=True)
+ ap.add_argument('--uncompressed',action='store_true')
  a=ap.parse_args()
  if a.output_dir.exists(): ap.error('use a new output directory')
  image=a.inspect_image.read_bytes()
@@ -40,11 +41,12 @@ def main():
  entries['bin/diagnostic-server']=Entry('bin/diagnostic-server',stat.S_IFREG|0o755,scripts['offline97-server.sh'])
  entries['bin/e2fsck']=Entry('bin/e2fsck',stat.S_IFREG|0o755,checker)
  for n,b in fixtures.items(): entries['fixtures/'+n]=Entry('fixtures/'+n,stat.S_IFREG|0o644,b)
- cpio=pack_newc(entries); ram=lzma.compress(cpio,format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32)
+ cpio=pack_newc(entries)
+ ram=cpio if a.uncompressed else lzma.compress(cpio,format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC32)
  boot=boot_image(kernel,ram)
  a.output_dir.mkdir(mode=0o755)
  (a.output_dir/'wingray-offline97-readonly.img').write_bytes(boot)
- (a.output_dir/'initramfs.cpio.xz').write_bytes(ram)
+ (a.output_dir/('initramfs.cpio' if a.uncompressed else 'initramfs.cpio.xz')).write_bytes(ram)
  manifest={'image':'wingray-offline97-readonly.img','image_sha256':sha(boot),'image_bytes':len(boot),
   'kernel_sha256':sha(kernel),'ramdisk_sha256':sha(ram),'checker_sha256':sha(checker),
   'checker_bytes':len(checker),'fixtures':{n:sha(b) for n,b in fixtures.items()},
