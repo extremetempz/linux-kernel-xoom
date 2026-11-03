@@ -1,3 +1,11 @@
+> **P10 PHYSICAL REPAIR PASSED — 3 November 2026:** operator-authorized
+> interactive e2fsck repaired the p10 orphan/free-count/bitmap state; p9/p8/disk
+> stayed RO. A subsequent complete read-only fsck passed all five phases with no
+> warnings. Post-repair RO inspection is intact, crypto absent, `/data` layout
+> preserved. The tablet is un-rebooted into Android and Stage B/C remain blocked.
+> A fresh raw backup of the repaired p10 is still required. See
+> [repair result](docs/offline98-repair-result.md).
+
 > **Offline97 read-only hardware validation PASSED — 3 November 2026:** the
 > internal-initramfs image booted, all 13 chunk hashes and the final checker hash
 > matched, and the standalone ARM e2fsck completed clean/counter/preen/recheck
