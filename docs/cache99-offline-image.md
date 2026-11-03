@@ -98,3 +98,21 @@ Current p9 backup image hash:
 `8bd8b70aebf693fec173ff9adda12aa3a2f60e85889b6094fa0da95eac80521d`.
 Host automount settings were originally true and remain temporarily disabled;
 restore them only after the exported storage gadget is disconnected.
+
+## First hardware boot and read-only preflight — 3 November 2026
+
+Boot-only flash completed successfully on Xoom serial 043c708640809657.
+Fresh framed report verified SHA-256
+`1c07453f88ac5aa6e14c0cd1d5c44ea19b5c6dbb9419fee0ec8a9c9b051c36dd`.
+All clean/counter/journal/padding RAM test exit codes matched expectations,
+all-ten geometry matched, whole disk and p1–p10 were RO, no eMMC filesystems
+were mounted, and no repair had been attempted. Capture result:
+`cache99_readonly_ramtest_passed`.
+
+A separate fixed `PREFLIGHT_P9` command completed
+`CACHE99_PREFLIGHT_PASSED_P9_RO_ALL_OTHERS_RO`. That script checked the live
+physical p9 against original SHA-256 7053be21…b3e4aef, exact device identity,
+all-RO policy, holders, virtual-only mounts and absence of swap/export.
+No REPAIR_P9/CONFIRM command has been sent and no physical repair has run yet.
+The original desktop automount and automount-open settings were restored true
+after the storage gadget disconnected. Current image exports serial only.
