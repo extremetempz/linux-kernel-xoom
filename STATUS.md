@@ -1,3 +1,10 @@
+> **Post-repair p10 backup VERIFIED — 3 November 2026:** repaired p10 acquired
+> read-only, 30,334,779,392 bytes, SHA256 `05f86fda…`; source and backup e2fsck
+> clean, independent second source read matched, `DATA_BACKUP_VERIFIED` and
+> `DATA_FILESYSTEM_VERIFIED` true. No tablet write during acquisition. Stage B/C
+> still require a current-image review. See
+> [post-repair backup](docs/p10-postrepair-backup.md).
+
 > **P10 PHYSICAL REPAIR PASSED — 3 November 2026:** operator-authorized
 > interactive e2fsck repaired the p10 orphan/free-count/bitmap state; p9/p8/disk
 > stayed RO. A subsequent complete read-only fsck passed all five phases with no
