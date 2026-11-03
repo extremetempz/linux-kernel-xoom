@@ -3,7 +3,7 @@
 from pathlib import Path
 import struct,subprocess,tempfile
 ROOT=Path(__file__).resolve().parents[1];s=(ROOT/'diagnostic/android44-gpu-bootstrap.sh').read_text()
-a=s.index('verify_persistent_data() {');b=s.index('\n}\n',a)+3
+a=s.index('verify_persistent_volume() {');b=s.index('\nif [ \"$persistent\" = 1 ]; then',a)
 with tempfile.TemporaryDirectory() as t:
  p=Path(t);dev=p/'device';approval=p/'approved';data=bytearray(2048)
  data[1128:1144]=b'X'*16;data[1116:1128]=bytes.fromhex('3c000000420200007b000000');data[1082:1084]=b'\1\0'
@@ -14,6 +14,12 @@ with tempfile.TemporaryDirectory() as t:
  for offset in (1128,1116,1082,1428):
   original=dev.read_bytes();bad=bytearray(original);bad[offset]^=1;dev.write_bytes(bad)
   assert run()!=0;dev.write_bytes(original)
+ original=dev.read_bytes();bad=bytearray(original);bad[1120]|=4;dev.write_bytes(bad)
+ assert run()==0
+ for offset in (1116,1121,1124,1127):
+  altered=bytearray(bad);altered[offset]^=1;dev.write_bytes(altered);assert run()!=0
+ dev.write_bytes(bad);altered=bytearray(bad);altered[1082]=0;dev.write_bytes(altered);assert run()==0
+ dev.write_bytes(original)
  approval.unlink();assert run()!=0
 assert 'XOOM_STORAGE_WRITE_TEST_UNMOUNT_RC' in s
 print('PASS actual RO bootstrap identity/features/clean-state/error-count binding; no real device')

@@ -7,6 +7,15 @@ import storage_host_evidence as evidence
 from storage_host_evidence import superblock,validate_host_report,source_identity,digest,save_json
 spec=importlib.util.spec_from_file_location('ready',ROOT/'scripts/persistent-readiness.py');ready=importlib.util.module_from_spec(spec);spec.loader.exec_module(ready)
 class Evidence(unittest.TestCase):
+ def test_cache_purpose_and_fsck_output(self):
+  self.assertEqual(evidence.volume_spec('cache'),(536870912,'cache-p9.img','xoom-p9-host-v1'))
+  self.assertTrue(evidence.fsck_output_has_errors('Free blocks count wrong (1, counted=2).\nFix? no'))
+  self.assertFalse(evidence.fsck_output_has_errors('Pass 5: Checking group summary information'))
+  report=self.p.parent/'wrong-purpose.json'
+  report.write_text(json.dumps({'schema':'xoom-p10-host-v1','source':{'bytes':536870912,'ro':1}}))
+  with self.assertRaises(ValueError):validate_host_report(report,partition='cache')
+  report.write_text(json.dumps({'schema':'xoom-p9-host-v1','source':{'bytes':30334779392,'ro':1}}))
+  with self.assertRaises(ValueError):validate_host_report(report)
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.p=Path(self.tmp.name)/'fs.img';self.n=2*1024*1024
   b=bytearray(self.n);struct.pack_into('<I',b,1028,1024);struct.pack_into('<I',b,1048,0)
