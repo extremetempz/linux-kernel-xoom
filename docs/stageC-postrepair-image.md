@@ -75,8 +75,25 @@ The host now accepts `android44-persistent`:
 
 - p1–p9 and whole disk read-only; p10 writable;
 - `/data` must be p10 ext4 mounted `rw`;
-- `/cache` must be absent;
+- `/cache` must be a fresh tmpfs, never p9;
 - `/system` must be read-only;
 - the Android init execution marker is allowed.
 
 No image rebuild was needed for this host-side validation.
+
+## First Stage C boot
+
+The report validated in `android44-persistent` mode:
+
+- p10 `0`; p8/p9/whole disk `1`;
+- `/data` p10 ext4 `rw`;
+- `/cache` fresh 96MiB tmpfs, p9 not mounted;
+- `/system` ext4 ro,noload;
+- read-only `/system/lib/hw` and `/system/lib/egl` overlays;
+- Android init executed;
+- surfaceflinger and zygote running;
+- no Stage D or cache p9 write.
+
+The report did not expose a top-level kernel boot ID, so Android persistence
+across reboot still needs a second controlled boot and comparison of existing
+userdata state.

@@ -95,3 +95,11 @@ tests have been performed.
 - Cache remains unset and no cache evidence exists.
 - Stage B left `/data/local/xoom-storage-test` with the verified test payload.
 - No application compatibility or Android persistence is proven.
+
+
+## Stage C first boot — 3 November 2026
+
+Stage C booted against repaired p10. The report validates p10 rw, p9/p8/disk RO,
+`/data` p10 ext4 rw, `/cache` fresh tmpfs, system ro,noload, Android init
+executed, and surfaceflinger/zygote running. A second boot is still required to
+prove Android userdata persistence across reboot. No Stage D or cache p9 write.

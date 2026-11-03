@@ -218,8 +218,8 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_w
             raise ProtocolError('Stage C requires writable p10 ext4 at /data')
         if 'rw' not in data['options']:
             raise ProtocolError('Stage C data mount is not read-write')
-        if cache is not None:
-            raise ProtocolError('Stage C must not mount cache')
+        if cache is not None and (cache['fstype'] != 'tmpfs' or cache['root'] != '/'):
+            raise ProtocolError('Stage C cache must be a fresh tmpfs, never p9')
         if system is None:
             raise ProtocolError('Stage C requires read-only system')
     elif persistent_write_test:
@@ -281,6 +281,9 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_w
                     or not {'noload', 'norecovery'} & opts
                     or not {'noload', 'norecovery'} & record['super_options']):
                 raise ProtocolError('Android system must be fixed p8 ext4 read-only with journal replay disabled')
+        elif target == '/data' and persistent_android:
+            if source != '/dev/mmcblk0p10' or fstype != 'ext4' or not {'rw', 'nosuid', 'nodev'} <= opts or 'ro' in opts:
+                raise ProtocolError('Stage C data mount is not fixed p10 ext4 read-write')
         elif target in overlays:
             if (not system or fstype != 'tmpfs' or record['device'] != run['device']
                     or record['root'] != overlays[target] or not {'ro', 'nosuid', 'nodev'} <= opts or 'rw' in opts
