@@ -92,6 +92,18 @@ inspect_part() {
   if /bin/busybox mount -t ext4 -o ro,noload,nosuid,nodev "$dev" /mnt/storage-inspect/$name; then
    say "RO_MOUNT_OK $name"
    /bin/busybox ls -la /mnt/storage-inspect/$name 2>&1 | /bin/busybox head -c 8192 | /bin/busybox sed 's/^/LS /' >> "$OUT"
+   if [ "$name" = data ]; then
+    say "STORAGE_TEST_DIR_PRESENT $([ -d /mnt/storage-inspect/data/local/xoom-storage-test ] && echo yes || echo no)"
+    if [ -d /mnt/storage-inspect/data/local/xoom-storage-test ] && [ ! -L /mnt/storage-inspect/data/local/xoom-storage-test ]; then
+     /bin/busybox ls -la /mnt/storage-inspect/data/local/xoom-storage-test 2>&1 | /bin/busybox sed 's/^/TEST_LS /' >> "$OUT"
+     if [ -f /mnt/storage-inspect/data/local/xoom-storage-test/persistent-v1.bin ] && [ ! -L /mnt/storage-inspect/data/local/xoom-storage-test/persistent-v1.bin ]; then
+      say "TEST_FILE_BYTES $(/bin/busybox wc -c < /mnt/storage-inspect/data/local/xoom-storage-test/persistent-v1.bin)"
+      say "TEST_FILE_SHA256 $(/bin/busybox sha256sum /mnt/storage-inspect/data/local/xoom-storage-test/persistent-v1.bin | /bin/busybox cut -d' ' -f1)"
+     else
+      say TEST_FILE_ABSENT
+     fi
+    fi
+   fi
    /bin/busybox umount /mnt/storage-inspect/$name || say "RO_UMOUNT_FAILED $name"
   else
    say "RO_MOUNT_FAILED $name"
