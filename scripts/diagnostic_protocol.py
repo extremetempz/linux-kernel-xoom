@@ -344,13 +344,39 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_w
 
 
 def storage_result(payload, expected, disk_sectors=None, storage_mode='virtual-only'):
-    if storage_mode not in ('virtual-only', 'android44-readonly', 'android44-persistent-inspect', 'android44-persistent-write-test', 'android44-persistent', 'android44-persistent-cache', 'offline97'):
+    if storage_mode not in ('virtual-only', 'android44-readonly', 'android44-persistent-inspect', 'android44-persistent-write-test', 'android44-persistent', 'android44-persistent-cache', 'offline97', 'offline-cache99'):
         raise ProtocolError('Unknown storage-report mode')
     if storage_mode == 'android44-readonly':
         if disk_sectors not in (None, 62521344):
             raise ProtocolError('Android44 profile requires the verified Wingray disk capacity reference')
         disk_sectors = 62521344
     text = payload.decode('utf-8', errors='replace')
+    if storage_mode == 'offline-cache99':
+        policy = _section(text, 'XOOM_CACHE99_POLICY_BEGIN', 'XOOM_CACHE99_POLICY_END')
+        flags = re.findall(r'^CACHE99_RO (mmcblk0p[0-9]+) ([01])$', policy, re.M)
+        if len(flags) != 10 or dict(flags) != dict.fromkeys(expected, '1'):
+            raise ProtocolError('Cache99 requires all ten partitions RO')
+        for line in ('CACHE99_ATTEMPTED 0', 'CACHE99_RAM_STATE passed'):
+            if policy.splitlines().count(line) != 1:
+                raise ProtocolError('Cache99 repair attempted or RAM suite not passed')
+        ram = _section(text, 'XOOM_OFFLINE97_BEGIN', 'XOOM_OFFLINE97_END')
+        for token in ('CLEAN_CHECK_EXIT 0', 'COUNTER_BEFORE_EXIT 4', 'COUNTER_REPAIR_EXIT 1',
+                      'COUNTER_AFTER_EXIT 0', 'JOURNAL_BEFORE_EXIT 4', 'PADDING_BEFORE_EXIT 4',
+                      'PADDING_REPAIR_EXIT 1', 'PADDING_AFTER_EXIT 0', 'RAMTEST_EXIT 0',
+                      'CACHE99_RAM_JOURNAL_PADDING_PASSED'):
+            if ram.splitlines().count(token) != 1:
+                raise ProtocolError('Cache99 incomplete actual RAM test evidence')
+        if re.search(r'OFFLINE97_RAMTEST_FAILED_|RAMTEST_EXIT [1-9]', ram):
+            raise ProtocolError('Cache99 RAM failure')
+        if re.findall(r'^JOURNAL_REPLAY_EXIT ([01])$', ram, re.M) not in (['0'], ['1']):
+            raise ProtocolError('Cache99 journal replay did not succeed')
+        result = storage_result(payload, expected, 62521344, storage_mode='virtual-only')
+        if result['state'] != 'geometry_matches_reference' or not result['disk_read_only']:
+            raise ProtocolError('Cache99 wrong disk geometry or policy')
+        result.update(state='cache99_readonly_ramtest_passed', storage_mode=storage_mode,
+                      all_emmc_readonly_flags=True, repair_command_present=True,
+                      repair_attempted=False, physical_repair_authorized=False)
+        return result
     if storage_mode == 'offline97':
         offline = _section(text, 'XOOM_OFFLINE97_BEGIN', 'XOOM_OFFLINE97_END')
         if 'OFFLINE97_RAMTEST_PASSED_PHYSICAL_WRITES_DISABLED' not in offline:
