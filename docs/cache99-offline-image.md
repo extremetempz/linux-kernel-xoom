@@ -116,3 +116,21 @@ all-RO policy, holders, virtual-only mounts and absence of swap/export.
 No REPAIR_P9/CONFIRM command has been sent and no physical repair has run yet.
 The original desktop automount and automount-open settings were restored true
 after the storage gadget disconnected. Current image exports serial only.
+
+## Serial operator correction
+
+The operator's sleep-based socat pipeline produced no visible replies. After
+stopping it, a fresh framed report established `CACHE99_ATTEMPTED 0`, RAM pass,
+all-ten geometry and all flags RO. No physical repair occurred. The specific
+cause of the silent pipeline is not established; fixed delays are not a verified
+protocol handshake. Do not retry that pipeline or infer success from elapsed time.
+
+Use `scripts/cache99-operator.py` instead. It asserts the same DTR/RTS setup as
+the tested capture client, verifies PING/REPORT and strict offline-cache99 policy,
+waits for actual physical preflight success, and defaults to read-only operation.
+`--repair` additionally requires an interactive terminal and typed `REPAIR_P9`,
+rechecks preflight, waits for the matching armed nonce, then sends confirmation.
+It asks locally for y/n only at the exact reviewed padding question; other repair
+questions are declined and force manual review. It records private wire/report/
+status files. It never blindly pipes yes. Ctrl-C at the host does not establish
+that the device-side checker was interrupted; do not restart/reboot blindly.
