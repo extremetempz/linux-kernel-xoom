@@ -232,6 +232,7 @@ def entries(runtime):
   assert helper_manifest['source_sha256']==digest((ROOT/'diagnostic/storage-policy.c').read_bytes())
   assert helper_manifest['sha256']==digest((runtime/'storage-policy').read_bytes())
   approval=os.environ.get('XOOM_STORAGE_HOST_EVIDENCE')
+  assert approval or not os.environ.get('XOOM_CACHE_HOST_EVIDENCE'), 'Cache evidence requires approved userdata evidence'
   if approval:
    import importlib.util
    rspec=importlib.util.spec_from_file_location('storage_readiness',ROOT/'scripts/persistent-readiness.py')
@@ -242,7 +243,7 @@ def entries(runtime):
    profile=os.environ.get('XOOM_ANDROID_GPU_PROFILE')
    if profile=='persistentwritetest':
     pass
-   elif profile=='persistent':
+   elif profile in ('persistent','persistentshutdown'):
     proof_path=os.environ.get('XOOM_STAGEB_PROOF')
     assert proof_path, 'Android persistence needs Stage B two-boot proof'
     proof=json.loads(Path(proof_path).read_text())
@@ -257,13 +258,26 @@ def entries(runtime):
    fs=json.loads((Path(approval).resolve().parent/'filesystem.json').read_text())
    features=''.join(fs[key].to_bytes(4,'little').hex() for key in ('compat','incompat','ro_compat'))
    files['bin/storage-data-approved']=(fs['uuid']+'\n'+features+'\n'+approved['data']['sha256']+'\n').encode('ascii')
+   cache_approval=os.environ.get('XOOM_CACHE_HOST_EVIDENCE')
+   if cache_approval:
+    assert profile in ('persistent','persistentshutdown'), 'Writable cache is a separate Android-only opt-in'
+    from cache_profile import approved_cache_token
+    files['bin/storage-cache-approved']=approved_cache_token(Path(cache_approval),fs['uuid'])
+ elif os.environ.get('XOOM_CACHE_HOST_EVIDENCE'):
+  raise AssertionError('Cache evidence requires an approved persistent Android profile')
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
  files['bin/xoom-wifi-load']=WIFI_SCRIPT
  files['bin/xoom-wpa']=WPA_SCRIPT
  aosp_fw=ROOT/'artifacts/hardware-private/wifi/aosp-fw_bcm4329.bin'
  assert aosp_fw.is_file() and digest(aosp_fw.read_bytes())=='aebfff9a29c43dbadc83257990fb9a227b8408a79795e6a474f48dbf1b8d5d0b'
  files['bin/bcmdhd_sta.bin']=aosp_fw.read_bytes()
- result=ramdisk_entries(original,files,persistent=persistent)
+ clean_shutdown=b'CONFIG_POWER_RESET_WINGRAY=y\n' in config and persistent and not storage_backup
+ if clean_shutdown:
+  assert os.environ.get('XOOM_ANDROID_GPU_PROFILE')=='persistentshutdown', 'Explicit shutdown profile required'
+  assert 'bin/storage-data-approved' in files, 'Shutdown profile requires reviewed Stage C data evidence'
+  files['bin/xoom-clean-shutdown']=(ROOT/'diagnostic/clean-shutdown.sh').read_bytes()
+  files['bin/clean-shutdown-enabled']=b'kitkat-normal-powerctl-only\n'
+ result=ramdisk_entries(original,files,persistent=persistent,clean_shutdown=clean_shutdown)
  if storage_backup:
   result['fstab.stingray']=Entry('fstab.stingray',stat.S_IFREG|0o644,b'# Read-only USB backup only; no Android filesystem mounts\n')
  module=runtime/'modules/bcmdhd.ko'

@@ -2,7 +2,14 @@
 from pathlib import Path
 import hashlib,json,os,re,stat,struct,subprocess,fcntl,array
 P10_BYTES=30334779392
+P9_BYTES=536870912
 USB=('0525','a4a5')
+def volume_spec(partition):
+ if partition=='data':return P10_BYTES,'userdata-p10.img','xoom-p10-host-v1'
+ if partition=='cache':return P9_BYTES,'cache-p9.img','xoom-p9-host-v1'
+ raise ValueError('unknown partition purpose')
+def fsck_output_has_errors(text):
+ return bool(re.search(r'Free (?:blocks|inodes) count wrong|Padding at end of .*bitmap|corrupted orphan linked list|Filesystem still has errors|Fix\?\s*no',text,re.I))
 def digest(path):
  h=hashlib.sha256()
  with Path(path).open('rb') as f:
@@ -41,7 +48,7 @@ def command(out,name,args):
  receipt={'argv':args,'returncode':p.returncode,'log':name+'.log','sha256':digest(out/(name+'.log'))}
  save_json(out/(name+'.json'),receipt);return receipt
 
-def source_identity(path):
+def source_identity(path,partition='data'):
  path=Path(path).resolve(strict=True);st=path.stat()
  if not stat.S_ISBLK(st.st_mode):raise ValueError('source must be a block device')
  key=f'{os.major(st.st_rdev)}:{os.minor(st.st_rdev)}'
@@ -62,20 +69,21 @@ def source_identity(path):
  with path.open('rb',buffering=0) as f:
   ro=array.array('i',[0]);fcntl.ioctl(f,0x125e,ro,True)
   size=array.array('Q',[0]);fcntl.ioctl(f,0x80001272 | (struct.calcsize('P')<<16),size,True)
- if ro[0]!=1 or size[0]!=P10_BYTES:raise ValueError('source not RO or userdata capacity mismatch')
+ if ro[0]!=1 or size[0]!=volume_spec(partition)[0]:raise ValueError('source not RO or selected volume capacity mismatch')
  return {'path':str(path),'major_minor':key,'sysfs':str(real),'usb_sysfs':str(usb),
          'serial':(usb/'serial').read_text().strip() if (usb/'serial').exists() else None,
          'bytes':size[0],'ro':ro[0]}
 
-def validate_host_report(report,rehash=True,require_healthy=True):
+def validate_host_report(report,rehash=True,require_healthy=True,partition='data'):
  """Re-read raw evidence and image; booleans in JSON are not readiness proof."""
  report=Path(report).resolve();r=json.loads(report.read_text());out=report.parent
- if r.get('schema')!='xoom-p10-host-v1':raise ValueError('not host evidence schema')
- if r.get('source',{}).get('bytes')!=P10_BYTES or r['source'].get('ro')!=1:raise ValueError('bad source size/RO')
- backup=(out/'userdata-p10.img');st=backup.stat()
- if not stat.S_ISREG(st.st_mode) or backup.is_symlink() or st.st_size!=P10_BYTES:raise ValueError('backup size/type')
+ size,filename,schema=volume_spec(partition)
+ if r.get('schema')!=schema:raise ValueError('wrong partition evidence schema')
+ if r.get('source',{}).get('bytes')!=size or r['source'].get('ro')!=1:raise ValueError('bad source size/RO')
+ backup=(out/filename);st=backup.stat()
+ if not stat.S_ISREG(st.st_mode) or backup.is_symlink() or st.st_size!=size:raise ValueError('backup size/type')
  recorded_backup=r.get('backup_path')
- if not isinstance(recorded_backup,str) or Path(recorded_backup).name!='userdata-p10.img':raise ValueError('recorded backup target missing')
+ if not isinstance(recorded_backup,str) or Path(recorded_backup).name!=filename:raise ValueError('recorded backup target missing')
  filesystem_reasons=[]
  for name in ('source-fsck','backup-fsck','source-superblock','backup-superblock'):
   rec=json.loads((out/(name+'.json')).read_text())
@@ -85,16 +93,18 @@ def validate_host_report(report,rehash=True,require_healthy=True):
   expected_target=recorded_backup if name.startswith('backup-') else r['source']['path']
   if rec['argv']!=expected+[expected_target]:raise ValueError('inspection command/target mismatch')
   text=(out/rec['log']).read_text(errors='replace')
+  if name.endswith('fsck') and fsck_output_has_errors(text):
+   filesystem_reasons.append(name+' unresolved filesystem errors in output')
   # Exit0 without actual completed fsck phases/output must not establish health.
   if name.endswith('fsck') and not all(x in text for x in ('Pass 1:','Pass 2:','Pass 3:','Pass 4:','Pass 5:')):
    filesystem_reasons.append('incomplete '+name+' output')
   if name.endswith('superblock') and ('Filesystem state:' not in text or 'Filesystem features:' not in text):
    filesystem_reasons.append('incomplete '+name+' output')
- meta=superblock(backup,P10_BYTES)
+ meta=superblock(backup,size)
  filesystem_reasons.extend(meta['reasons'])
  if meta!=json.loads((out/'filesystem.json').read_text()):raise ValueError('backup filesystem metadata changed')
  first=json.loads((out/'acquisition.json').read_text());second=json.loads((out/'source-second-read.json').read_text())
- if first.get('bytes')!=P10_BYTES or second.get('bytes')!=P10_BYTES:raise ValueError('incomplete read')
+ if first.get('bytes')!=size or second.get('bytes')!=size:raise ValueError('incomplete read')
  if first.get('source')!=r['source'] or second.get('source')!=r['source']:raise ValueError('source identity changed')
  if second.get('direct_io') is not True:raise ValueError('independent direct source read missing')
  if first.get('sha256')!=second.get('sha256'):raise ValueError('independent source read mismatch')
@@ -108,5 +118,5 @@ def validate_host_report(report,rehash=True,require_healthy=True):
  if re.search(r'I/O error|Buffer I/O|blk_update_request|reset .*USB|USB disconnect|device descriptor read|mmc.*error',
               '\n'.join(after[len(before):]),re.I):raise ValueError('I/O/USB error observed; manual review required')
  if require_healthy and filesystem_reasons:raise ValueError(','.join(filesystem_reasons))
- return {'partition':'data','filesystem_verified':not filesystem_reasons,'filesystem_reasons':filesystem_reasons,'backup_verified':True,
+ return {'partition':partition,'filesystem_verified':not filesystem_reasons,'filesystem_reasons':filesystem_reasons,'backup_verified':True,
          'sha256':first['sha256'],'uuid':meta['uuid'],'source':r['source'],'report':str(report)}

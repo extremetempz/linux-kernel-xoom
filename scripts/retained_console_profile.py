@@ -11,9 +11,11 @@ PERSISTENT_DT = 'tegra20-motorola-wingray-android44-persistent'
 INSPECT_DT = 'tegra20-motorola-wingray-android44-persistent-inspect'
 WRITE_TEST_DT = 'tegra20-motorola-wingray-android44-persistent-write-test'
 BACKUP_DT = 'tegra20-motorola-wingray-android44-storage-backup'
+CACHE_BACKUP_DT = BACKUP_DT + '-cache'
+SHUTDOWN_DT = PERSISTENT_DT + '-shutdown'
 
 def selected_retained_dt(config):
-    for name in (TRACE_DT, ECC_DT, LP2_DT, PERSISTENT_DT, INSPECT_DT, WRITE_TEST_DT, BACKUP_DT):
+    for name in (TRACE_DT, ECC_DT, LP2_DT, PERSISTENT_DT, INSPECT_DT, WRITE_TEST_DT, BACKUP_DT, CACHE_BACKUP_DT, SHUTDOWN_DT):
         if 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="' + name + '"\n' in config:
             return name
     return None
@@ -35,6 +37,7 @@ def validate_ecc_tree(before, after):
             assert b.pop('motorola,wingray-storage-inspect', b'') == b''
             assert b.pop('motorola,wingray-storage-write-test', b'') == b''
             assert b.pop('motorola,wingray-storage-backup', b'') == b''
+            assert b.pop('motorola,wingray-storage-backup-cache', b'') == b''
         if (node == '/sdhci@c8000600' and
             'motorola,wingray-storage-backup' in after['/'] and
             'motorola,xoom-firstboot-ro' in b):
@@ -140,15 +143,25 @@ def validate_retained_console_artifacts(directory):
     before = parse_dtb((p / 'tegra20-motorola-wingray-android44-wakeirq.dtb').read_bytes())
     after = parse_dtb((p / (TRACE_DT + '.dtb')).read_bytes())
     validate_trees(before, after)
-    if selected in (ECC_DT, LP2_DT, PERSISTENT_DT, INSPECT_DT, WRITE_TEST_DT, BACKUP_DT):
+    if selected in (ECC_DT, LP2_DT, PERSISTENT_DT, INSPECT_DT, WRITE_TEST_DT, BACKUP_DT, CACHE_BACKUP_DT, SHUTDOWN_DT):
         for name in ('REED_SOLOMON', 'REED_SOLOMON_ENC8', 'REED_SOLOMON_DEC8'):
             assert 'CONFIG_' + name + '=y\n' in cfg, name
         validate_ecc_tree(after, parse_dtb((p / (ECC_DT + '.dtb')).read_bytes()))
         if selected == LP2_DT:
             validate_ecc_tree(parse_dtb((p / (ECC_DT + '.dtb')).read_bytes()),
                               parse_dtb((p / (LP2_DT + '.dtb')).read_bytes()))
-        if selected in (PERSISTENT_DT, INSPECT_DT, WRITE_TEST_DT, BACKUP_DT):
+        if selected in (PERSISTENT_DT, INSPECT_DT, WRITE_TEST_DT, BACKUP_DT, CACHE_BACKUP_DT, SHUTDOWN_DT):
             validate_ecc_tree(parse_dtb((p / (ECC_DT + '.dtb')).read_bytes()),
                               parse_dtb((p / (PERSISTENT_DT + '.dtb')).read_bytes()))
-            validate_ecc_tree(parse_dtb((p / (PERSISTENT_DT + '.dtb')).read_bytes()),
-                              parse_dtb((p / (selected + '.dtb')).read_bytes()))
+            base = parse_dtb((p / (PERSISTENT_DT + '.dtb')).read_bytes())
+            target = parse_dtb((p / (selected + '.dtb')).read_bytes())
+            if selected == SHUTDOWN_DT:
+                node = '/spi@7000d600/pmic@0/power-controller'
+                assert set(target) - set(base) == {node}
+                assert resolved(target, node) == {
+                    'compatible': b'motorola,wingray-power\0',
+                    'motorola,poweroff-only': b'',
+                    'poweroff-gpios': ('/gpio@6000d000', 175, 1)}
+                assert 'CONFIG_POWER_RESET_WINGRAY=y\n' in cfg
+                target = {key: value for key, value in target.items() if key != node}
+            validate_ecc_tree(base, target)
