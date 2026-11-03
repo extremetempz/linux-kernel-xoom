@@ -239,7 +239,21 @@ def entries(runtime):
    readiness=rmod.readiness
    approved=readiness(Path(approval))
    assert approved['CONTROLLED_WRITE_TEST_READY'], 'Filesystem/backup/policy evidence incomplete'
-   assert os.environ.get('XOOM_ANDROID_GPU_PROFILE')=='persistentwritetest', 'Android persistence needs two-boot proof first'
+   profile=os.environ.get('XOOM_ANDROID_GPU_PROFILE')
+   if profile=='persistentwritetest':
+    pass
+   elif profile=='persistent':
+    proof_path=os.environ.get('XOOM_STAGEB_PROOF')
+    assert proof_path, 'Android persistence needs Stage B two-boot proof'
+    proof=json.loads(Path(proof_path).read_text())
+    assert proof.get('schema')=='xoom-stageb-proof-v1' and proof.get('stageb_two_boot_passed') is True
+    assert proof['first']['boot_id']!=proof['second']['boot_id']
+    assert proof['first']['uuid']==proof['second']['uuid']
+    fs=json.loads((Path(approval).resolve().parent/'filesystem.json').read_text())
+    assert proof['first']['uuid']==fs['uuid']
+    assert proof['source_backup_sha256']==approved['data']['sha256']
+   else:
+    raise AssertionError('Storage approval requires persistentwritetest or persistent profile with Stage B proof')
    fs=json.loads((Path(approval).resolve().parent/'filesystem.json').read_text())
    features=''.join(fs[key].to_bytes(4,'little').hex() for key in ('compat','incompat','ro_compat'))
    files['bin/storage-data-approved']=(fs['uuid']+'\n'+features+'\n'+approved['data']['sha256']+'\n').encode('ascii')

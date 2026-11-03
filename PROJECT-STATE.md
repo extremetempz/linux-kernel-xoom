@@ -83,3 +83,15 @@ tests have been performed.
 - Post-repair backup: `docs/p10-postrepair-backup.md`
 - Offline97 validation: `docs/offline97-verification.md`
 - Repair procedure: `docs/offline98-repair.md`
+
+
+## Stage B/C update — 3 November 2026
+
+- Stage B two-boot fixed-file persistence passed on hardware.
+- Stage C image built with post-repair host evidence and Stage B proof:
+  4,222,976 bytes, SHA256
+  `15ef5b6e22724c7c0134c23344806ae7f44d4022640c2376c1e1f839a18397a4`.
+- Stage C is **not flashed**. It will mount p10 rw and start Android.
+- Cache remains unset and no cache evidence exists.
+- Stage B left `/data/local/xoom-storage-test` with the verified test payload.
+- No application compatibility or Android persistence is proven.
