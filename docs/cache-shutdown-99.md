@@ -127,3 +127,13 @@ results are pending. Persistent cache remains blocked. Desktop automount was
 temporarily disabled (both previous settings true); restore only after the
 exported disk is disconnected. The tablet currently runs the read-only p9
 backup image, not Stage C; restoration is still pending.
+
+## Clean host copy and offline procedure preparation
+
+The operator corrected only inode bitmap padding on the journal-replayed HOST
+copy. A subsequent five-pass read-only e2fsck completed exit 0. Original backup
+hash remained unchanged; clean copy hash is
+`8cf6c18b57eefbf19c31fd5ca81fe44ac016836af9fc97521f1dd80699e5527e`.
+See [p9-only offline repair procedure](cache99-offline-repair-plan.md) for the
+reviewed protection contract, unresolved kernel/runtime requirements and optional
+host-only receipt tool. No p9 repair image or physical write approval is supplied.
