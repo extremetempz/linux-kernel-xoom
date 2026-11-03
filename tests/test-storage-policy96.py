@@ -66,6 +66,7 @@ kernel=r'''
 #define MMC_IOC_MULTI_CMD 0x12346
 #define FMODE_WRITE 2
 #define GENHD_FL_WINGRAY_STORAGE_RO 1024
+#define GENHD_FL_WINGRAY_CACHE_REPAIR 2048
 #define REQ_WRITE 1
 #define REQ_DISCARD 2
 #define REQ_WRITE_SAME 4
@@ -73,7 +74,8 @@ kernel=r'''
 #define get_user(n,p) ((p)?((n)=*(p),0):-EFAULT)
 typedef int fmode_t;
 struct hd_struct {unsigned partno;int policy;};struct card {int unused;};
-struct mmc_blk_data {struct {struct card *card;} queue;};
+struct gendisk;
+struct mmc_blk_data {struct {struct card *card;} queue;struct gendisk *disk;};
 struct gendisk {void *private_data;int flags;};
 struct block_device {struct gendisk *bd_disk;struct hd_struct *bd_part;};
 struct bio {struct block_device *bi_bdev;int bi_rw;};
@@ -90,6 +92,7 @@ static int __blkdev_driver_ioctl(struct block_device *b,fmode_t mode,unsigned cm
 '''+function(io,'is_unrecognized_ioctl')+function(gen,'set_device_ro')+function(gen,'bdev_read_only')+function(io,'blkdev_roset')+function(bio,'wingray_storage_write_blocked')+r'''
 int main(void){
  struct mmc_blk_data md={0};struct gendisk disk={&md,1024};struct hd_struct p={0,1};struct block_device b={&disk,&p};
+ md.disk=&disk;
  int zero=0,one=1;
  for(unsigned i=0;i<=10;i++){p.partno=i;p.policy=1;
  int ret=blkdev_roset(&b,0,BLKROSET,(unsigned long)&zero);
@@ -103,6 +106,19 @@ int main(void){
  for(int op=1;op<=4;op*=2){bio.bi_rw=op;assert(wingray_storage_write_blocked(&bio));}
  bio.bi_rw=0;assert(!wingray_storage_write_blocked(&bio));
  }
+ disk.flags=1024|2048;
+ for(unsigned i=0;i<=10;i++) {
+  p.partno=i;p.policy=1;
+  int ret=blkdev_roset(&b,0,BLKROSET,(unsigned long)&zero);
+  assert((ret==0)==(i==9));
+  p.policy=0; /* even a corrupted/cleared userspace flag cannot release others */
+  struct bio repair_bio={&b,REQ_WRITE};
+  assert(wingray_storage_write_blocked(&repair_bio)==(i!=9));
+  repair_bio.bi_rw=REQ_DISCARD;assert(wingray_storage_write_blocked(&repair_bio));
+  repair_bio.bi_rw=REQ_WRITE_SAME;assert(wingray_storage_write_blocked(&repair_bio));
+  repair_bio.bi_rw=0;assert(!wingray_storage_write_blocked(&repair_bio));
+ }
+ disk.flags=1024;p.policy=1;
  p.partno=10;admin=false;assert(blkdev_roset(&b,0,BLKROSET,(unsigned long)&zero)==-EACCES&&p.policy);
  admin=true;assert(blkdev_roset(&b,0,BLKROSET,0)==-EROFS);
  firstboot=true;assert(blkdev_roset(&b,0,BLKROSET,(unsigned long)&zero)==-EROFS);
