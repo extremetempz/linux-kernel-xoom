@@ -265,12 +265,13 @@ def ramdisk_entries(original, files, persistent=False, clean_shutdown=False):
         rc += b'\n' + init_actions()
     if persistent:
         fstab = (b'/dev/block/mmcblk0p8 /system ext4 ro,noload,nosuid,nodev wait\n'
-                 b'/dev/block/mmcblk0p10 /data ext4 rw,noatime,nosuid,nodev,errors=remount-ro wait\n'
-                 b'# cache deliberately tmpfs until independent cache verification\n')
+                 b'/dev/block/mmcblk0p10 /data ext4 rw,noatime,nosuid,nodev,errors=remount-ro wait\n')
+        if 'bin/storage-cache-approved' in files:
+            fstab += b'/dev/block/mmcblk0p9 /cache ext4 rw,noatime,nosuid,nodev,errors=remount-ro wait\n'
+        else:
+            fstab += b'# cache deliberately tmpfs until independent cache verification\n'
     else:
         fstab = b'/dev/block/mmcblk0p8 /system ext4 ro,noload,nosuid,nodev wait\n'
-    if persistent and 'bin/storage-cache-approved' in files:
-        fstab += b'/dev/block/mmcblk0p9 /cache ext4 rw,noatime,nosuid,nodev,errors=remount-ro wait\n'
     generated = {'init.rc': rc, 'init.xoom-firstboot.rc': board_init(log_uids),
                  'default.prop': default_properties(original['default.prop'].data),
                  'fstab.stingray': fstab}
