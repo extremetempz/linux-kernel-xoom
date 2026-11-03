@@ -26,8 +26,17 @@ Stages reached `persistent_data_cache_mounted`,
 SurfaceFlinger and zygote were running.
 
 The operator confirmed Android reached the environment and that existing
-apps/settings survived the reboot. This is a user-observed persistence result,
-not an application database/content audit.
+apps/settings survived the reboot. The operator later confirmed additional
+existing state after the persistent boot:
+
+- apps were present and working;
+- accounts were present;
+- `/data/media` was present, including Photos;
+- Wi-Fi configuration was present.
+
+This is an operator-observed persistence result, not an independent application
+database/content or credential audit. The operator explicitly declined a new
+post-Stage-C raw backup.
 
 ## What was fixed to get here
 
@@ -46,8 +55,9 @@ No format, cache-p9 mount, factory reset or partition change was used.
 
 - `/cache` is still tmpfs. p9 was never mounted or verified for persistent use.
 - No application database or content-integrity comparison was performed.
-- The current p10 contains Stage C Android writes and the Stage B test directory;
-  the verified post-repair backup predates both.
+- The current p10 contains Stage C Android writes and the Stage B test directory.
+  The operator declined a fresh post-Stage-C backup; this is accepted as an
+  explicit scope decision.
 - Abrupt power-off after Android can set needs_recovery again; clean shutdown is
   required before normal reboots.
 - No sleep/LP2/storage power test was combined with Stage C.

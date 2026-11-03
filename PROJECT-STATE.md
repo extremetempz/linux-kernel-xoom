@@ -112,3 +112,17 @@ cycle. Journal-only replay cleared p10 `needs_recovery`; final inspection shows
 p10 read-only, ext4 magic, incompat `42000000`, ro mount. p9 cache still shows
 `needs_recovery` `46000000` and was never mounted or used. Stage C uses tmpfs
 cache. No Stage D, cache persistence or content audit.
+
+
+## Operator persistence confirmation — 3 November 2026
+
+The operator confirmed the persistent Stage C boot retained:
+
+- existing apps;
+- accounts;
+- `/data/media`, including Photos;
+- Wi-Fi configuration.
+
+These are operator observations, not an independent database/content or
+credential audit. The operator explicitly declined a fresh post-Stage-C raw
+backup. No further write test is required by the operator.

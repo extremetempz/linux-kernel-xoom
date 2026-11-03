@@ -1,3 +1,9 @@
+> **Operator persistence confirmation — 3 November 2026:** after the final
+> Stage C boot, apps, accounts, `/data/media` (Photos) and Wi-Fi configuration
+> were present. This is operator confirmation, not an independent content audit.
+> A new post-Stage-C backup was explicitly declined. p10 is clean/read-only;
+> cache remains unverified tmpfs and no Stage D is authorized.
+
 > **PERSISTENT DATA + ANDROID PASSED — 3 November 2026:** repaired p10 was
 > mounted rw, Android executed, and SurfaceFlinger/zygote were running. Operator
 > confirmed apps/settings survived reboot. `/cache` remains unverified tmpfs;
