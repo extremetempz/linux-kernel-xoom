@@ -1,3 +1,21 @@
+> **Repeated Stage C reboots passed — 3 November 2026:** two additional boots
+> (2a/2b) with different pstore boot IDs validated p10 ext4 rw, cache tmpfs,
+> p9/p8/disk RO, and Android SurfaceFlinger/zygote. Reboot-tolerant journal
+> gate handled pending recovery. No Stage D or cache-p9 write.
+
+> **Operator persistence confirmation — 3 November 2026:** after the final
+> Stage C boot, apps, accounts, `/data/media` (Photos) and Wi-Fi configuration
+> were present. This is operator confirmation, not an independent content audit.
+> A new post-Stage-C backup was explicitly declined. p10 is clean/read-only;
+> cache remains unverified tmpfs and no Stage D is authorized.
+
+> **PERSISTENT DATA + ANDROID PASSED — 3 November 2026:** repaired p10 was
+> mounted rw, Android executed, and SurfaceFlinger/zygote were running. Operator
+> confirmed apps/settings survived reboot. `/cache` remains unverified tmpfs;
+> p9/p8/disk remained read-only. A clean journal-only replay recovered the first
+> abrupt power-off. No Stage D, cache-p9, format or factory reset. See
+> [persistence result](docs/storage-persistence-result.md).
+
 > **Post-repair p10 backup VERIFIED — 3 November 2026:** repaired p10 acquired
 > read-only, 30,334,779,392 bytes, SHA256 `05f86fda…`; source and backup e2fsck
 > clean, independent second source read matched, `DATA_BACKUP_VERIFIED` and

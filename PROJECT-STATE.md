@@ -83,3 +83,62 @@ tests have been performed.
 - Post-repair backup: `docs/p10-postrepair-backup.md`
 - Offline97 validation: `docs/offline97-verification.md`
 - Repair procedure: `docs/offline98-repair.md`
+
+
+## Stage B/C update — 3 November 2026
+
+- Stage B two-boot fixed-file persistence passed on hardware.
+- Stage C image built with post-repair host evidence and Stage B proof:
+  4,222,976 bytes, SHA256
+  `15ef5b6e22724c7c0134c23344806ae7f44d4022640c2376c1e1f839a18397a4`.
+- Stage C is **not flashed**. It will mount p10 rw and start Android.
+- Cache remains unset and no cache evidence exists.
+- Stage B left `/data/local/xoom-storage-test` with the verified test payload.
+- No application compatibility or Android persistence is proven.
+
+
+## Stage C first boot — 3 November 2026
+
+Stage C booted against repaired p10. The report validates p10 rw, p9/p8/disk RO,
+`/data` p10 ext4 rw, `/cache` fresh tmpfs, system ro,noload, Android init
+executed, and surfaceflinger/zygote running. A second boot is still required to
+prove Android userdata persistence across reboot. No Stage D or cache p9 write.
+
+
+## Final post-shutdown state — 3 November 2026
+
+After the successful Stage C boot, an Android shutdown hang required a forced
+cycle. Journal-only replay cleared p10 `needs_recovery`; final inspection shows
+p10 read-only, ext4 magic, incompat `42000000`, ro mount. p9 cache still shows
+`needs_recovery` `46000000` and was never mounted or used. Stage C uses tmpfs
+cache. No Stage D, cache persistence or content audit.
+
+
+## Operator persistence confirmation — 3 November 2026
+
+The operator confirmed the persistent Stage C boot retained:
+
+- existing apps;
+- accounts;
+- `/data/media`, including Photos;
+- Wi-Fi configuration.
+
+These are operator observations, not an independent database/content or
+credential audit. The operator explicitly declined a fresh post-Stage-C raw
+backup. No further write test is required by the operator.
+
+
+## Reboot-tolerant Stage C — 3 November 2026
+
+New Stage C image `60226983…` accepts only the ext4 needs_recovery bit in
+addition to the approved base state, then mounts rw to replay the journal. It
+does not run a full fsck or touch cache p9. This is the candidate for repeated
+reboot testing; not yet flashed.
+
+
+## Repeated reboot result — 3 November 2026
+
+Stage C reboot-tolerant image `183597ba…` passed three additional full boots
+(2a, 2b and 2c) with different pstore boot IDs. Both had p10 ext4 rw, cache tmpfs,
+p9/p8/disk RO, and Android SurfaceFlinger/zygote running. No Stage D or cache-p9
+write. Three consecutive reboots passed.

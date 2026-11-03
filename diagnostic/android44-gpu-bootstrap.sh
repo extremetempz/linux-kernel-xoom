@@ -108,9 +108,20 @@ verify_persistent_data() {
  current_features=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1116 count=12 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
  current_state=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1082 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
  current_errors=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1428 count=4 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
- [ "${#expected_uuid}" = 32 ] && [ "${#expected_features}" = 24 ] &&
- [ "$current_uuid" = "$expected_uuid" ] && [ "$current_features" = "$expected_features" ] &&
- [ "$current_state" = 0100 ] && [ "$current_errors" = 00000000 ]
+ [ "${#expected_uuid}" = 32 ] && [ "${#expected_features}" = 24 ] || return 1
+ [ "$current_uuid" = "$expected_uuid" ] && [ "$current_errors" = 00000000 ] || return 1
+ recovery=0
+ if [ "$current_features" != "$expected_features" ]; then
+  current_incompat_byte=${current_features:8:2}
+  expected_incompat_byte=${expected_features:8:2}
+  [ $((0x$current_incompat_byte & ~0x4)) -eq $((0x$expected_incompat_byte)) ] &&
+   [ $((0x$current_incompat_byte & 0x4)) -eq 4 ] || return 1
+  recovery=1
+ fi
+ if [ "$current_state" = 0100 ]; then
+  return 0
+ fi
+ [ "$recovery" = 1 ] && [ "$current_state" = 0000 ]
 }
 if [ "$persistent" = 1 ]; then
  mount_system_readonly
