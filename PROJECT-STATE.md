@@ -134,3 +134,11 @@ New Stage C image `60226983…` accepts only the ext4 needs_recovery bit in
 addition to the approved base state, then mounts rw to replay the journal. It
 does not run a full fsck or touch cache p9. This is the candidate for repeated
 reboot testing; not yet flashed.
+
+
+## Repeated reboot result — 3 November 2026
+
+Stage C reboot-tolerant image `183597ba…` passed two additional full boots (2a
+and 2b) with different pstore boot IDs. Both had p10 ext4 rw, cache tmpfs,
+p9/p8/disk RO, and Android SurfaceFlinger/zygote running. No Stage D or cache-p9
+write. Third reboot optional.

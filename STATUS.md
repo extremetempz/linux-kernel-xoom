@@ -1,3 +1,8 @@
+> **Repeated Stage C reboots passed — 3 November 2026:** two additional boots
+> (2a/2b) with different pstore boot IDs validated p10 ext4 rw, cache tmpfs,
+> p9/p8/disk RO, and Android SurfaceFlinger/zygote. Reboot-tolerant journal
+> gate handled pending recovery. No Stage D or cache-p9 write.
+
 > **Operator persistence confirmation — 3 November 2026:** after the final
 > Stage C boot, apps, accounts, `/data/media` (Photos) and Wi-Fi configuration
 > were present. This is operator confirmation, not an independent content audit.
