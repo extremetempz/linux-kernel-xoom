@@ -54,16 +54,20 @@ done <<'XOOM_GEOMETRY'
 XOOM_GEOMETRY
 stage readonly_geometry_passed
 if [ "$backup" = 1 ]; then
+ backup_node=/dev/mmcblk0p10
+ if [ -e /sys/firmware/devicetree/base/motorola,wingray-storage-backup-cache ]; then
+  backup_node=/dev/mmcblk0p9
+ fi
  waited=0
- while [ ! -b /dev/mmcblk0p10 ] && [ "$waited" -lt 30 ]; do
+ while [ ! -b "$backup_node" ] && [ "$waited" -lt 30 ]; do
   /bin/busybox sleep 1
   waited=$((waited + 1))
  done
- [ -b /dev/mmcblk0p10 ] || fail backup_data_device_missing
+ [ -b "$backup_node" ] || fail backup_device_missing
  for mod in configfs libcomposite usb_f_mass_storage; do
   /bin/busybox insmod /lib/modules/$mod.ko >> /run/storage-backup.txt 2>&1 || fail backup_module_$mod
  done
- /bin/busybox insmod /lib/modules/g_mass_storage.ko file=/dev/mmcblk0p10 ro=1 removable=0 luns=1 >> /run/storage-backup.txt 2>&1
+ /bin/busybox insmod /lib/modules/g_mass_storage.ko file="$backup_node" ro=1 removable=0 luns=1 >> /run/storage-backup.txt 2>&1
  rc=$?
  echo "XOOM_STORAGE_BACKUP_MASS_STORAGE_RC $rc" >> /run/storage-backup.txt
  [ "$rc" = 0 ] || fail backup_mass_storage_bind
@@ -101,14 +105,16 @@ mount_system_readonly() {
  stage system_readonly_verified
 }
 # Match the approved filesystem identity/features while policy is still RO.
-verify_persistent_data() {
- expected_uuid=$(/bin/busybox sed -n '1p' /bin/storage-data-approved) || return 1
- expected_features=$(/bin/busybox sed -n '2p' /bin/storage-data-approved) || return 1
- current_uuid=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1128 count=16 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
- current_features=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1116 count=12 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
- current_state=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1082 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
- current_errors=$(/bin/busybox dd if=/dev/mmcblk0p10 bs=1 skip=1428 count=4 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+verify_persistent_volume() {
+ expected_uuid=$(/bin/busybox sed -n '1p' "$2") || return 1
+ expected_features=$(/bin/busybox sed -n '2p' "$2") || return 1
+ current_uuid=$(/bin/busybox dd if="$1" bs=1 skip=1128 count=16 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ current_features=$(/bin/busybox dd if="$1" bs=1 skip=1116 count=12 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ current_state=$(/bin/busybox dd if="$1" bs=1 skip=1082 count=2 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
+ current_errors=$(/bin/busybox dd if="$1" bs=1 skip=1428 count=4 2>/dev/null | /bin/busybox od -An -v -tx1 | /bin/busybox tr -d ' \n')
  [ "${#expected_uuid}" = 32 ] && [ "${#expected_features}" = 24 ] || return 1
+ [ "${#current_features}" = 24 ] || return 1
+ case "$expected_features$current_features" in *[!0123456789abcdef]*) return 1;; esac
  [ "$current_uuid" = "$expected_uuid" ] && [ "$current_errors" = 00000000 ] || return 1
  recovery=0
  if [ "$current_features" != "$expected_features" ]; then
@@ -116,12 +122,18 @@ verify_persistent_data() {
   expected_incompat_byte=${expected_features:8:2}
   [ $((0x$current_incompat_byte & ~0x4)) -eq $((0x$expected_incompat_byte)) ] &&
    [ $((0x$current_incompat_byte & 0x4)) -eq 4 ] || return 1
+  # Only the recovery bit may differ: retain all compat/high-incompat/ro words.
+  normal_byte=$(printf '%02x' "$((0x$current_incompat_byte & ~0x4))")
+  [ "${current_features:0:8}$normal_byte${current_features:10}" = "$expected_features" ] || return 1
   recovery=1
  fi
  if [ "$current_state" = 0100 ]; then
   return 0
  fi
  [ "$recovery" = 1 ] && [ "$current_state" = 0000 ]
+}
+verify_persistent_data() {
+ verify_persistent_volume /dev/mmcblk0p10 /bin/storage-data-approved
 }
 if [ "$persistent" = 1 ]; then
  mount_system_readonly
@@ -133,6 +145,9 @@ if [ "$persistent" = 1 ]; then
  fi
  [ -f /bin/storage-data-approved ] || fail data_readiness_not_embedded
  verify_persistent_data || fail data_readiness_identity_or_health_changed
+ if [ -f /bin/storage-cache-approved ]; then
+  verify_persistent_volume /dev/mmcblk0p9 /bin/storage-cache-approved || fail cache_readiness_identity_or_health_changed
+ fi
  # Fail closed before releasing either partition. No format, journal replay or
  # repair is allowed here; Stage A must inspect the filesystem first.
  data_size=$(/bin/busybox cat /sys/block/mmcblk0/mmcblk0p10/size)

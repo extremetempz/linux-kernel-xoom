@@ -34,6 +34,9 @@ def validate_config(path):
     lp2 = 'MOTOROLA_WINGRAY_LP2_TEST' in enabled
     raw = path.read_text()
     dtb = ('tegra20-motorola-wingray-android44-persistent-inspect' if 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-persistent-inspect"' in raw else 'tegra20-motorola-wingray-android44-persistent-write-test' if 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-persistent-write-test"' in raw else 'tegra20-motorola-wingray-android44-storage-backup' if 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="tegra20-motorola-wingray-android44-storage-backup"' in raw else 'tegra20-motorola-wingray-android44-persistent') if persistent else 'tegra20-motorola-wingray-android44-lp2' if lp2 else 'tegra20-motorola-wingray-android44-wakeirqecc'
+    for extra in ('tegra20-motorola-wingray-android44-storage-backup-cache','tegra20-motorola-wingray-android44-persistent-shutdown'):
+        if persistent and 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+extra+'"' in raw:
+            dtb=extra
     assert 'CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="' + dtb + '"' in path.read_text()
 
 p = argparse.ArgumentParser(description=__doc__)
