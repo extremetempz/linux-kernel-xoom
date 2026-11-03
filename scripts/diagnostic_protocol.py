@@ -172,7 +172,7 @@ def _mountinfo(text):
     return records
 
 
-def _android44_mount_policy(text, mounts, persistent_inspect=False):
+def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_write_test=False):
     """Validate the isolated, RAM-data Android experiment, never general ROM mounts.
 
     This is evidence validation, not an additional device write-protection layer.
@@ -188,8 +188,11 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False):
         raise ProtocolError('Android read-only mode requires the Wingray board identity')
     wanted = {'mmcblk0', *(f'mmcblk0p{i}' for i in range(1, 11))}
     flags = re.findall(r'^XOOM_ANDROID44_BLOCK_RO (\S+) (\S+)$', policy, re.M)
-    if len(flags) != 11 or dict(flags) != dict.fromkeys(wanted, '1'):
-        raise ProtocolError('Android mode requires all eleven eMMC read-only flags')
+    expected_flags = dict.fromkeys(wanted, '1')
+    if persistent_write_test:
+        expected_flags['mmcblk0p10'] = '0'
+    if len(flags) != 11 or dict(flags) != expected_flags:
+        raise ProtocolError('Android mode has the wrong eMMC read-only flags')
     info = _mountinfo(_section(policy, 'XOOM_ANDROID44_MOUNTINFO_BEGIN',
                               'XOOM_ANDROID44_MOUNTINFO_END'))
     if Counter((m['source'], m['target'], m['fstype']) for m in info) != Counter(
@@ -210,10 +213,27 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False):
     if run['fstype'] != 'tmpfs' or run['root'] != '/':
         raise ProtocolError('Android report workspace is not a fresh tmpfs')
     data, cache, system = unique('/data'), unique('/cache'), unique('/system')
-    for target, record in [('/data', data), ('/cache', cache)]:
-        if record and (record['fstype'] != 'tmpfs' or record['root'] != '/'):
-            raise ProtocolError('Android ' + target + ' must be a fresh tmpfs')
-    if persistent_inspect:
+    if persistent_write_test:
+        if data is not None or cache is not None:
+            raise ProtocolError('Stage B must unmount data and not mount cache')
+        if system is None:
+            raise ProtocolError('Stage B requires read-only system')
+        wt_start = text.find('XOOM_STORAGE_WRITE_TEST_BEGIN')
+        wt_end = text.rfind('XOOM_STORAGE_WRITE_TEST_END')
+        if wt_start < 0 or wt_end < wt_start:
+            raise ProtocolError('Missing Stage B write-test section')
+        write_test = text[wt_start:wt_end + len('XOOM_STORAGE_WRITE_TEST_END')]
+        if 'XOOM_STORAGE_WRITE_TEST_RC 0' not in write_test:
+            raise ProtocolError('Stage B write test did not report RC 0')
+        if 'TEST_WRITE_OK_REBOOT_REQUIRED' not in write_test and 'TEST_FILE_PERSISTED_VERIFIED' not in write_test:
+            raise ProtocolError('Stage B write test did not complete')
+    else:
+        for target, record in [('/data', data), ('/cache', cache)]:
+            if record and (record['fstype'] != 'tmpfs' or record['root'] != '/'):
+                raise ProtocolError('Android ' + target + ' must be a fresh tmpfs')
+    if persistent_write_test:
+        pass
+    elif persistent_inspect:
         if data or cache:
             raise ProtocolError('Persistent inspection must not mount data or cache')
         if not system:
@@ -289,16 +309,16 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False):
     exec_attempted = 'XOOM_ANDROID44_STAGE exec_original_android_init' in stages.splitlines()
     if exec_attempted and (not system or set(seen_overlays) != set(overlays)):
         raise ProtocolError('Android init execution requires read-only system and both RAM graphics overlays')
-    return {'storage_mode': 'android44-persistent-inspect' if persistent_inspect else 'android44-readonly', 'android_filesystems_mounted': bool(system),
+    return {'storage_mode': 'android44-persistent-write-test' if persistent_write_test else 'android44-persistent-inspect' if persistent_inspect else 'android44-readonly', 'android_filesystems_mounted': bool(system),
             'kernel_release': releases[0],
-            'ram_data_mounted': bool(data), 'ram_cache_mounted': bool(cache),
+            'ram_data_mounted': bool(data and data['fstype'] == 'tmpfs'), 'ram_cache_mounted': bool(cache and cache['fstype'] == 'tmpfs'),
             'readonly_graphics_overlays': sorted(seen_overlays),
             'android_init_exec_attempted': exec_attempted,
-            'all_emmc_readonly_flags': True}
+            'all_emmc_readonly_flags': not persistent_write_test}
 
 
 def storage_result(payload, expected, disk_sectors=None, storage_mode='virtual-only'):
-    if storage_mode not in ('virtual-only', 'android44-readonly', 'android44-persistent-inspect', 'offline97'):
+    if storage_mode not in ('virtual-only', 'android44-readonly', 'android44-persistent-inspect', 'android44-persistent-write-test', 'offline97'):
         raise ProtocolError('Unknown storage-report mode')
     if storage_mode == 'android44-readonly':
         if disk_sectors not in (None, 62521344):
@@ -321,8 +341,10 @@ def storage_result(payload, expected, disk_sectors=None, storage_mode='virtual-o
         raise ProtocolError('Malformed mount-state evidence')
     virtual = {'rootfs', 'proc', 'sysfs', 'devtmpfs', 'tmpfs', 'devpts', 'debugfs', 'pstore'}
     android = {'storage_mode': 'virtual-only', 'android_filesystems_mounted': False}
-    if storage_mode in ('android44-readonly', 'android44-persistent-inspect'):
-        android = _android44_mount_policy(text, mounts, persistent_inspect=storage_mode == 'android44-persistent-inspect')
+    if storage_mode in ('android44-readonly', 'android44-persistent-inspect', 'android44-persistent-write-test'):
+        android = _android44_mount_policy(text, mounts,
+            persistent_inspect=storage_mode == 'android44-persistent-inspect',
+            persistent_write_test=storage_mode == 'android44-persistent-write-test')
     else:
         for fields in mounts:
             if fields[2] not in virtual:
