@@ -68,3 +68,15 @@ without a separate explicit authorization.
 - The manifest reports `writes_authorized=false` and a conservative
   `userdata_backup_verified=false`; the embedded approval and Stage B proof are
   the build gate.
+
+## Capture mode
+
+The host now accepts `android44-persistent`:
+
+- p1–p9 and whole disk read-only; p10 writable;
+- `/data` must be p10 ext4 mounted `rw`;
+- `/cache` must be absent;
+- `/system` must be read-only;
+- the Android init execution marker is allowed.
+
+No image rebuild was needed for this host-side validation.
