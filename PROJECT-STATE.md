@@ -1,11 +1,20 @@
 # Project state — 3 November 2026
 
-## New preparation: cache and shutdown
+## Latest: p9 repaired and independently backed up
 
-See [cache/shutdown preparation](docs/cache-shutdown-99.md). An immutable p9
-backup image is built locally; an opt-in shutdown kernel compiles. Neither has
-been flashed. Persistent cache and electrical shutdown remain hardware-unproven.
-The known-good Stage C image and protected backups are unchanged.
+P9-only offline repair passed: journal replay and the expected inode-bitmap
+padding correction, checked RO relock, five-pass read-only fsck exit 0. A new
+independent read-only acquisition reports backup and filesystem verified, with
+SHA-256 `09b94b39fb08e3c1db8d5fa1c63949185b8dc08f99c265047e9f263c184001a1`.
+The dirty original p9 backup remains preserved. See [result and evidence](docs/cache99-physical-repair-result.md).
+
+Current tablet image: immutable p9 read-only USB backup; Android is not running.
+Known-good persistent p10 Stage C image remains unchanged. Persistent p9 `/cache`
+Android integration and electrical clean shutdown remain hardware-unproven.
+The shutdown profile only passed kernel compilation; it is not a complete
+ready-to-flash Android image. No new Android flash is pending authorization here.
+Host automount/automount-open are temporarily false; restore their previous true
+values only after the storage export disconnects. See [prepared profiles](docs/cache-shutdown-99.md).
 
 ## Physical storage
 

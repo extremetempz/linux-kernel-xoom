@@ -28,3 +28,20 @@ and require both source passes/image hash and healthy source/image checks.
 Persistent cache stays blocked until that new evidence passes. Do not reuse the
 old dirty bundle, and never replace the old original backup with the repaired
 filesystem image.
+
+## Independent post-repair acquisition passed
+
+The operator booted the immutable p9 backup image and acquired a NEW bundle at
+`/home/justin/xoom-p9-backup-postrepair99`. Host acquisition reported
+`CACHE_BACKUP_VERIFIED; CACHE_FILESYSTEM_VERIFIED`. Its verified summary reports
+no filesystem reasons, both verification flags true, exact 536870912-byte RO
+source, and SHA-256 `09b94b39fb08e3c1db8d5fa1c63949185b8dc08f99c265047e9f263c184001a1`.
+This matches the physical post-repair hash. The output was supplied by the
+operator; this session cannot directly read the root-only bundle. Image builds
+must independently revalidate that complete bundle through the existing gate.
+
+The original dirty backup is preserved separately. The backup/filesystem blocker
+is cleared by this acquisition. Persistent `/cache` Android mounting and clean
+shutdown are still untested; no new combined Android image was built or flashed.
+The tablet currently runs the read-only p9 backup image. Host automount settings
+are temporarily false (both were true); restore after storage export disconnects.

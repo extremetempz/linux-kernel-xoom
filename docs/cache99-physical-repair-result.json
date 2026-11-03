@@ -7,6 +7,10 @@
   "repair_exit": 1,
   "readonly_recheck_exit": 0,
   "p9_relocked": true,
-  "postrepair_independent_backup_verified": false,
-  "persistent_cache_ready": false
+  "postrepair_independent_backup_verified": true,
+  "persistent_cache_ready": false,
+  "postrepair_filesystem_verified": true,
+  "postrepair_backup_sha256": "09b94b39fb08e3c1db8d5fa1c63949185b8dc08f99c265047e9f263c184001a1",
+  "postrepair_evidence_source": "operator-provided host-storage-backup.py verified-summary.json output",
+  "postrepair_evidence_report": "/home/justin/xoom-p9-backup-postrepair99/host-inspection.json"
 }
