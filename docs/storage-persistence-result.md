@@ -109,11 +109,12 @@ Two additional full reboots using the corrected reboot-tolerant Stage C image
 |---|---|---|---|---|---|---|
 | 2a | `c22ec4ad-5e1a-4499-9e7d-1a9fa2634aec` | p10 ext4 rw | tmpfs | 0 | 1 | SurfaceFlinger/zygote running |
 | 2b | `d11dadc3-2053-4f27-878c-7d511843fbcd` | p10 ext4 rw | tmpfs | 0 | 1 | SurfaceFlinger/zygote running |
+| 2c | `368af1fb-f6a5-427b-961d-825200ffaab3` | p10 ext4 rw | tmpfs | 0 | 1 | SurfaceFlinger/zygote running |
 
 Both reports validated in `android44-persistent` mode and reached
 `exec_original_android_init`. The pstore boot IDs differ, confirming separate
 kernel boots. The ext4 journal recovery gate accepted pending recovery after
 forced power-offs and mounted p10 read-write normally.
 
-No cache-p9 mount, Stage D, format or factory reset occurred. A third boot is
-optional; two full repeated reboots have already passed.
+No cache-p9 mount, Stage D, format or factory reset occurred. A third boot also passed, giving three distinct boot IDs and three successful
+Stage C launches.

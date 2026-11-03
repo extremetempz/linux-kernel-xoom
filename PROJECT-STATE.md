@@ -138,7 +138,7 @@ reboot testing; not yet flashed.
 
 ## Repeated reboot result — 3 November 2026
 
-Stage C reboot-tolerant image `183597ba…` passed two additional full boots (2a
-and 2b) with different pstore boot IDs. Both had p10 ext4 rw, cache tmpfs,
+Stage C reboot-tolerant image `183597ba…` passed three additional full boots
+(2a, 2b and 2c) with different pstore boot IDs. Both had p10 ext4 rw, cache tmpfs,
 p9/p8/disk RO, and Android SurfaceFlinger/zygote running. No Stage D or cache-p9
-write. Third reboot optional.
+write. Three consecutive reboots passed.
