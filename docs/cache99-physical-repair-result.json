@@ -1,0 +1,16 @@
+{
+  "state": "repair_complete_readonly_recheck_passed",
+  "image_sha256": "3474beffbe46e3ee8c2547b2d157239ab63ec61a81c614dd3137b43b7bbe74d2",
+  "original_backup_sha256": "7053be21ae7e7c627aa829eafc97501cd5ceae2063f56177a4ce28488b3e4aef",
+  "physical_repaired_sha256": "09b94b39fb08e3c1db8d5fa1c63949185b8dc08f99c265047e9f263c184001a1",
+  "wire_sha256": "84a1d56251c34271bd81de891fd0b9ffe7ce5c2347903000a3bbfca6ddee93cd",
+  "repair_exit": 1,
+  "readonly_recheck_exit": 0,
+  "p9_relocked": true,
+  "postrepair_independent_backup_verified": true,
+  "persistent_cache_ready": false,
+  "postrepair_filesystem_verified": true,
+  "postrepair_backup_sha256": "09b94b39fb08e3c1db8d5fa1c63949185b8dc08f99c265047e9f263c184001a1",
+  "postrepair_evidence_source": "operator-provided host-storage-backup.py verified-summary.json output",
+  "postrepair_evidence_report": "/home/justin/xoom-p9-backup-postrepair99/host-inspection.json"
+}
