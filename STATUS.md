@@ -1,3 +1,10 @@
+> **PERSISTENT DATA + ANDROID PASSED — 3 November 2026:** repaired p10 was
+> mounted rw, Android executed, and SurfaceFlinger/zygote were running. Operator
+> confirmed apps/settings survived reboot. `/cache` remains unverified tmpfs;
+> p9/p8/disk remained read-only. A clean journal-only replay recovered the first
+> abrupt power-off. No Stage D, cache-p9, format or factory reset. See
+> [persistence result](docs/storage-persistence-result.md).
+
 > **Post-repair p10 backup VERIFIED — 3 November 2026:** repaired p10 acquired
 > read-only, 30,334,779,392 bytes, SHA256 `05f86fda…`; source and backup e2fsck
 > clean, independent second source read matched, `DATA_BACKUP_VERIFIED` and

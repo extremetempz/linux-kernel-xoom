@@ -1,0 +1,59 @@
+# Persistent-storage result — 3 November 2026
+
+## Stage C second boot passed
+
+Image:
+`artifacts/storage96-stageC-postrepair-ready/wingray-android44-persistent.img`
+SHA256 `15ef5b6e22724c7c0134c23344806ae7f44d4022640c2376c1e1f839a18397a4`.
+
+Capture:
+`artifacts/storage96-stageC2b`
+report SHA256 `5523bae59d2bb94129b827d146bf68e4ed94f2545f0f2d7b9459f0131b92941e`.
+
+Validated state:
+
+```text
+/data  /dev/mmcblk0p10 ext4 rw
+/cache tmpfs 96MiB
+p10 0
+p9  1
+p8  1
+disk 1
+```
+
+Stages reached `persistent_data_cache_mounted`,
+`ram_graphics_overlays_ready`, and `exec_original_android_init`.
+SurfaceFlinger and zygote were running.
+
+The operator confirmed Android reached the environment and that existing
+apps/settings survived the reboot. This is a user-observed persistence result,
+not an application database/content audit.
+
+## What was fixed to get here
+
+- Physical p10 was repaired and passed a complete read-only fsck.
+- A verified post-repair backup was acquired (`05f86fda…`).
+- Stage B fixed-file two-boot persistence passed.
+- Stage C first boot reached Android.
+- The first reboot left the ext4 journal in needs_recovery state; the Stage C
+  gate correctly refused to mount it.
+- A journal-only replay (`e2fsck -p -E journal_only`) cleared recovery.
+- Stage C then booted again and ran Android with repaired p10.
+
+No format, cache-p9 mount, factory reset or partition change was used.
+
+## Current limits
+
+- `/cache` is still tmpfs. p9 was never mounted or verified for persistent use.
+- No application database or content-integrity comparison was performed.
+- The current p10 contains Stage C Android writes and the Stage B test directory;
+  the verified post-repair backup predates both.
+- Abrupt power-off after Android can set needs_recovery again; clean shutdown is
+  required before normal reboots.
+- No sleep/LP2/storage power test was combined with Stage C.
+
+## Next gate
+
+Do not start Stage D or cache persistence. If further testing is needed, first
+define a clean-shutdown procedure and acquire a fresh backup of the current
+repaired/Android-written p10.
