@@ -1,3 +1,35 @@
+> **Post-repair p10 backup VERIFIED — 3 November 2026:** repaired p10 acquired
+> read-only, 30,334,779,392 bytes, SHA256 `05f86fda…`; source and backup e2fsck
+> clean, independent second source read matched, `DATA_BACKUP_VERIFIED` and
+> `DATA_FILESYSTEM_VERIFIED` true. No tablet write during acquisition. Stage B/C
+> still require a current-image review. See
+> [post-repair backup](docs/p10-postrepair-backup.md).
+
+> **P10 PHYSICAL REPAIR PASSED — 3 November 2026:** operator-authorized
+> interactive e2fsck repaired the p10 orphan/free-count/bitmap state; p9/p8/disk
+> stayed RO. A subsequent complete read-only fsck passed all five phases with no
+> warnings. Post-repair RO inspection is intact, crypto absent, `/data` layout
+> preserved. The tablet is un-rebooted into Android and Stage B/C remain blocked.
+> A fresh raw backup of the repaired p10 is still required. See
+> [repair result](docs/offline98-repair-result.md).
+
+> **Offline97 read-only hardware validation PASSED — 3 November 2026:** the
+> internal-initramfs image booted, all 13 chunk hashes and the final checker hash
+> matched, and the standalone ARM e2fsck completed clean/counter/preen/recheck
+> RAM tests with `RAMTEST_EXIT 0`. Image SHA256 `fd3af657…`; report H8. No
+> p9/p10 mount, physical fsck, repair or userdata write occurred. The physical
+> repair environment remains unbuilt and unauthorized. See
+> [verification](docs/offline97-verification.md).
+
+> **Offline97 read-only candidate built — 3 November 2026:** the locally present
+> raw p10 backup was rehashed to `c637b516…` and the repaired host copy to
+> `9c0826d8…`; both are 30334779392 bytes. The repaired host copy passes full
+> read-only fsck, but the tablet remains unrepaired and its original source is
+> still blocked. A read-only offline97 image now embeds the standalone ARM
+> checker and RAM fixtures: 5,074,944 bytes, SHA256 `fd3af657…`. It has no
+> Android, mass storage, physical filesystem mount or repair command and is not
+> hardware-tested. See [verification](docs/offline97-verification.md).
+
 > **Storage96 host evidence — 3 November 2026:** the operator booted the RO
 > mass-storage environment and completed a verified p10 acquisition with two
 > independent source reads. The original filesystem is blocked by journal/orphan,

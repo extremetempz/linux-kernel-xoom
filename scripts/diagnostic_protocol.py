@@ -298,13 +298,23 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False):
 
 
 def storage_result(payload, expected, disk_sectors=None, storage_mode='virtual-only'):
-    if storage_mode not in ('virtual-only', 'android44-readonly', 'android44-persistent-inspect'):
+    if storage_mode not in ('virtual-only', 'android44-readonly', 'android44-persistent-inspect', 'offline97'):
         raise ProtocolError('Unknown storage-report mode')
     if storage_mode == 'android44-readonly':
         if disk_sectors not in (None, 62521344):
             raise ProtocolError('Android44 profile requires the verified Wingray disk capacity reference')
         disk_sectors = 62521344
     text = payload.decode('utf-8', errors='replace')
+    if storage_mode == 'offline97':
+        offline = _section(text, 'XOOM_OFFLINE97_BEGIN', 'XOOM_OFFLINE97_END')
+        if 'OFFLINE97_RAMTEST_PASSED_PHYSICAL_WRITES_DISABLED' not in offline:
+            raise ProtocolError('Offline97 RAM test did not pass')
+        if re.search(r'OFFLINE97_RAMTEST_FAILED_|RAMTEST_EXIT [1-9]', offline):
+            raise ProtocolError('Offline97 RAM test reported failure')
+        return {'state': 'offline97_ramtest_passed', 'storage_mode': 'offline97',
+                'android_filesystems_mounted': False, 'ram_data_mounted': False,
+                'ram_cache_mounted': False, 'all_emmc_readonly_flags': True,
+                'physical_writes_disabled': True}
     mount_lines = _section(text, 'XOOM_MOUNTS_BEGIN', 'XOOM_MOUNTS_END').splitlines()
     mounts = [line.split() for line in mount_lines]
     if any(len(fields) != 6 for fields in mounts):
