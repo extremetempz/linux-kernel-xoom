@@ -126,3 +126,11 @@ The operator confirmed the persistent Stage C boot retained:
 These are operator observations, not an independent database/content or
 credential audit. The operator explicitly declined a fresh post-Stage-C raw
 backup. No further write test is required by the operator.
+
+
+## Reboot-tolerant Stage C — 3 November 2026
+
+New Stage C image `60226983…` accepts only the ext4 needs_recovery bit in
+addition to the approved base state, then mounts rw to replay the journal. It
+does not run a full fsck or touch cache p9. This is the candidate for repeated
+reboot testing; not yet flashed.

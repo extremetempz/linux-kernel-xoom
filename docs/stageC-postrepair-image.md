@@ -97,3 +97,29 @@ The report validated in `android44-persistent` mode:
 The report did not expose a top-level kernel boot ID, so Android persistence
 across reboot still needs a second controlled boot and comparison of existing
 userdata state.
+
+
+## Reboot-tolerant gate — image 60226983
+
+The bootstrap now accepts a p10 superblock that differs from the approved base
+only by the ext4 `needs_recovery` incompat bit (0x4). It still requires:
+
+- exact UUID;
+- zero recorded error count;
+- base compat/incompat/ro-compat features after masking only 0x4;
+- state `0100`, or `0000` when and only when recovery is pending.
+
+The normal read-write mount then replays the journal. No full e2fsck, format or
+cache-p9 access is performed.
+
+Image:
+`artifacts/storage96-stageC-reboot-ready/wingray-android44-persistent.img`
+
+- 4,222,976 bytes
+- SHA256 `60226983d438b969fb9157700fc08ec295746d10145cbbf6b13b29b073c8e8d3`
+- Approval and fstab unchanged.
+- Boot audit passed.
+- Not flashed.
+
+This permits repeated forced power cycles after Android shutdown hangs, as long
+as the only pending difference is the journal recovery bit.
