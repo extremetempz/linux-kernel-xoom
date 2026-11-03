@@ -25,3 +25,20 @@ persistent p10 data while Android runs.
 Host validation now accepts an approved p9 cache mount in
 `android44-persistent`; a tmpfs cache remains accepted for older Stage C images.
 No cache format, Stage D, factory reset or p10/p9 repair occurred.
+
+## Combined reboot passed
+
+A further full reboot of the same image validated:
+
+```text
+pstore boot ID b3c983e4-602a-433c-a6ee-0fd9507c5517
+/data  p10 ext4 rw
+/cache p9 ext4 rw
+p9 0
+p10 0
+SurfaceFlinger running
+zygote running
+```
+
+Both persistent filesystems survived and Android relaunched. This is the first
+combined p9 `/cache` + p10 `/data` reboot success.
