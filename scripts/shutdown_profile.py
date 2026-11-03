@@ -7,8 +7,17 @@ def init_actions():
                           ('reboot', 'reboot'), ('reboot,', 'reboot')):
         lines += ['on property:sys.powerctl=' + request,
                   '    write /dev/kmsg XOOM_SHUTDOWN_REQUEST_' + mode,
-                  '    class_stop late_start', '    class_stop main',
-                  '    class_stop core', '    start xoom' + mode, '']
+                  '    write /cache/xoom-shutdown-step before_late_start',
+                  '    class_stop late_start',
+                  '    write /cache/xoom-shutdown-step after_late_start',
+                  '    write /cache/xoom-shutdown-step before_main',
+                  '    class_stop main',
+                  '    write /cache/xoom-shutdown-step after_main',
+                  '    write /cache/xoom-shutdown-step before_core',
+                  '    class_stop core',
+                  '    write /cache/xoom-shutdown-step after_core',
+                  '    write /cache/xoom-shutdown-step before_script',
+                  '    start xoom' + mode, '']
     for mode in ('shutdown', 'reboot'):
         lines += ['service xoom' + mode + ' /bin/xoom-clean-shutdown ' + mode,
                   '    class xoom_power', '    user root', '    group root',

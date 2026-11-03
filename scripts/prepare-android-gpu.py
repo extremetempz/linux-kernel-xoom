@@ -263,6 +263,9 @@ def entries(runtime):
     assert profile in ('persistent','persistentshutdown'), 'Writable cache is a separate Android-only opt-in'
     from cache_profile import approved_cache_token
     files['bin/storage-cache-approved']=approved_cache_token(Path(cache_approval),fs['uuid'])
+    if os.environ.get('XOOM_CACHE_WRITE_TEST')=='1':
+     files['bin/cache-write-test']=(ROOT/'diagnostic/cache-write-test.sh').read_bytes()
+     files['bin/cache-write-test-enabled']=b'one-shot-hold\n'
  elif os.environ.get('XOOM_CACHE_HOST_EVIDENCE'):
   raise AssertionError('Cache evidence requires an approved persistent Android profile')
  files['bin/xoom-screen-awake']=AWAKE_SCRIPT
@@ -276,6 +279,7 @@ def entries(runtime):
   assert os.environ.get('XOOM_ANDROID_GPU_PROFILE')=='persistentshutdown', 'Explicit shutdown profile required'
   assert 'bin/storage-data-approved' in files, 'Shutdown profile requires reviewed Stage C data evidence'
   files['bin/xoom-clean-shutdown']=(ROOT/'diagnostic/clean-shutdown.sh').read_bytes()
+  files['bin/cache-holder-scan']=(ROOT/'diagnostic/cache-holder-scan.sh').read_bytes()
   files['bin/clean-shutdown-enabled']=b'kitkat-normal-powerctl-only\n'
  result=ramdisk_entries(original,files,persistent=persistent,clean_shutdown=clean_shutdown)
  if storage_backup:
