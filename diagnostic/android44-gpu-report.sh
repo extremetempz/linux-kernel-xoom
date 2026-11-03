@@ -177,3 +177,6 @@ fi
 [ ! -x /bin/battery-report ] || /bin/battery-report
 [ ! -x /bin/power-report ] || /bin/power-report
 echo XOOM_ANDROID44_REPORT_DONE_V1
+
+# RAM-only shutdown transaction trace; survives until kernel handoff.
+bounded_file /run/android44-shutdown.txt 8192
