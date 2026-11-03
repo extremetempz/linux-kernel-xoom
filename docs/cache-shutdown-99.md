@@ -100,3 +100,30 @@ boot-only restoration procedure. No recovery/partition-table overwrite, format,
 factory reset or implicit p9 repair is part of this change. Keep the host backups
 and original boot/recovery images. New poweroff and persistent-cache hardware
 behaviour remain unvalidated; neither is reported as working.
+
+## First p9 acquisition — physical read-only test
+
+The p9 image was boot-flashed with user authorization. Host enumeration initially
+failed configuration with -32; a USB reconnect succeeded before acquisition.
+The host then reported exactly 536870912 bytes, write-protected, unmounted.
+The operator ran the independent two-pass acquisition and reported
+`CACHE_BACKUP_VERIFIED; CACHE_FILESYSTEM_BLOCKED`.
+Backup SHA-256: `7053be21ae7e7c627aa829eafc97501cd5ceae2063f56177a4ce28488b3e4aef`.
+Both source and backup read-only fsck report skipped journal replay and invalid
+inode bitmap padding. Metadata: incompat=70 (includes recovery), state=1,
+error_count=0. These are not healthy-filesystem evidence.
+
+P9 UUID equals the previously recorded p10 UUID. Duplicate UUID alone is not a
+partition identity failure: the implementation uses fixed p9, exact capacity,
+independently bound cache evidence, geometry and current superblock checks.
+The builder's unnecessary distinct-UUID requirement is removed; zero UUID is
+still rejected. No mount-by-UUID selection is introduced.
+
+`scripts/check-cache-copy99.py` verifies the original hash, makes a new 512MiB
+host copy, verifies it, replays only that copy's journal, then runs read-only
+fsck. It stops on remaining errors and does not perform general repair, open a
+tablet device, alter the original backup or authorize physical writes. Its
+results are pending. Persistent cache remains blocked. Desktop automount was
+temporarily disabled (both previous settings true); restore only after the
+exported disk is disconnected. The tablet currently runs the read-only p9
+backup image, not Stage C; restoration is still pending.
