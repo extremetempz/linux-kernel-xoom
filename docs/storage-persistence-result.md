@@ -57,3 +57,35 @@ No format, cache-p9 mount, factory reset or partition change was used.
 Do not start Stage D or cache persistence. If further testing is needed, first
 define a clean-shutdown procedure and acquire a fresh backup of the current
 repaired/Android-written p10.
+
+## Post-shutdown recovery state
+
+A later Android shutdown attempt became stuck at “Shutting Down.” The tablet
+was force-cycled, which set p10 `needs_recovery`; a journal-only replay returned
+exit 0 and cleared it. The final read-only inspection now shows:
+
+```text
+PART_RO p10 1
+EXT4_MAGIC data 53ef
+EXT4_FEATURE_INCOMPAT data 42000000
+RO_MOUNT_OK data
+```
+
+p10 is clean and read-only.
+
+p9 cache was not mounted or modified. It currently shows:
+
+```text
+EXT4_MAGIC cache 53ef
+EXT4_FEATURE_INCOMPAT cache 46000000
+RO_MOUNT_OK cache
+```
+
+The cache remains unverified and has pending recovery; Stage C continues to use
+fresh tmpfs cache, not p9. Do not treat cache as persistent.
+
+## Final boundary
+
+Persistent `/data` and Android boot are verified. Cache persistence, app/content
+audit and clean shutdown automation are not. No further tablet writes should be
+made without a new backup and a separate clean-shutdown plan.

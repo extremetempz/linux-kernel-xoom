@@ -103,3 +103,12 @@ Stage C booted against repaired p10. The report validates p10 rw, p9/p8/disk RO,
 `/data` p10 ext4 rw, `/cache` fresh tmpfs, system ro,noload, Android init
 executed, and surfaceflinger/zygote running. A second boot is still required to
 prove Android userdata persistence across reboot. No Stage D or cache p9 write.
+
+
+## Final post-shutdown state — 3 November 2026
+
+After the successful Stage C boot, an Android shutdown hang required a forced
+cycle. Journal-only replay cleared p10 `needs_recovery`; final inspection shows
+p10 read-only, ext4 magic, incompat `42000000`, ro mount. p9 cache still shows
+`needs_recovery` `46000000` and was never mounted or used. Stage C uses tmpfs
+cache. No Stage D, cache persistence or content audit.
