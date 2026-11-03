@@ -1,5 +1,12 @@
 # Project state — 3 November 2026
 
+## New preparation: cache and shutdown
+
+See [cache/shutdown preparation](docs/cache-shutdown-99.md). An immutable p9
+backup image is built locally; an opt-in shutdown kernel compiles. Neither has
+been flashed. Persistent cache and electrical shutdown remain hardware-unproven.
+The known-good Stage C image and protected backups are unchanged.
+
 ## Physical storage
 
 - The tablet is a Motorola Xoom MZ604/Wingray, BigPart layout.
