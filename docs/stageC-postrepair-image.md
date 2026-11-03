@@ -123,3 +123,21 @@ Image:
 
 This permits repeated forced power cycles after Android shutdown hangs, as long
 as the only pending difference is the journal recovery bit.
+
+## Reboot image correction — 183597ba
+
+The first reboot-tolerant gate used the full little-endian incompat word for the
+mask, so `0x46` became `0x46000000` and the mask never matched. The corrected
+gate uses the first incompat byte:
+
+- `0x46 & ~0x04 == 0x42` (approved base);
+- `0x46 & 0x04 == 0x04` (pending recovery).
+
+Image:
+`artifacts/storage96-stageC-reboot2-ready/wingray-android44-persistent.img`
+
+- 4,222,976 bytes
+- SHA256 `183597ba60580729bfaadfaf642b073a477bb494e3d1b09cd6da2ac629d398da`
+- Boot audit passed.
+- Approval/fstab unchanged.
+- Not flashed.

@@ -112,10 +112,10 @@ verify_persistent_data() {
  [ "$current_uuid" = "$expected_uuid" ] && [ "$current_errors" = 00000000 ] || return 1
  recovery=0
  if [ "$current_features" != "$expected_features" ]; then
-  current_incompat=${current_features:8:8}
-  expected_incompat=${expected_features:8:8}
-  [ $((0x$current_incompat & ~0x4)) -eq $((0x$expected_incompat)) ] &&
-   [ $((0x$current_incompat & 0x4)) -eq 4 ] || return 1
+  current_incompat_byte=${current_features:8:2}
+  expected_incompat_byte=${expected_features:8:2}
+  [ $((0x$current_incompat_byte & ~0x4)) -eq $((0x$expected_incompat_byte)) ] &&
+   [ $((0x$current_incompat_byte & 0x4)) -eq 4 ] || return 1
   recovery=1
  fi
  if [ "$current_state" = 0100 ]; then
