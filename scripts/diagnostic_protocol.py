@@ -191,7 +191,16 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_w
     expected_flags = dict.fromkeys(wanted, '1')
     if persistent_write_test or persistent_android:
         expected_flags['mmcblk0p10'] = '0'
-    if len(flags) != 11 or dict(flags) != expected_flags:
+    flag_map = dict(flags)
+    if len(flags) != 11:
+        raise ProtocolError('Android mode has the wrong eMMC read-only flags')
+    if persistent_android:
+        for name in wanted - {'mmcblk0p9'}:
+            if flag_map.get(name) != expected_flags[name]:
+                raise ProtocolError('Android mode has the wrong eMMC read-only flags')
+        if flag_map.get('mmcblk0p9') not in ('0', '1'):
+            raise ProtocolError('Android mode has the wrong eMMC read-only flags')
+    elif flag_map != expected_flags:
         raise ProtocolError('Android mode has the wrong eMMC read-only flags')
     info = _mountinfo(_section(policy, 'XOOM_ANDROID44_MOUNTINFO_BEGIN',
                               'XOOM_ANDROID44_MOUNTINFO_END'))
@@ -218,8 +227,15 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_w
             raise ProtocolError('Stage C requires writable p10 ext4 at /data')
         if 'rw' not in data['options']:
             raise ProtocolError('Stage C data mount is not read-write')
-        if cache is not None and (cache['fstype'] != 'tmpfs' or cache['root'] != '/'):
-            raise ProtocolError('Stage C cache must be a fresh tmpfs, never p9')
+        if cache is not None:
+            cache_tmpfs = cache['fstype'] == 'tmpfs' and cache['root'] == '/'
+            cache_p9 = (cache['fstype'] == 'ext4' and cache['source'] == '/dev/mmcblk0p9'
+                        and 'rw' in cache['options'])
+            if not (cache_tmpfs or cache_p9):
+                raise ProtocolError('Stage C cache must be p9 ext4 rw or a fresh tmpfs')
+            wanted_p9 = '1' if cache_tmpfs else '0'
+            if flag_map.get('mmcblk0p9') != wanted_p9:
+                raise ProtocolError('Stage C p9 policy does not match the cache mount')
         if system is None:
             raise ProtocolError('Stage C requires read-only system')
     elif persistent_write_test:
@@ -284,6 +300,9 @@ def _android44_mount_policy(text, mounts, persistent_inspect=False, persistent_w
         elif target == '/data' and persistent_android:
             if source != '/dev/mmcblk0p10' or fstype != 'ext4' or not {'rw', 'nosuid', 'nodev'} <= opts or 'ro' in opts:
                 raise ProtocolError('Stage C data mount is not fixed p10 ext4 read-write')
+        elif target == '/cache' and persistent_android and fstype == 'ext4':
+            if source != '/dev/mmcblk0p9' or not {'rw', 'nosuid', 'nodev'} <= opts or 'ro' in opts:
+                raise ProtocolError('Stage C cache is not fixed p9 ext4 read-write')
         elif target in overlays:
             if (not system or fstype != 'tmpfs' or record['device'] != run['device']
                     or record['root'] != overlays[target] or not {'ro', 'nosuid', 'nodev'} <= opts or 'rw' in opts
