@@ -1,0 +1,42 @@
+{
+  "review_date": "2026-11-05",
+  "reviewed_main": "7dabd2ebe4fb3bc21d266858c53b0df5df110298",
+  "reviewed_prs": [
+    43,
+    44
+  ],
+  "status": "held_not_certified_for_flash",
+  "image_sha256": "7615b6140285cd76f82cff4b98abd3146ae007bb6a0866b1207ac62873d8bd79",
+  "image_bytes": 4235264,
+  "complete_arm_build_passed": true,
+  "packed_builtin_runtime_matches_reviewed_source": true,
+  "boot_image_layout_audit_passed": true,
+  "kernel_cpio_streaming_parser_passed": true,
+  "actual_ext4_ro_transition_fault_tests_passed": true,
+  "actual_shutdown_shell_failure_tests_passed": true,
+  "persistent_report_mode_regressions_passed": true,
+  "current_hardware_readonly_report_accepted": true,
+  "original_and_cache_host_evidence_revalidated": true,
+  "physical_shutdown_verified": false,
+  "exact_prior_kernel_wait_proven": false,
+  "flash_executed": false,
+  "shutdown_requested_from_device": false,
+  "user_gate": "Do not ask for an experimental flash; certainty of physical shutdown is not established.",
+  "changes": [
+    "RO-remount-first filesystem quiescence",
+    "RAM/kernel-only diagnostics",
+    "nonblocking timeout failure gate",
+    "restored report identity checks and modes",
+    "shutdown-only blocked-task and WDI diagnostics"
+  ],
+  "limitations": [
+    "No retained blocked-task stack identifies the exact historical hang.",
+    "Offline checks cannot prove physical remount, driver shutdown, CPU stop or WDI poweroff.",
+    "A deadline cannot guarantee cancellation of an uninterruptible kernel operation."
+  ],
+  "sources": {
+    "diagnostic/clean-shutdown.sh": "7c26bae96f0565e3b96ebea626bb22d7812f8e4fc70ea8652ab822926ed67f0b",
+    "scripts/shutdown_profile.py": "52714b223b3d383ec1b15cc56ba4cb1c559358e0d3434ef3c8045ef44253970f",
+    "kernel/patches/0183-wingray-shutdown-wait-and-wdi-diagnostics.patch": "00f6f2d6bd2fa0895cab831f2ce1a10644e7d2e5c7aab673c29fce28f8730b75"
+  }
+}
