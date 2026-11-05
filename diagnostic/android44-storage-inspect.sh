@@ -92,7 +92,17 @@ inspect_part() {
   if /bin/busybox mount -t ext4 -o ro,noload,nosuid,nodev "$dev" /mnt/storage-inspect/$name; then
    say "RO_MOUNT_OK $name"
    /bin/busybox ls -la /mnt/storage-inspect/$name 2>&1 | /bin/busybox head -c 8192 | /bin/busybox sed 's/^/LS /' >> "$OUT"
+   if [ "$name" = cache ]; then
+    for marker in xoom-shutdown-step xoom-shutdown-script xoom-cache-holders; do
+     if [ -f /mnt/storage-inspect/cache/$marker ]; then
+      say "SHUTDOWN_MARKER $marker $(/bin/busybox cat /mnt/storage-inspect/cache/$marker 2>/dev/null | /bin/busybox tr -d '\n')"
+     fi
+    done
+   fi
    if [ "$name" = data ]; then
+    if [ -f /mnt/storage-inspect/data/xoom-cache-large-result ]; then
+     say "LARGE_CACHE_RESULT $(/bin/busybox cat /mnt/storage-inspect/data/xoom-cache-large-result 2>/dev/null | /bin/busybox tr '\n' '|')"
+    fi
     say "STORAGE_TEST_DIR_PRESENT $([ -d /mnt/storage-inspect/data/local/xoom-storage-test ] && echo yes || echo no)"
     if [ -d /mnt/storage-inspect/data/local/xoom-storage-test ] && [ ! -L /mnt/storage-inspect/data/local/xoom-storage-test ]; then
      /bin/busybox ls -la /mnt/storage-inspect/data/local/xoom-storage-test 2>&1 | /bin/busybox sed 's/^/TEST_LS /' >> "$OUT"
@@ -111,8 +121,8 @@ inspect_part() {
  fi
  say "INSPECT $name END"
 }
-inspect_part 10 data
 inspect_part 9 cache
+inspect_part 10 data
 say "DATA_MOUNT_AFTER_INSPECTION $(/bin/busybox awk '$2=="/data"{print $1" "$3" "$4}' /proc/mounts)"
 say "CACHE_MOUNT_AFTER_INSPECTION $(/bin/busybox awk '$2=="/cache"{print $1" "$3" "$4}' /proc/mounts)"
 say XOOM_STORAGE_INSPECT_END
