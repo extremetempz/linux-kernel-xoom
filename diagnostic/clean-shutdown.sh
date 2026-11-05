@@ -3,8 +3,21 @@
 BB=/bin/busybox
 OUT=/run/android44-shutdown.txt
 note() { echo "XOOM_SHUTDOWN_$*" >> "$OUT"; echo "XOOM_SHUTDOWN_$*" > /dev/kmsg; }
+mark() {
+ echo "$1" > /cache/xoom-shutdown-script 2>/dev/null
+ echo "$1" > /data/xoom-shutdown-script 2>/dev/null
+ $BB sync
+}
 stalled() {
  note "STALLED_$1 pid=$2"
+ {
+  echo "STALLED_$1 pid=$2"
+  for file in status wchan stack; do
+   [ ! -r "/proc/$2/$file" ] || $BB head -c 8192 "/proc/$2/$file"
+  done
+ } > /cache/xoom-shutdown-stall 2>/dev/null
+ [ -w /data ] && cp /cache/xoom-shutdown-stall /data/xoom-shutdown-stall 2>/dev/null
+ $BB sync
  for file in status wchan stack; do
   [ ! -r "/proc/$2/$file" ] || $BB head -c 8192 "/proc/$2/$file" >> "$OUT" 2>/dev/null
  done
@@ -43,6 +56,9 @@ case "$#:$1" in 1:shutdown|1:reboot) mode=$1;; *) exit 1;; esac
 [ -f /bin/clean-shutdown-enabled ] || exit 1
 [ "$($BB id -u)" = 0 ] || exit 1
 $BB mkdir /run/xoom-shutdown.lock 2>/dev/null || exit 1
+# Diagnostic only: Android may already have remounted cache RO.
+[ -f /bin/storage-cache-approved ] && $BB mount -o remount,rw /cache 2>/dev/null
+mark script_begin
 note "BEGIN_$mode"
 identity /data 179:10 || stop data_identity
 if $BB awk '$5=="/cache" && $3=="179:9" {found=1} END {exit !found}' /proc/self/mountinfo; then
@@ -56,9 +72,14 @@ else
  cache_persistent=0
 fi
 # Propagation changes do not flush or unmount the filesystem.
+mark before_private_cache
 run_checked private_cache 10 $BB mount --make-private /cache || stop private_cache
+mark private_cache_ok
+mark before_private_data
 run_checked private_data 10 $BB mount --make-private /data || stop private_data
+mark private_data_ok
 run_checked initial_sync 30 $BB sync || stop initial_sync
+mark initial_sync_ok
 # Android services, including sdcard, were stopped by init before this service.
 targets=$($BB awk '$5 ~ /^\/storage\/emulated(\/[0-9]+)?$/ || $5 == "/mnt/shell/emulated" {print $5}' /proc/self/mountinfo | $BB sort -r)
 for target in $targets; do
@@ -67,10 +88,13 @@ done
 # A clean RO remount is sufficient for poweroff and avoids kill_block_super /
 # ext4_put_super / journal-thread destruction in the failing unmount-first path.
 # No forced/lazy unmount and no fallback to a writable or unchecked filesystem.
+mark before_data_ro
+run_checked data_readonly 300 $BB mount -t ext4 -o remount,ro,nosuid,nodev,noatime /dev/mmcblk0p10 /data || stop data_readonly
 if [ "$cache_persistent" = 1 ]; then
- run_checked cache_readonly 30 $BB mount -t ext4 -o remount,ro,nosuid,nodev,noatime /dev/mmcblk0p9 /cache || stop cache_readonly
+ mark before_cache_ro
+ run_checked cache_readonly 60 $BB mount -t ext4 -o remount,ro,nosuid,nodev,noatime /dev/mmcblk0p9 /cache || stop cache_readonly
+ mark after_cache_ro
 fi
-run_checked data_readonly 30 $BB mount -t ext4 -o remount,ro,nosuid,nodev,noatime /dev/mmcblk0p10 /data || stop data_readonly
 # Require BOTH VFS and superblock RO for every eMMC alias in this namespace.
 $BB awk '$3 ~ /^179:/ {s=0;for(i=1;i<=NF;i++)if($i=="-")s=i;
  if(!s || $6 !~ /(^|,)ro(,|$)/ || $6 ~ /(^|,)rw(,|$)/ ||
@@ -92,8 +116,10 @@ verify_volume() {
 for volume in $volumes; do
  run_checked "superblock_${volume##*/}" 15 verify_volume "$volume" || stop filesystem_not_clean
 done
+mark filesystems_clean
 note FILESYSTEM_CLEAN
 # No more writes to p9/p10 after quiescing. Property service remains in PID1.
 note "NATIVE_REQUEST_$mode"
 run_checked native_handoff 10 /system/bin/setprop sys.xoom.shutdown_ready "$mode" || stop native_handoff
+mark handoff
 note "HANDOFF_$mode"

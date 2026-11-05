@@ -99,7 +99,16 @@ inspect_part() {
      fi
     done
    fi
+   if [ "$name" = cache ] && [ -f /mnt/storage-inspect/cache/xoom-shutdown-stall ]; then
+    say "CACHE_SHUTDOWN_STALL $(/bin/busybox cat /mnt/storage-inspect/cache/xoom-shutdown-stall 2>/dev/null | /bin/busybox tr '\n' '|')"
+   fi
    if [ "$name" = data ]; then
+    if [ -f /mnt/storage-inspect/data/xoom-shutdown-script ]; then
+     say "DATA_SHUTDOWN_MARKER $(/bin/busybox cat /mnt/storage-inspect/data/xoom-shutdown-script 2>/dev/null | /bin/busybox tr -d '\n')"
+    fi
+    if [ -f /mnt/storage-inspect/data/xoom-shutdown-stall ]; then
+     say "DATA_SHUTDOWN_STALL $(/bin/busybox cat /mnt/storage-inspect/data/xoom-shutdown-stall 2>/dev/null | /bin/busybox tr '\n' '|')"
+    fi
     if [ -f /mnt/storage-inspect/data/xoom-cache-large-result ]; then
      say "LARGE_CACHE_RESULT $(/bin/busybox cat /mnt/storage-inspect/data/xoom-cache-large-result 2>/dev/null | /bin/busybox tr '\n' '|')"
     fi
