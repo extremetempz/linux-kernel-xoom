@@ -1,0 +1,49 @@
+From 9262c23e4c31909c41b123ffdd0db4f35f097858 Mon Sep 17 00:00:00 2001
+From: JUstin <justinscollo@protonmail.com>
+Date: Thu, 5 Nov 2026 16:46:20 +1100
+Subject: [PATCH] Instrument opt-in Wingray shutdown waits and WDI callback
+
+---
+ .../wingray_android44_persistent_shutdown_defconfig        | 7 +++++++
+ drivers/power/reset/wingray-power.c                        | 3 +++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/arch/arm/configs/wingray_android44_persistent_shutdown_defconfig b/arch/arm/configs/wingray_android44_persistent_shutdown_defconfig
+index 19172d1b..6b72572d 100644
+--- a/arch/arm/configs/wingray_android44_persistent_shutdown_defconfig
++++ b/arch/arm/configs/wingray_android44_persistent_shutdown_defconfig
+@@ -250,3 +250,10 @@ CONFIG_MOTOROLA_WINGRAY_PERSISTENT_STORAGE=y
+ # Isolated original-Motorola power-off/restart, not a baseline change.
+ CONFIG_POWER_RESET=y
+ CONFIG_POWER_RESET_WINGRAY=y
++
++# Shutdown-only diagnostics: capture an uninterruptible storage wait in ramoops.
++CONFIG_DEBUG_KERNEL=y
++CONFIG_MAGIC_SYSRQ=y
++CONFIG_STACKTRACE=y
++CONFIG_DETECT_HUNG_TASK=y
++CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=20
+diff --git a/drivers/power/reset/wingray-power.c b/drivers/power/reset/wingray-power.c
+index 4537f6ac..79508516 100644
+--- a/drivers/power/reset/wingray-power.c
++++ b/drivers/power/reset/wingray-power.c
+@@ -50,6 +50,7 @@ static int wingray_restart(struct notifier_block *nb, unsigned long event, void
+ 
+ static void wingray_poweroff(void)
+ {
++	pr_emerg("Wingray: WDI poweroff callback entered; asserting PV7 low\n");
+ 	gpiod_set_value(wingray_power->poweroff, 1);
+ 	mdelay(3000);
+ 	pr_emerg("Wingray: poweroff did not complete\n");
+@@ -99,6 +100,8 @@ install_poweroff:
+ 	platform_set_drvdata(pdev, power);
+ 	wingray_power = power;
+ 	pm_power_off = wingray_poweroff;
++	dev_info(&pdev->dev, "WDI poweroff installed; poweroff-only=%d\n",
++		 power->poweroff_only);
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
+
