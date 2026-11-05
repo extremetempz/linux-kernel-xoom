@@ -2,7 +2,7 @@
 # Diagnostic only: capture p9/cache holders at power-off, never power off.
 exec </dev/ttyGS0 >/dev/ttyGS0 2>&1
 BB=/bin/busybox
-OUT=/cache/xoom-cache-holders
+OUT=/run/xoom-cache-holders.txt
 : > "$OUT" 2>/dev/null
 say() { echo "$@"; echo "$@" >> "$OUT"; }
 say XOOM_CACHE_HOLDERS_BEGIN
@@ -44,4 +44,4 @@ for proc in /proc/[0-9]*; do
  done
 done
 say XOOM_CACHE_HOLDERS_END
-while :; do $BB sleep 5; done
+exit 0
