@@ -1,7 +1,10 @@
 """Run the actual Linux cpio FSM with inert filesystem stubs and varied flush sizes."""
 from pathlib import Path
-import gzip,subprocess,tempfile
+import argparse,gzip,subprocess,tempfile
 r=Path(__file__).resolve().parents[1]
+ap=argparse.ArgumentParser(description=__doc__)
+ap.add_argument('--archive',type=Path,default=r/'artifacts/gpu-startup51-ready/ramdisk.cpio.gz')
+args=ap.parse_args()
 s=(r/'sources/kernel-donor/init/initramfs.c').read_text();s=s[s.index('static ssize_t __init xwrite'):s.index('static unsigned long my_inptr')]
 a=s.index('static long __init do_utime');b=s.index('static __initdata time_t mtime',a)
 s=s[:a]+'''static long do_utime(char *n,time_t t){return 0;}\nstatic void dir_add(const char *n,time_t t){}\n'''+s[b:]
@@ -49,7 +52,8 @@ int main(int argc,char**argv){assert(argc==3);FILE*f=fopen(argv[1],"rb");assert(
 '''
 with tempfile.TemporaryDirectory() as t:
  t=Path(t);(t/'fixture.c').write_text(prefix+s+main)
- archive=gzip.decompress((r/'artifacts/gpu-startup51-ready/ramdisk.cpio.gz').read_bytes())
+ archive=args.archive.read_bytes()
+ if archive.startswith(b'\x1f\x8b'):archive=gzip.decompress(archive)
  (t/'archive').write_bytes(archive)
  subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-Wno-sign-compare','-fsanitize=undefined',str(t/'fixture.c'),'-o',str(t/'fixture')],check=True)
  for chunk in (32768,4096,113,len(archive)):

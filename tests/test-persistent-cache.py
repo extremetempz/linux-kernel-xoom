@@ -22,7 +22,12 @@ for cache,mode in ((False,'android44-persistent'),(True,'android44-persistent-ca
   try:check(bad,mode)
   except ProtocolError:pass
   else:raise AssertionError('unsafe report accepted')
-try:check(body(True),'android44-persistent')
-except ProtocolError:pass
-else:raise AssertionError('p9 accepted without explicit cache mode')
+# Keep the Deepseek legacy-mode compatibility for the tested combined image.
+assert check(body(True),'android44-persistent')['state']=='geometry_matches_reference'
+# Explicit cache mode cannot silently accept tmpfs; nor can either mode omit cache.
+for data,mode in ((body(False),'android44-persistent-cache'),
+                  (body(True).replace(b'179:9',b'179:8'),'android44-persistent')):
+ try:check(data,mode)
+ except ProtocolError:pass
+ else:raise AssertionError('wrong cache identity/profile accepted')
 print('PASS: Stage C and explicit cache report identities and write flags')
