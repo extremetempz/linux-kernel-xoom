@@ -195,7 +195,7 @@ index 30a62ca1..1452cda6 100644
  obj-$(CONFIG_TEGRA_IOVMM) += iovmm.o
  obj-$(CONFIG_TEGRA_IOVMM_GART) += iovmm-gart.o
 diff --git a/drivers/staging/tegra/tegra20-dvfs.c b/drivers/staging/tegra/tegra20-dvfs.c
-index 0200bcd4..5035cfb1 100644
+index 0200bcd4..8b9f6561 100644
 --- a/drivers/staging/tegra/tegra20-dvfs.c
 +++ b/drivers/staging/tegra/tegra20-dvfs.c
 @@ -25,7 +25,7 @@
@@ -277,6 +277,24 @@ index 0200bcd4..5035cfb1 100644
  		if (current_cpu_vdd != new_cpu_vdd)
  			dvfs_update_cpu_voltage(new_cpu_vdd);
  		update_core_vdd(new_core_vdd);
+@@ -694,6 +694,17 @@ static int tegra_dvfs_probe(struct platform_device *pdev)
+ 	dvfs_init(&dvfs_cpu, soc_speedo_id, cpu_process_id);
+ 	dvfs_init(&dvfs_core, soc_speedo_id, soc_process_id);
+ 
++	if (list_empty(&dvfs_cpu.active_clients) ||
++	    list_empty(&dvfs_core.active_clients)) {
++		dev_err(dvfs_dev,
++			"no matching DVFS client for speedo=%d cpu_process=%d soc_process=%d; refusing voltage scaling\n",
++			soc_speedo_id, cpu_process_id, soc_process_id);
++		dvfs_release(&dvfs_cpu);
++		dvfs_release(&dvfs_core);
++		mutex_unlock(&dvfs_lock);
++		return -ENODEV;
++	}
++
+ 	dvfs_start_locked();
+ 
+ 	mutex_unlock(&dvfs_lock);
 diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
 index a28c25b6..5bc31fcb 100644
 --- a/drivers/staging/tegra/video/Kconfig

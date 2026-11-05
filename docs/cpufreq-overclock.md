@@ -35,10 +35,10 @@ booting is not overclocked. A root user can opt in through standard sysfs.
 
 ## Image
 
-`artifacts/cpufreq-oc6-ready/wingray-android44-persistent.img`
+`artifacts/cpufreq-oc7-ready/wingray-android44-persistent.img`
 
-- 4,255,744 bytes
-- SHA256 `9773a6afe42137058dc665ffab3639fdb4ccad002aa63fb07e65f19c202e0a02`
+- 4,257,792 bytes
+- SHA256 `752d3ac53c37fd0b127993977ffda1cd50472307e53a2c23c57e80485485e044`
 - Boot audit passed.
 - Not flashed.
 
@@ -48,7 +48,7 @@ Boot first and capture. Do not set 1.7 GHz until all checks below pass.
 
 ```sh
 fastboot flash boot \
-  /home/justin/linux-kernel-xoom/cpufreq-review/artifacts/cpufreq-oc6-ready/wingray-android44-persistent.img
+  /home/justin/linux-kernel-xoom/cpufreq-review/artifacts/cpufreq-oc7-ready/wingray-android44-persistent.img
 fastboot reboot
 ```
 
@@ -108,6 +108,8 @@ writes take effect for both CPUs.
 
 - PLLX 1.7 GHz entries are adapted from TeamEOS but not hardware-validated.
 - No thermal throttle exists in this kernel.
+- If the CPU process ID is not 0/1, DVFS probe now fails closed with
+  `no matching DVFS client`; do not raise frequency in that case.
 - CPU process IDs other than 0/1 are not covered by the DVFS table.
 - Core/RTC voltage changes may affect GPU, display and USB.
 - 1.7 GHz is overclocking and can crash, overheat, or corrupt data.
