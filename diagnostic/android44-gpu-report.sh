@@ -197,5 +197,12 @@ if [ -r /sys/kernel/debug/clk/clk_summary ]; then
  echo CLK_SUMMARY
  grep -E 'cclk|pll_x|pll_p' /sys/kernel/debug/clk/clk_summary | head -20
 fi
+echo XOOM_DVFS_BEGIN
+if [ -r /sys/kernel/debug/tegra_dvfs ]; then
+ cat /sys/kernel/debug/tegra_dvfs
+else
+ echo DVFS_DEBUGFS_ABSENT
+fi
+echo XOOM_DVFS_END
 echo XOOM_CPUFREQ_END
 echo XOOM_ANDROID44_REPORT_DONE_V1
