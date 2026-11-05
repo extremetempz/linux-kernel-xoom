@@ -1,3 +1,77 @@
+diff --git a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+index b283905c..79ba3801 100644
+--- a/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
++++ b/arch/arm/boot/dts/tegra20-motorola-wingray-gpu-test.dts
+@@ -1,3 +1,4 @@
++#include <dt-bindings/clock/tegra20-car.h>
+ /* Offscreen only. No display, GART, IRAM or board power/timing additions. */
+ #include "tegra20-motorola-wingray-host-test.dts"
+ / {
+@@ -69,8 +70,64 @@
+ 			spi-cs-high;
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
++			regulator-controller {
++				compatible = "motorola,wingray-cpcap-regulator";
++				regulators {
++					cpcap_core: SW2 {
++						regulator-name = "core";
++						regulator-min-microvolt = <1000000>;
++						regulator-max-microvolt = <1450000>;
++						regulator-always-on;
++					};
++					cpcap_aon: SW4 {
++						regulator-name = "aon";
++						regulator-min-microvolt = <1000000>;
++						regulator-max-microvolt = <1300000>;
++						regulator-always-on;
++					};
++				};
++			};
+ 		};
+ 	};
++	i2c@7000d000 {
++		status = "okay";
++		clock-frequency = <400000>;
++		vdd_cpu: regulator@60 {
++			compatible = "maxim,max8649";
++			reg = <0x60>;
++			maxim,vid-mode = <1>;
++			maxim,ramp-timing = <0>;
++			regulator-name = "vdd_cpu";
++			regulator-min-microvolt = <770000>;
++			regulator-max-microvolt = <1400000>;
++			regulator-always-on;
++		};
++	};
++	dvfs {
++		compatible = "tegra20-dvfs";
++		cpu-supply = <&vdd_cpu>;
++		core-supply = <&cpcap_core>;
++		rtc-supply = <&cpcap_aon>;
++		clocks = <&tegra_car TEGRA20_CLK_CCLK>,
++			 <&tegra_car TEGRA20_CLK_EMC>,
++			 <&tegra_car TEGRA20_CLK_DISP1>,
++			 <&tegra_car TEGRA20_CLK_DISP2>,
++			 <&tegra_car TEGRA20_CLK_HDMI>,
++			 <&tegra_car TEGRA20_CLK_EPP>,
++			 <&tegra_car TEGRA20_CLK_GR2D>,
++			 <&tegra_car TEGRA20_CLK_GR3D>,
++			 <&tegra_car TEGRA20_CLK_HOST1X>,
++			 <&tegra_car TEGRA20_CLK_VI>,
++			 <&tegra_car TEGRA20_CLK_CSI>,
++			 <&tegra_car TEGRA20_CLK_VDE>,
++			 <&tegra_car TEGRA20_CLK_MIPI>,
++			 <&tegra_car TEGRA20_CLK_USBD>,
++			 <&tegra_car TEGRA20_CLK_USB2>,
++			 <&tegra_car TEGRA20_CLK_USB3>;
++		clock-names = "cpu", "emc", "disp1", "disp2", "hdmi", "epp",
++			"2d", "3d", "host1x", "vi", "csi", "vde", "mipi",
++			"usbd", "usb2", "usb3";
++	};
+ 	wlan_power: wlan-power {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "wingray-wlan-io";
 diff --git a/arch/arm/configs/wingray_android44_persistent_defconfig b/arch/arm/configs/wingray_android44_persistent_defconfig
 index 5111c362..fcac440d 100644
 --- a/arch/arm/configs/wingray_android44_persistent_defconfig
@@ -22,11 +96,37 @@ index 5111c362..fcac440d 100644
  # CONFIG_CPU_IDLE is not set
  CONFIG_SUSPEND=y
  CONFIG_ARM_APPENDED_DTB=y
+diff --git a/drivers/clk/tegra/clk-tegra20.c b/drivers/clk/tegra/clk-tegra20.c
+index 059e498a..f1d45be5 100644
+--- a/drivers/clk/tegra/clk-tegra20.c
++++ b/drivers/clk/tegra/clk-tegra20.c
+@@ -232,6 +232,12 @@ static struct tegra_clk_pll_freq_table pll_u_freq_table[] = {
+ };
+ 
+ static struct tegra_clk_pll_freq_table pll_x_freq_table[] = {
++	/* 1.7 GHz */
++	{ 12000000, 1700000000, 850, 6,  0, 12},
++	{ 13000000, 1700000000, 1046, 8, 0, 12},
++	{ 19200000, 1700000000, 1063, 12, 0, 8},
++	{ 26000000, 1700000000, 850, 13, 0, 12},
++
+ 	/* 1.6 GHz */
+ 	{ 12000000, 1600000000, 800, 6,  0, 12},
+ 	{ 13000000, 1600000000, 985, 8,  0, 12},
 diff --git a/drivers/cpufreq/tegra20-cpufreq.c b/drivers/cpufreq/tegra20-cpufreq.c
-index 99959f43..bd31c95f 100644
+index 99959f43..1462d1fa 100644
 --- a/drivers/cpufreq/tegra20-cpufreq.c
 +++ b/drivers/cpufreq/tegra20-cpufreq.c
-@@ -103,9 +103,12 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+@@ -40,6 +40,8 @@ static struct cpufreq_frequency_table freq_table[] = {
+ 	{ .frequency = 1200000 },
+ 	{ .frequency = 1400000 },
+ 	{ .frequency = 1500000 },
++	{ .frequency = 1600000 },
++	{ .frequency = 1700000 },
+ 	// { .frequency = 1600000 },
+ 	{ .frequency = CPUFREQ_TABLE_END },
+ };
+@@ -103,9 +105,12 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
  	int ret = 0, parent_ret;
  
  	/*
@@ -41,7 +141,7 @@ index 99959f43..bd31c95f 100644
  	if (rate >= 816000)
  		clk_set_rate(emc_clk, 600000000); /* cpu 816 MHz, emc max */
  	else if (rate >= 608000)
-@@ -114,6 +117,7 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+@@ -114,6 +119,7 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
  		clk_set_rate(emc_clk, 150000000); /* cpu 456 MHz, emc 75Mhz */
  	else
  		clk_set_rate(emc_clk, 100000000);  /* emc 50Mhz */
@@ -49,6 +149,134 @@ index 99959f43..bd31c95f 100644
  
  	/*
  	 * target freq == pll_p, don't need to take extra reference to pll_x_clk
+@@ -145,21 +151,6 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+ 	return ret;
+ }
+ 
+-/* A policy maximum is user-adjustable, not a cap on the advertised table.
+- * Do not expose the donor's overclock entries on stock Wingray hardware.
+- * Voltage and EMC sequencing still require separate board validation.
+- */
+-static void tegra_limit_wingray_frequencies(void)
+-{
+-	unsigned int i;
+-
+-	if (!of_machine_is_compatible("motorola,wingray"))
+-		return;
+-	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
+-		if (freq_table[i].frequency > 1000000)
+-			freq_table[i].frequency = CPUFREQ_ENTRY_INVALID;
+-}
+-
+ static int tegra_cpu_init(struct cpufreq_policy *policy)
+ {
+ 	int ret;
+@@ -174,7 +165,6 @@ static int tegra_cpu_init(struct cpufreq_policy *policy)
+ 	if (ret)
+ 		goto disable_emc;
+ 
+-	tegra_limit_wingray_frequencies();
+ 	/* FIXME: what's the actual transition time? */
+ 	ret = cpufreq_generic_init(policy, freq_table, 300 * 1000);
+ 	if (ret)
+diff --git a/drivers/staging/tegra/Makefile b/drivers/staging/tegra/Makefile
+index 30a62ca1..1452cda6 100644
+--- a/drivers/staging/tegra/Makefile
++++ b/drivers/staging/tegra/Makefile
+@@ -8,10 +8,6 @@ obj-$(CONFIG_TEGRA_DOWNSTREAM) += clk.o
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += mc.o
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += pageattr.o
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += powergate.o
+-# The isolated allocator experiment has neither DC nor voltage-management
+-# consumers. Do not register DVFS or retain its legacy DC-probe dependency.
+-ifeq ($(filter y,$(CONFIG_TEGRA_NVMAP_WINGRAY_RESOURCES) $(CONFIG_TEGRA_GRHOST_WINGRAY_HOST_TEST) $(CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST)),)
+ obj-$(CONFIG_TEGRA_DOWNSTREAM) += tegra20-dvfs.o
+-endif
+ obj-$(CONFIG_TEGRA_IOVMM) += iovmm.o
+ obj-$(CONFIG_TEGRA_IOVMM_GART) += iovmm-gart.o
+diff --git a/drivers/staging/tegra/tegra20-dvfs.c b/drivers/staging/tegra/tegra20-dvfs.c
+index 0200bcd4..5035cfb1 100644
+--- a/drivers/staging/tegra/tegra20-dvfs.c
++++ b/drivers/staging/tegra/tegra20-dvfs.c
+@@ -25,7 +25,7 @@
+ 
+ #define MAX_DVFS_FREQS	24
+ 
+-#define _100uV			100000
++#define _50uV			50000
+ #define _170uV			170000
+ 
+ /* RTC domain defines */
+@@ -33,7 +33,7 @@
+ #define RTC_MIN_VDD		950
+ 
+ /* CPU domain defines */
+-#define CPU_MAX_VDD    1375
++#define CPU_MAX_VDD    1400
+ static const int cpu_millivolts_process0[MAX_DVFS_FREQS] =
+ {
+ 	750,   // 216 Mhz
+@@ -48,7 +48,7 @@ static const int cpu_millivolts_process0[MAX_DVFS_FREQS] =
+ 	1250,  // 1400 Mhz
+ 	1300,  // 1500 Mhz
+ 	1375,  // 1600 Mhz
+-	CPU_MAX_VDD,
++	1400,  // 1700 MHz
+ };
+ 
+ static const int cpu_millivolts_process1[MAX_DVFS_FREQS] =
+@@ -65,7 +65,7 @@ static const int cpu_millivolts_process1[MAX_DVFS_FREQS] =
+ 	1200,  // 1400 Mhz
+ 	1250,  // 1500 Mhz
+ 	1325,  // 1600 Mhz
+-	CPU_MAX_VDD,
++	1400,  // 1700 MHz
+ };
+ 
+ 
+@@ -81,8 +81,8 @@ static const int cpu_millivolts_process1[MAX_DVFS_FREQS] =
+ 
+ /* core domain defines */
+ // #define CORE_MAX_VDD    1300
+-/* Voltage-table entries are millivolts; _100uV is a microvolt delta. */
+-#define CORE_MAX_VDD (CPU_MAX_VDD + _100uV / 1000)
++/* Voltage-table entries are millivolts; core tracks CPU + 50 mV. */
++#define CORE_MAX_VDD (1450)
+ static const int core_millivolts[7] = {950, 1000, 1100, 1200, 1225, 1275, CORE_MAX_VDD,};
+ 
+ 
+@@ -130,8 +130,8 @@ struct dvfs_domain {
+ };
+ 
+ static struct dvfs_client dvfs_cpu_clients[] = {
+-	DVFS_CPU_CLIENT(cpu, 1, 0, cpu_millivolts_process0, 216, 312, 456, 608, 750, 816, 912, 1000, 1200, 1400, 1500, 1600),
+-	DVFS_CPU_CLIENT(cpu, 1, 1, cpu_millivolts_process1, 216, 312, 456, 608, 750, 816, 912, 1000, 1200, 1400, 1500, 1600),
++	DVFS_CPU_CLIENT(cpu, 1, 0, cpu_millivolts_process0, 216, 312, 456, 608, 760, 816, 912, 1000, 1200, 1400, 1500, 1600, 1700),
++	DVFS_CPU_CLIENT(cpu, 1, 1, cpu_millivolts_process1, 216, 312, 456, 608, 760, 816, 912, 1000, 1200, 1400, 1500, 1600, 1700),
+ };
+ 
+ 
+@@ -295,16 +295,16 @@ static void update_voltages(int new_cpu_vdd, int new_core_vdd)
+ 	/*
+ 	 * Re-calculate VDD's according to the rules
+ 	 */
+-	if (new_core_vdd - new_cpu_vdd < _100uV) {
+-		dev_dbg(dvfs_dev, "new_core_vdd(%d) - new_cpu_vdd(%d) < _100uV",
++	if (new_core_vdd - new_cpu_vdd < _50uV) {
++		dev_dbg(dvfs_dev, "new_core_vdd(%d) - new_cpu_vdd(%d) < _50uV",
+ 			new_core_vdd, new_cpu_vdd);
+-		new_core_vdd = new_cpu_vdd + _100uV;
++		new_core_vdd = new_cpu_vdd + _50uV;
+ 	}
+ 
+ 	/*
+ 	 * What goes update first?
+ 	 */
+-	if (new_core_vdd - current_cpu_vdd < _100uV) {
++	if (new_core_vdd - current_cpu_vdd < _50uV) {
+ 		if (current_cpu_vdd != new_cpu_vdd)
+ 			dvfs_update_cpu_voltage(new_cpu_vdd);
+ 		update_core_vdd(new_core_vdd);
 diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
 index a28c25b6..5bc31fcb 100644
 --- a/drivers/staging/tegra/video/Kconfig
