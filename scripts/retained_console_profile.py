@@ -120,6 +120,7 @@ def validate_trees(before, after):
     assert (0x100000 - console - pmsg) // record == 3
 
 def validate_retained_console_artifacts(directory):
+    from cpufreq_policy import cpufreq_gpu_ok
     p = Path(directory)
     cfg = (p / 'kernel.config').read_text()
     for option in ('PSTORE', 'PSTORE_CONSOLE', 'PSTORE_RAM', 'MFD_CPCAP_WINGRAY_IRQ_TEST'):
@@ -128,6 +129,8 @@ def validate_retained_console_artifacts(directory):
     blocked_pm(cfg)
     for option in ('PM', 'SUSPEND', 'CPU_FREQ', 'REGULATOR_CPCAP'):
         if option in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
+        if option == 'CPU_FREQ' and cpufreq_gpu_ok(cfg):
             continue
         assert 'CONFIG_' + option + '=y\n' not in cfg, option
     selected = selected_retained_dt(cfg)

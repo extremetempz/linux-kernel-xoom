@@ -100,4 +100,9 @@ def validate_artifacts(directory, *, require_framebuffer_translation=False):
  blocked_pm(s)
  for n in ['DRM','TEGRA_HOST1X','TEGRA20_MC','CPU_FREQ','SUSPEND','MACH_SAMSUNG_P4WIFI','FB_TEGRA_CMC623']:
   if n=='SUSPEND' and blocked_pm(s):continue
+  if n=='CPU_FREQ' and 'CONFIG_CPU_FREQ=y\n' in s:
+   assert 'CONFIG_ARM_TEGRA20_CPUFREQ=y\n' in s
+   assert 'CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y\n' in s
+   assert 'CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST=y\n' in s
+   continue
   assert 'CONFIG_'+n+'=y\n' not in s,n

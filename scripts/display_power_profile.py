@@ -23,11 +23,14 @@ def resolved(tree, node):
 
 
 def validate_display_power_artifacts(directory):
+    from cpufreq_policy import cpufreq_gpu_ok
     p=Path(directory);cfg=(p/'kernel.config').read_text()
     assert 'CONFIG_FB_TEGRA_WINGRAY_DISPLAY_PM=y\n' in cfg
     blocked_pm(cfg)
     for option in ('PM','PM_SLEEP','SUSPEND','CPU_FREQ','PM_AUTOSLEEP','REGULATOR_CPCAP'):
         if option in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
+        if option == 'CPU_FREQ' and cpufreq_gpu_ok(cfg):
             continue
         assert 'CONFIG_'+option+'=y\n' not in cfg,option
     a=parse_dtb((p/'tegra20-motorola-wingray-android44-battery.dtb').read_bytes())

@@ -176,4 +176,26 @@ else
 fi
 [ ! -x /bin/battery-report ] || /bin/battery-report
 [ ! -x /bin/power-report ] || /bin/power-report
+echo XOOM_CPUFREQ_BEGIN
+for cpu in 0 1; do
+ base=/sys/devices/system/cpu/cpu$cpu
+ echo "CPU $cpu ONLINE $(cat $base/online 2>/dev/null || echo absent)"
+ for f in scaling_cur_freq cpuinfo_max_freq cpuinfo_min_freq scaling_available_frequencies scaling_governor scaling_driver; do
+  if [ -r "$base/cpufreq/$f" ]; then
+   echo "CPU $cpu $f $(cat "$base/cpufreq/$f" 2>/dev/null)"
+  else
+   echo "CPU $cpu $f ABSENT"
+  fi
+ done
+done
+for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+ [ -d "$policy" ] || continue
+ echo "POLICY ${policy##*/} CPUS $(cat "$policy/affected_cpus" 2>/dev/null) RELATED $(cat "$policy/related_cpus" 2>/dev/null)"
+ echo "POLICY ${policy##*/} CUR $(cat "$policy/scaling_cur_freq" 2>/dev/null) MIN $(cat "$policy/cpuinfo_min_freq" 2>/dev/null) MAX $(cat "$policy/cpuinfo_max_freq" 2>/dev/null) GOV $(cat "$policy/scaling_governor" 2>/dev/null)"
+done
+if [ -r /sys/kernel/debug/clk/clk_summary ]; then
+ echo CLK_SUMMARY
+ grep -E 'cclk|pll_x|pll_p' /sys/kernel/debug/clk/clk_summary | head -20
+fi
+echo XOOM_CPUFREQ_END
 echo XOOM_ANDROID44_REPORT_DONE_V1

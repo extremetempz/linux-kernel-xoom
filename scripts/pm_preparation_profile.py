@@ -13,9 +13,12 @@ def blocked_pm(config):
     if yes('MOTOROLA_WINGRAY_DPM_TEST'):
         assert yes('MOTOROLA_WINGRAY_DEVICEPM_TEST'), 'DPM test needs selected CPCAP callback path'
     for key in ('PM_AUTOSLEEP','PM_WAKELOCKS','PM_TEST_SUSPEND','HIBERNATION',
-                'DPM_WATCHDOG','CPU_IDLE','CPU_FREQ','REGULATOR_CPCAP',
+                'DPM_WATCHDOG','CPU_IDLE','REGULATOR_CPCAP',
                 'FB_TEGRA_WINGRAY_DC_RESUME_TEST','FB_TEGRA_WINGRAY_DC_TRACE_TEST'):
         assert not yes(key), 'Blocked PM profile forbids '+key
+    if yes('CPU_FREQ'):
+        assert yes('ARM_TEGRA20_CPUFREQ') and yes('CPU_FREQ_DEFAULT_GOV_PERFORMANCE')
+        assert yes('TEGRA_GRHOST_WINGRAY_GPU_TEST')
     dtbs=('tegra20-motorola-wingray-android44-wakeirqecc','tegra20-motorola-wingray-android44-lp2','tegra20-motorola-wingray-android44-persistent','tegra20-motorola-wingray-android44-persistent-inspect','tegra20-motorola-wingray-android44-persistent-write-test','tegra20-motorola-wingray-android44-storage-backup')
     assert any('CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+d+'"\n' in config for d in dtbs)
     return True

@@ -1,0 +1,64 @@
+diff --git a/arch/arm/configs/wingray_android44_persistent_defconfig b/arch/arm/configs/wingray_android44_persistent_defconfig
+index 5111c362..fcac440d 100644
+--- a/arch/arm/configs/wingray_android44_persistent_defconfig
++++ b/arch/arm/configs/wingray_android44_persistent_defconfig
+@@ -26,7 +26,18 @@ CONFIG_AEABI=y
+ CONFIG_SWP_EMULATE=y
+ CONFIG_VFP=y
+ # CONFIG_NEON is not set
+-# CONFIG_CPU_FREQ is not set
++CONFIG_CPU_FREQ=y
++CONFIG_CPU_FREQ_GOV_COMMON=y
++CONFIG_CPU_FREQ_STAT=y
++CONFIG_CPU_FREQ_TIMES=y
++CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE=y
++CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
++CONFIG_CPU_FREQ_GOV_POWERSAVE=y
++CONFIG_CPU_FREQ_GOV_USERSPACE=y
++CONFIG_CPU_FREQ_GOV_ONDEMAND=y
++CONFIG_CPU_FREQ_GOV_INTERACTIVE=y
++CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
++CONFIG_ARM_TEGRA20_CPUFREQ=y
+ # CONFIG_CPU_IDLE is not set
+ CONFIG_SUSPEND=y
+ CONFIG_ARM_APPENDED_DTB=y
+diff --git a/drivers/cpufreq/tegra20-cpufreq.c b/drivers/cpufreq/tegra20-cpufreq.c
+index 99959f43..bd31c95f 100644
+--- a/drivers/cpufreq/tegra20-cpufreq.c
++++ b/drivers/cpufreq/tegra20-cpufreq.c
+@@ -103,9 +103,12 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+ 	int ret = 0, parent_ret;
+ 
+ 	/*
+-	 * Vote on memory bus frequency based on cpu frequency
+-	 * This sets the minimum frequency, display or avp may request higher
++	 * Vote on memory bus frequency based on cpu frequency.
++	 * The Wingray GPU diagnostic owns the fixed EMC votes; changing EMC
++	 * here would invalidate its clock contract. CPU/PLLX frequency remains
++	 * independent, so skip only the EMC vote in that configuration.
+ 	 */
++#ifndef CONFIG_TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	if (rate >= 816000)
+ 		clk_set_rate(emc_clk, 600000000); /* cpu 816 MHz, emc max */
+ 	else if (rate >= 608000)
+@@ -114,6 +117,7 @@ static int tegra_target(struct cpufreq_policy *policy, unsigned int index)
+ 		clk_set_rate(emc_clk, 150000000); /* cpu 456 MHz, emc 75Mhz */
+ 	else
+ 		clk_set_rate(emc_clk, 100000000);  /* emc 50Mhz */
++#endif
+ 
+ 	/*
+ 	 * target freq == pll_p, don't need to take extra reference to pll_x_clk
+diff --git a/drivers/staging/tegra/video/Kconfig b/drivers/staging/tegra/video/Kconfig
+index a28c25b6..5bc31fcb 100644
+--- a/drivers/staging/tegra/video/Kconfig
++++ b/drivers/staging/tegra/video/Kconfig
+@@ -12,7 +12,7 @@ config TEGRA_GRHOST_WINGRAY_GPU_TEST
+ 	bool "Motorola Wingray fixed-clock GPU experiment"
+ 	depends on MACH_MOTOROLA_WINGRAY && ARCH_TEGRA_2x_SOC && TEGRA_GRHOST=y && TEGRA_NVMAP=y
+ 	depends on !TEGRA_HOST1X && (!TEGRA_DC || FB_TEGRA_WINGRAY_LEGACY) && !TEGRA_IOVMM && !IOMMU_API
+-	depends on !CPU_FREQ && (!SUSPEND || (MOTOROLA_WINGRAY_PM_PREPARE && MFD_CPCAP_WINGRAY_WAKE_ARM_TEST))
++	depends on (!SUSPEND || (MOTOROLA_WINGRAY_PM_PREPARE && MFD_CPCAP_WINGRAY_WAKE_ARM_TEST))
+ 	depends on !TEGRA_RPC && !TEGRA_AVP && !TEGRA_MEDIASERVER
+ 	depends on !TEGRA_GRHOST_WINGRAY_HOST_TEST
+ 	select TEGRA_SEMA_STANDALONE

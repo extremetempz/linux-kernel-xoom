@@ -5,6 +5,7 @@ from display_power_profile import resolved
 from legacy_resources import parse_dtb
 
 def validate_wakeirq_artifacts(directory, require_dc=None):
+    from cpufreq_policy import cpufreq_gpu_ok
     p = Path(directory)
     cfg = (p / 'kernel.config').read_text()
     dc_test = 'CONFIG_FB_TEGRA_WINGRAY_DC_RESUME_TEST=y\n' in cfg
@@ -18,6 +19,8 @@ def validate_wakeirq_artifacts(directory, require_dc=None):
     blocked_pm(cfg)
     for name in ('PM', 'PM_SLEEP', 'SUSPEND', 'PM_AUTOSLEEP', 'CPU_FREQ', 'REGULATOR_CPCAP'):
         if name in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(cfg):
+            continue
+        if name == 'CPU_FREQ' and cpufreq_gpu_ok(cfg):
             continue
         assert 'CONFIG_' + name + '=y\n' not in cfg, name
     assert any('CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES="'+name+'"\n' in cfg for name in

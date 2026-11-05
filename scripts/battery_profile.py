@@ -25,12 +25,15 @@ def validate_trees(base, monitor):
         'nvidia,pull':(2).to_bytes(4,'big'),'nvidia,tristate':bytes(4)}
 
 def validate_battery_artifacts(directory):
+    from cpufreq_policy import cpufreq_gpu_ok
     p=Path(directory);config=(p/'kernel.config').read_text()
     for name in ('POWER_SUPPLY','W1','W1_MASTER_TEGRA_WINGRAY','W1_SLAVE_DS2781','BATTERY_WINGRAY_MONITOR'):
         assert 'CONFIG_'+name+'=y\n' in config,name
     blocked_pm(config)
     for name in ('BATTERY_DS2781','BATTERY_SBS','REGULATOR_CPCAP','CPU_FREQ','SUSPEND','SOUND'):
         if name in ('PM','PM_SLEEP','SUSPEND') and blocked_pm(config):
+            continue
+        if name == 'CPU_FREQ' and cpufreq_gpu_ok(config):
             continue
         assert 'CONFIG_'+name+'=y\n' not in config,name
     validate_trees(parse_dtb((p/'tegra20-motorola-wingray-android44-bluetooth.dtb').read_bytes()),

@@ -27,9 +27,13 @@ def validate_config(path):
                    'PSTORE_CONSOLE','FB_TEGRA_WINGRAY_DISPLAY_PM'):
         assert option in enabled, option
     for option in ('PM_AUTOSLEEP','PM_WAKELOCKS','PM_TEST_SUSPEND','HIBERNATION',
-                   'DPM_WATCHDOG','CPU_FREQ','CPU_IDLE','REGULATOR_CPCAP',
+                   'DPM_WATCHDOG','CPU_IDLE','REGULATOR_CPCAP',
                    'FB_TEGRA_WINGRAY_DC_RESUME_TEST','FB_TEGRA_WINGRAY_DC_TRACE_TEST'):
         assert option not in enabled, option
+    if 'CPU_FREQ' in enabled:
+        assert 'ARM_TEGRA20_CPUFREQ' in enabled
+        assert 'CPU_FREQ_DEFAULT_GOV_PERFORMANCE' in enabled
+        assert 'CPU_FREQ_GOV_SCHEDUTIL' not in enabled
     persistent = 'MOTOROLA_WINGRAY_PERSISTENT_STORAGE' in enabled
     lp2 = 'MOTOROLA_WINGRAY_LP2_TEST' in enabled
     raw = path.read_text()
