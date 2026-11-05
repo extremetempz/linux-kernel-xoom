@@ -1,3 +1,26 @@
+# Shutdown review update — 5 November 2026
+
+Latest reviewed main: `7dabd2e` (PRs #43/#44). Current tablet remains on its
+existing combined p9/p10 Android image. Only read-only REPORT/PSTORE requests
+were sent in this review; no power action or flash was performed.
+
+The old shutdown stop is narrowed to the physical filesystem quiescence path,
+but no blocked-task trace establishes the exact kernel wait. Two software
+problems are corrected on `codex/shutdown1105`: persistent diagnostic writes
+during quiescence and an unmount-first/timeout-wait sequence. A held build uses
+checked RO remounts and refuses native poweroff until filesystem state verifies.
+Strict report identities/modes lost in the Deepseek replacement are restored,
+including compatibility with the working combined-cache report.
+
+**Physical shutdown remains unverified. The user explicitly declined any
+experimental flash request. Do not describe the held build as a verified fix
+or ask the user to flash it based on offline checks alone.**
+
+See [review and validation](docs/shutdown1105-review.md). Earlier chronological
+storage notes below describe previous checkpoints, not current actions.
+
+---
+
 # Project state — 3 November 2026
 
 ## Latest: p9 repaired and independently backed up
