@@ -92,3 +92,32 @@ Required:
 - no cpufreq probe errors in dmesg.
 
 Do not enable dynamic governors or alter voltages until this reporting passes.
+
+## Hardware result — passed
+
+The diagnostic image booted Android and the framed report shows:
+
+```text
+CPU 0 scaling_cur_freq      1000000
+CPU 1 scaling_cur_freq      1000000
+CPU 0/1 cpuinfo_min_freq     216000
+CPU 0/1 cpuinfo_max_freq    1000000
+CPU 0/1 scaling_driver      tegra
+CPU 0/1 scaling_governor    performance
+available: 216000 312000 456000 608000 760000 816000 912000 1000000
+policy0 affected_cpus: 0 1
+policy0 related_cpus:  0 1
+cclk 1000000000
+pll_x 1000000000
+```
+
+The two CPUs share one policy (`policy0`, CPUs 0 and 1), matching the shared
+Tegra 20 CPU clock. No independent CPU1 clock was invented. Both CPU interfaces
+now report a nonzero 1 GHz current frequency, the 1 GHz Wingray cap, and the
+216 MHz minimum.
+
+CPU 0 has no `online` sysfs file because CPU0 is the boot CPU; that is expected.
+CPU 1 reported online.
+
+No dynamic frequency transition was made: the governor is `performance` and the
+clock was already at 1 GHz. Voltage and EMC policy were not changed.
